@@ -100,3 +100,16 @@ export type {
 // Read-only ledger HTTP bridge (node:http only; no mutation routes).
 export { createLedgerBridge, startLedgerBridge } from "./http-bridge.js";
 export type { LedgerBridgeOptions, DecisionView } from "./http-bridge.js";
+
+// Shared purchase lifecycle: the ONE fail-closed path (policy → provenance → proof
+// → persist → independent re-verify → execute). Reused by every MCP client tool.
+export { requestPurchase } from "./purchase.js";
+export type {
+  PaymentExecutor,
+  ExecutorRequest,
+  ExecutorReceipt,
+  FactSourcePort,
+  PurchaseStatus,
+  RequestPurchaseInput,
+  RequestPurchaseResult,
+} from "./purchase.js";

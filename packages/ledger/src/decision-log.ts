@@ -7,10 +7,11 @@
  * or reinterprets a policy result. `firedRules` are stored in the exact order the
  * kernel produced them.
  *
- * WHO WRITES THIS: the PreToolUse hook (`.claude/hooks/evaluate.mjs`) is the only
- * place that holds the exact Facts + Decision for a request, so it is the writer.
- * The MCP stub never calls the kernel and so cannot (and must not) fabricate a
- * decision here. See the repo report for the one-line hook wiring.
+ * WHO WRITES THIS: the enforcement path — either the PreToolUse hook
+ * (`.claude/hooks/evaluate.mjs`) or the self-enforcing MCP tool via
+ * `requestPurchase` (`purchase.ts`). Both hold the exact Facts + Decision for a
+ * request and call `recordDecision` with them verbatim; neither recomputes policy
+ * here. Read-only consumers (the HTTP bridge, the verify-proof CLI) NEVER write.
  *
  * CONCURRENCY MODEL (SQLite, node:sqlite, one connection per process):
  *   - Each `recordDecision` is a single BEGIN IMMEDIATE transaction: the parent
