@@ -144,3 +144,48 @@ test("listDecisions surfaces the execution receipt per row", () => {
     assert.equal(row?.execution?.receiptId, "rcpt_list");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Schema self-heal: a ledger created before `decision_executions` existed must
+// gain the table on the next writable open — not 500 the bridge on read.
+// ---------------------------------------------------------------------------
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { rmSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+
+test("openLedger heals an old DB missing decision_executions (no re-seed, no data loss)", () => {
+  const path = join(tmpdir(), `ramp-heal-${randomUUID()}.db`);
+  try {
+    // 1. Fresh, seeded DB, with one recorded decision.
+    let db = openLedger(path, { provisionIfEmpty: true, seed: true });
+    const { decisionId } = recordDecision(db, { request: req, facts: facts(), decision: ALLOW });
+    const seedRows = (db.prepare("SELECT count(*) AS n FROM policy_limits").get() as { n: number }).n;
+    // 2. Simulate an "old" DB: drop the table added in this change.
+    db.exec("DROP TABLE decision_executions");
+    closeLedger(db);
+
+    // 3. Reopen — the healing applySchema must re-create the missing table.
+    db = openLedger(path, { provisionIfEmpty: true, seed: true });
+    try {
+      // Table is back and usable...
+      recordExecution(db, {
+        decisionId,
+        receiptId: "rcpt_heal",
+        executionId: "exec_heal",
+        status: "settled",
+        provider: "sandbox",
+      });
+      assert.equal(getDecision(db, decisionId)?.execution?.receiptId, "rcpt_heal");
+      // ...the prior decision survived (no wipe)...
+      assert.ok(getDecision(db, decisionId));
+      // ...and it was NOT re-seeded (policy_limits row count unchanged).
+      const after = (db.prepare("SELECT count(*) AS n FROM policy_limits").get() as { n: number }).n;
+      assert.equal(after, seedRows);
+    } finally {
+      closeLedger(db);
+    }
+  } finally {
+    for (const p of [path, `${path}-wal`, `${path}-shm`]) rmSync(p, { force: true });
+  }
+});

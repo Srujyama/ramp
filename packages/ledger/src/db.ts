@@ -129,9 +129,15 @@ export function openLedger(
     db.exec("PRAGMA journal_mode = WAL;");
   }
 
-  if (provisionIfEmpty && !isProvisioned(db)) {
+  if (provisionIfEmpty) {
+    // `applySchema` is idempotent (every statement is `IF NOT EXISTS`), so running
+    // it on every writable open HEALS additive schema changes on a pre-existing DB
+    // — e.g. a ledger created before `decision_executions` existed gets the new
+    // table now, instead of the bridge 500-ing with "no such table" when it's read.
+    // Seed ONLY a genuinely fresh DB (inserts are not idempotent — never re-seed).
+    const fresh = !isProvisioned(db);
     applySchema(db);
-    if (seed) applySeed(db);
+    if (fresh && seed) applySeed(db);
   }
 
   return db;
