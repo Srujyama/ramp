@@ -4,6 +4,10 @@
 > deck (`pitch-deck.html`) both derive from this file. **If you change the pitch, change it
 > HERE first, then propagate to both artifacts** (see `CLAUDE.md` → "Keeping the pitch in sync").
 > Last substantive update: 2026-07-14.
+>
+> **Published artifact URLs (republish to these; don't mint new ones):**
+> - Plan: https://claude.ai/code/artifact/30f5b98e-903f-4f8d-80f6-aaab5d80a2de
+> - Deck: https://claude.ai/code/artifact/bd909a82-812b-4658-b976-7519a6209420
 
 ## The one-liner
 

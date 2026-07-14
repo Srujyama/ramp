@@ -30,7 +30,8 @@ differentiator/rebuttal, or fold in new research:
    leave the others stale.
 3. **Re-publish both artifacts to their existing URLs** (do not mint new ones):
    - Plan: `hackathon-plan.html` → artifact `https://claude.ai/code/artifact/30f5b98e-903f-4f8d-80f6-aaab5d80a2de`
-   - Deck: `pitch-deck.html` → (URL recorded in `PITCH.md`/commit once first published; use `Artifact` `action:"list"` to find it if you don't have it, then pass it as `url`).
+   - Deck: `pitch-deck.html` → artifact `https://claude.ai/code/artifact/bd909a82-812b-4658-b976-7519a6209420`
+   (If a URL ever goes stale, use `Artifact` `action:"list"` to find the current one, then pass it as `url`.)
    Republish by calling `Artifact` with the same file path (same-session) or the `url` param
    (cross-session) — see the Artifact tool's update rules.
 4. **Commit via a PR** (see below) — `main` is protected.
