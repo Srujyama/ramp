@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist-test",
+    "rootDir": "src",
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "noEmit": false,
+    "composite": false,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/lib/format.ts",
+    "src/lib/provenance.ts",
+    "src/lib/types.ts",
+    "src/lib/format.test.ts",
+    "src/lib/provenance.test.ts"
+  ]
+}

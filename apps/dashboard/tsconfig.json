@@ -12,5 +12,6 @@
     "allowImportingTsExtensions": true
   },
   "references": [{ "path": "../../packages/shared" }],
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["src/**/*.test.ts", "src/lib/testfixtures.ts", "dist-test"]
 }

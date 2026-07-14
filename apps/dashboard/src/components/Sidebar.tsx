@@ -4,9 +4,11 @@ import { NavLink } from "react-router-dom";
 /**
  * @ramp/dashboard — Sidebar
  *
- * App navigation. Pure presentation + routing; no data. The four sections
- * mirror the demo story: Overview → Cards & Limits → Decisions (provenance)
- * → Audit ("prove this to an auditor").
+ * App navigation. Pure presentation + routing; no data. Three sections mirror
+ * the demo story: Overview (what the product does) → Decisions (the live audit
+ * trail, drill into any row for its proof + provenance + payment) → Policy (the
+ * caps + clearances the kernel enforces). The old standalone "Audit" route is
+ * folded into the decision detail — the same trace, one place.
  */
 interface NavItem {
   to: string;
@@ -16,9 +18,8 @@ interface NavItem {
 
 const NAV: readonly NavItem[] = [
   { to: "/", label: "Overview", icon: "◎" },
-  { to: "/cards", label: "Cards & Limits", icon: "▤" },
   { to: "/decisions", label: "Decisions", icon: "⚖" },
-  { to: "/audit", label: "Audit", icon: "❖" },
+  { to: "/policy", label: "Policy", icon: "▤" },
 ];
 
 export function Sidebar(): JSX.Element {
@@ -28,7 +29,7 @@ export function Sidebar(): JSX.Element {
         <div className="mark">R</div>
         <div>
           <div className="name">Provable Spend</div>
-          <div className="sub">deterministic policy gate</div>
+          <div className="sub">agent payment trust layer</div>
         </div>
       </div>
 
@@ -37,9 +38,7 @@ export function Sidebar(): JSX.Element {
           key={item.to}
           to={item.to}
           end={item.to === "/"}
-          className={({ isActive }) =>
-            isActive ? "nav-link active" : "nav-link"
-          }
+          className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
         >
           <span className="ico" aria-hidden="true">
             {item.icon}
@@ -49,7 +48,8 @@ export function Sidebar(): JSX.Element {
       ))}
 
       <div className="foot">
-        Phase 0 shell · enforcement lives in the PreToolUse hook, not this UI.
+        Read-only audit console. Enforcement lives in the policy gate + PreToolUse
+        hook, not this UI.
       </div>
     </nav>
   );
