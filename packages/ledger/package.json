@@ -23,7 +23,8 @@
     "test": "node --test \"dist/**/*.test.js\"",
     "db:reset": "node dist/scripts/init-db.js",
     "db:init": "node dist/scripts/init-db.js",
-    "verify-proof": "node dist/src/cli/verify-proof.js"
+    "verify-proof": "node dist/src/cli/verify-proof.js",
+    "bridge": "node dist/src/http-bridge.js"
   },
   "dependencies": {
     "@ramp/shared": "workspace:*"

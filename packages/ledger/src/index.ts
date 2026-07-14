@@ -92,3 +92,7 @@ export type {
   DecisionProofVerification,
   ProofVerificationReason,
 } from "./proof-verification.js";
+
+// Read-only ledger HTTP bridge (node:http only; no mutation routes).
+export { createLedgerBridge, startLedgerBridge } from "./http-bridge.js";
+export type { LedgerBridgeOptions, DecisionView } from "./http-bridge.js";
