@@ -100,6 +100,15 @@ reads.
 | `RAMP_DB_PATH` | bridge, demo, MCP | — | absolute path to the shared ledger DB; must match across processes |
 | `RAMP_BRIDGE_ORIGIN` | bridge | `http://localhost:5173` | CORS is pinned to this **one** origin — it must equal the dashboard origin |
 
+## Troubleshooting
+
+**"Ledger bridge unavailable"** — the dashboard couldn't reach the bridge. In order:
+1. Is the bridge running? Start it: `pnpm --filter @ramp/ledger bridge` (build first with `pnpm -r build`). It prints `listening on :8787`.
+2. Does `VITE_BRIDGE_URL` (default `http://localhost:8787`) match the bridge's `PORT`?
+3. Does `RAMP_BRIDGE_ORIGIN` (default `http://localhost:5173`) equal the dashboard's dev origin? A mismatch fails CORS.
+
+**Bridge is up but shows no / stale decisions** — the server and the bridge must read the **same** file. The bridge defaults to `packages/ledger/ramp.db` (relative to its package dir); point the MCP server at that same absolute path via `RAMP_DB_PATH`. A `pnpm --filter @ramp/ledger db:reset` reseeds it. An older DB missing a newer table is healed automatically on the next open (the schema is applied idempotently), so you should never see a "no such table" error.
+
 ## Proof & provenance semantics
 
 - **Independent verification.** The proof is recomputed on **every read** and
