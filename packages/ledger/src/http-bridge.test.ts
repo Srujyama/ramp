@@ -16,7 +16,7 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import type { SpendRequest, Facts, Decision } from "@ramp/shared";
 import { openLedger, closeLedger, IN_MEMORY_PATH, type LedgerDb } from "./db.js";
-import { recordDecision } from "./decision-log.js";
+import { recordDecision, recordExecution } from "./decision-log.js";
 import { buildProof } from "./proof.js";
 import { createLedgerBridge } from "./http-bridge.js";
 
@@ -120,6 +120,46 @@ test("GET /decisions returns the seeded decisions", async () => {
       const body = (await res.json()) as { decisions: Array<{ decisionId: string }> };
       const ids = body.decisions.map((d) => d.decisionId).sort();
       assert.deepEqual(ids, ["d1", "d2"]);
+    },
+  );
+});
+
+test("GET /decisions/:id surfaces the sandbox execution receipt", async () => {
+  await withBridge(
+    (db) => {
+      recordDecision(db, { decisionId: "paid", request: req, facts: facts(), decision: ALLOW });
+      recordExecution(db, {
+        decisionId: "paid",
+        receiptId: "rcpt_http01",
+        executionId: "exec_http01",
+        status: "settled",
+        provider: "sandbox",
+      });
+    },
+    async (base) => {
+      const res = await fetch(`${base}/decisions/paid`);
+      assert.equal(res.status, 200);
+      const body = (await res.json()) as {
+        execution: { receiptId: string; status: string; provider: string } | null;
+      };
+      assert.ok(body.execution);
+      assert.equal(body.execution.receiptId, "rcpt_http01");
+      assert.equal(body.execution.status, "settled");
+      assert.equal(body.execution.provider, "sandbox");
+    },
+  );
+});
+
+test("GET /decisions/:id: a decision with no execution serves execution: null", async () => {
+  await withBridge(
+    (db) => {
+      recordDecision(db, { decisionId: "unpaid", request: req, facts: facts(), decision: DENY });
+    },
+    async (base) => {
+      const body = (await (await fetch(`${base}/decisions/unpaid`)).json()) as {
+        execution: unknown;
+      };
+      assert.equal(body.execution, null);
     },
   );
 });

@@ -30,6 +30,7 @@ export type { AuthoritativeContext, Limits } from "./dal.js";
 // The audit trail: persist every gate decision and read it back (read-only API).
 export {
   recordDecision,
+  recordExecution,
   getDecision,
   listDecisions,
   isDecisionShape,
@@ -39,8 +40,11 @@ export {
 } from "./decision-log.js";
 export type {
   DecisionStatus,
+  ExecutionStatus,
+  ExecutionRecord,
   RecordDecisionInput,
   RecordDecisionResult,
+  RecordExecutionInput,
   DecisionRecord,
   ListDecisionsQuery,
   ListDecisionsResult,

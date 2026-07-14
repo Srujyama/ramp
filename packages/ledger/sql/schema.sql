@@ -145,3 +145,26 @@ CREATE TABLE IF NOT EXISTS decision_proofs (
   created_at         TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_proof_id ON decision_proofs (proof_id);
+
+-- ----------------------------------------------------------------------------
+-- Sandbox execution receipts (one-per-decision, OPTIONAL).
+-- The decision + proof above record what the GATE DECIDED. This table records
+-- what the SANDBOX EXECUTOR then DID — closing the "recorded" loop so the
+-- receipt an agent received is also auditable, not just returned out-of-band.
+-- Written by requestPurchase() AFTER the decision is persisted + independently
+-- verified AND the executor runs; a deny never produces a row (nothing executed).
+-- A separate, later append: NEVER in the decision's transaction, so it cannot
+-- alter or forge the append-only decision/proof record. `status = 'failed'`
+-- records a genuine executor failure and MUST NOT be read as a settlement.
+-- NO secret-bearing column exists by construction (receiptId/executionId/
+-- provider only). See recordExecution() in src/decision-log.ts.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS decision_executions (
+  decision_id  TEXT PRIMARY KEY REFERENCES decisions(decision_id) ON DELETE CASCADE,
+  receipt_id   TEXT NOT NULL,
+  execution_id TEXT NOT NULL,
+  status       TEXT NOT NULL CHECK (status IN ('settled', 'failed')),
+  provider     TEXT NOT NULL,
+  executed_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_execution_receipt ON decision_executions (receipt_id);

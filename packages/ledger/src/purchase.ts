@@ -35,6 +35,7 @@ import {
 } from "@ramp/shared";
 import {
   recordDecision,
+  recordExecution,
   getDecision,
   DecisionConflictError,
 } from "./decision-log.js";
@@ -155,6 +156,31 @@ function isValidDecision(value: unknown): value is Decision {
 /** Best-effort correlation label before facts exist (never throws). */
 function fallbackRequestId(request: SpendRequest): string {
   return typeof request.invoiceRef === "string" ? request.invoiceRef : "";
+}
+
+/**
+ * Persist the sandbox execution receipt to the audit trail, best-effort. The
+ * money-movement decision is ALREADY durably recorded + verified by this point,
+ * so a failure to log the receipt must NEVER change the purchase result — it only
+ * means the receipt won't appear in the audit view. Records `settled` and
+ * `failed` alike (a failed receipt is a genuine, auditable executor outcome).
+ */
+function persistExecution(
+  db: LedgerDb,
+  decisionId: string,
+  receipt: ExecutorReceipt,
+): void {
+  try {
+    recordExecution(db, {
+      decisionId,
+      receiptId: receipt.receiptId,
+      executionId: receipt.executionId,
+      status: receipt.status,
+      provider: receipt.provider,
+    });
+  } catch {
+    /* audit-of-execution is supplementary; never fail the purchase on it. */
+  }
 }
 
 /** Fill a complete result from a partial, defaulting every optional field. */
@@ -377,6 +403,10 @@ export async function requestPurchase(
       message: "Decision allowed and persisted, but payment execution threw.",
     });
   }
+
+  // Record the execution receipt (settled OR failed) to the audit trail so the
+  // dashboard can show what the executor actually DID, not just what was decided.
+  persistExecution(db, decisionId, receipt);
 
   if (receipt.status === "failed") {
     return makeResult({

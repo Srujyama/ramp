@@ -566,3 +566,74 @@ test("honest attestation: attestation_present true → 'present_unverified' (nev
     assert.notEqual(rec?.proof?.attestationStatus, "verified");
   });
 });
+
+// --- execution receipt is persisted to the audit trail -----------------------
+
+test("ALLOW: the settled receipt is persisted to the ledger (auditable payment)", async () => {
+  await withDb(async (db) => {
+    const r = await requestPurchase({
+      request: heroReq,
+      kernel: fakeKernel(ALLOW),
+      kernelId: KERNEL_ID,
+      factSource: fakeFactSource(),
+      db,
+      executor: new FakeExecutor({ kind: "settle" }),
+      producedAt: AT,
+    });
+    const rec = getDecision(db, r.decisionId!);
+    assert.equal(rec?.execution?.status, "settled");
+    assert.equal(rec?.execution?.provider, "sandbox");
+    assert.equal(rec?.execution?.receiptId, r.receipt?.receiptId);
+    assert.equal(rec?.execution?.executionId, r.receipt?.executionId);
+  });
+});
+
+test("executor_error (failed receipt): recorded as failed, never as settled", async () => {
+  await withDb(async (db) => {
+    const r = await requestPurchase({
+      request: heroReq,
+      kernel: fakeKernel(ALLOW),
+      kernelId: KERNEL_ID,
+      factSource: fakeFactSource(),
+      db,
+      executor: new FakeExecutor({ kind: "fail" }),
+      producedAt: AT,
+    });
+    assert.equal(r.status, "executor_error");
+    const rec = getDecision(db, r.decisionId!);
+    assert.equal(rec?.execution?.status, "failed");
+  });
+});
+
+test("DENY: nothing executed, so no execution row is written", async () => {
+  await withDb(async (db) => {
+    const r = await requestPurchase({
+      request: { ...heroReq, vendorId: "sketchy_llc" },
+      kernel: fakeKernel(DENY),
+      kernelId: KERNEL_ID,
+      factSource: fakeFactSource({ vendorVerified: false }),
+      db,
+      executor: new FakeExecutor(),
+      producedAt: AT,
+    });
+    assert.equal(r.status, "denied");
+    assert.equal(getDecision(db, r.decisionId!)?.execution, null);
+  });
+});
+
+test("executor throw: decision persisted, no execution row (nothing settled)", async () => {
+  await withDb(async (db) => {
+    const r = await requestPurchase({
+      request: heroReq,
+      kernel: fakeKernel(ALLOW),
+      kernelId: KERNEL_ID,
+      factSource: fakeFactSource(),
+      db,
+      executor: new FakeExecutor({ kind: "throw" }),
+      producedAt: AT,
+    });
+    assert.equal(r.status, "executor_error");
+    // The executor threw before returning a receipt → nothing to record.
+    assert.equal(getDecision(db, r.decisionId!)?.execution, null);
+  });
+});
