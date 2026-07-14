@@ -33,6 +33,7 @@ export {
   getDecision,
   listDecisions,
   isDecisionShape,
+  DecisionConflictError,
   DEFAULT_LIMIT,
   MAX_LIMIT,
 } from "./decision-log.js";
@@ -44,3 +45,43 @@ export type {
   ListDecisionsQuery,
   ListDecisionsResult,
 } from "./decision-log.js";
+
+// Tamper-evident proof: build, verify, and its ledger-local types (NOT in @ramp/shared).
+export {
+  buildProof,
+  verifyProof,
+  isLedgerProofShape,
+  isAttestationStatus,
+  PROOF_SCHEMA,
+} from "./proof.js";
+export type {
+  LedgerProof,
+  BuildProofInput,
+  AttestationStatus,
+  AttestationInput,
+  ProofVerification,
+  ProofSchema,
+} from "./proof.js";
+
+// Deterministic content hashing (node:crypto only) — canonical form + digests.
+export {
+  canonicalize,
+  sha256OfJson,
+  digestOf,
+  hashStable,
+} from "./canonical-hash.js";
+export type { Json } from "./canonical-hash.js";
+
+// Bounded, pure provenance-DAG validation (structural only — not authenticity).
+export {
+  validateProvenance,
+  ProvenanceError,
+  PROVENANCE_LIMITS,
+} from "./provenance.js";
+export type {
+  ProvNode,
+  ProvEdge,
+  ProvenanceGraph,
+  ProvNodeKind,
+  ProvenanceErrorKind,
+} from "./provenance.js";

@@ -466,8 +466,8 @@ test("write contention surfaces explicitly (SQLITE_BUSY), never silent loss", ()
       // `holder` grabs the write lock and keeps it.
       holder.exec("BEGIN IMMEDIATE");
       holder.prepare(
-        "INSERT INTO decisions (decision_id, request_id, status, agent_id, vendor_id, amount, category, request_json) " +
-          "VALUES (?, ?, 'allowed', 'a', 'v', 1, 'c', '{}')",
+        "INSERT INTO decisions (decision_id, request_id, status, agent_id, vendor_id, amount, category, request_json, content_digest) " +
+          "VALUES (?, ?, 'allowed', 'a', 'v', 1, 'c', '{}', 'x')",
       ).run(randomUUID(), "r");
 
       // A second writer must NOT silently succeed or drop the row — it errors.

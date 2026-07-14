@@ -98,6 +98,12 @@ CREATE TABLE IF NOT EXISTS decisions (
   request_json        TEXT NOT NULL,
   facts_json          TEXT,
   decision_json       TEXT,
+  -- Canonical SHA-256 over the semantically-meaningful content (request + facts +
+  -- decision + status + kernel + proof id). Idempotency is CONTENT-checked against
+  -- this: a repeat of decision_id with an IDENTICAL digest is an idempotent no-op;
+  -- a repeat with a DIFFERENT digest is a conflict and is REJECTED (never
+  -- overwritten). See recordDecision() in src/decision-log.ts.
+  content_digest      TEXT NOT NULL,
   ts                  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 -- Compound (ts, decision_id) indexes back the keyset pagination + every filter.
@@ -118,3 +124,24 @@ CREATE TABLE IF NOT EXISTS decision_fired_rules (
   PRIMARY KEY (decision_id, ord)
 );
 CREATE INDEX IF NOT EXISTS idx_fired_rule ON decision_fired_rules (rule_id, decision_id);
+
+-- ----------------------------------------------------------------------------
+-- Proof records (tamper-evident attestation, one-per-decision, OPTIONAL).
+-- Written in the SAME transaction as the parent decision (atomic). A decision
+-- may exist with NO proof row (older/error rows stay readable). The proof_json
+-- is the verbatim LedgerProof; proof_id is its stable SHA-256 identity. A
+-- duplicate decision_id whose proof differs is rejected upstream via the parent
+-- row's content_digest (which folds in proof_id) — proofs are never overwritten.
+-- See src/proof.ts + src/decision-log.ts.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS decision_proofs (
+  decision_id        TEXT PRIMARY KEY REFERENCES decisions(decision_id) ON DELETE CASCADE,
+  proof_id           TEXT NOT NULL,
+  proof_schema       TEXT NOT NULL,
+  attestation_status TEXT NOT NULL
+    CHECK (attestation_status IN
+      ('absent', 'present_unverified', 'verified', 'verification_failed')),
+  proof_json         TEXT NOT NULL,
+  created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_proof_id ON decision_proofs (proof_id);

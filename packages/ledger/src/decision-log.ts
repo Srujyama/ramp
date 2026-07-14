@@ -16,11 +16,19 @@
  *   - Each `recordDecision` is a single BEGIN IMMEDIATE transaction: the parent
  *     row + its fired-rule rows commit atomically, so a reader never sees a
  *     half-written decision.
- *   - `decision_id` (a UUID) is the idempotency key. INSERT OR IGNORE means a
- *     repeated delivery of the same decision is a no-op — never an overwrite, so
- *     a stale duplicate can never clobber the terminal record.
+ *   - `decision_id` (a UUID) is the idempotency key, but idempotency is
+ *     CONTENT-CHECKED: every row stores a canonical `content_digest`. A repeat of
+ *     the same `decision_id` with an IDENTICAL digest is an idempotent no-op; a
+ *     repeat with a DIFFERENT digest (different request/facts/decision/proof/…) is
+ *     a `DecisionConflictError` — the terminal record is NEVER overwritten. The
+ *     compare happens inside the same BEGIN IMMEDIATE txn, so two conflicting
+ *     concurrent inserts can never both succeed.
  *   - Distinct attempts get distinct `decision_id`s and are all recorded, even
  *     when they share a `request_id`.
+ *   - An optional `LedgerProof` is persisted in the SAME transaction as its
+ *     decision (atomic). A decision may have no proof; older/error rows stay
+ *     readable. The proof's id is folded into `content_digest`, so a re-delivery
+ *     whose proof differs is a conflict, not a silent overwrite.
  *   - WAL + busy_timeout (set in `openLedger`) let readers run during a write and
  *     make a contended writer wait rather than silently dropping an audit row; a
  *     genuine lock failure surfaces as a thrown SQLITE_BUSY, never swallowed.
@@ -35,6 +43,8 @@ import type {
 } from "@ramp/shared";
 import { isSpendRequest } from "@ramp/shared";
 import type { LedgerDb } from "./db.js";
+import { sha256OfJson, type Json } from "./canonical-hash.js";
+import { isLedgerProofShape, type LedgerProof } from "./proof.js";
 
 /** Terminal persistence status of an audit row. */
 export type DecisionStatus = "allowed" | "denied" | "error";
@@ -76,9 +86,39 @@ export interface RecordDecisionInput {
   /**
    * Override the stored timestamp (must be SQLite `datetime()` format, e.g.
    * `"2026-07-13 10:00:00"`). Omit to let the DB stamp `datetime('now')`.
-   * Exposed mainly for deterministic tests.
+   * Exposed mainly for deterministic tests. NOT part of `content_digest`, so a
+   * re-delivery with a different `ts` but identical content is still idempotent.
    */
   readonly ts?: string;
+  /**
+   * Optional tamper-evident proof to persist atomically with this decision. Build
+   * it with {@link buildProof}. Its `proofId` folds into the decision's
+   * `content_digest`, so re-delivering the same `decisionId` with a DIFFERENT
+   * proof is a {@link DecisionConflictError}.
+   */
+  readonly proof?: LedgerProof;
+}
+
+/**
+ * Thrown when a `decision_id` is re-recorded with DIFFERENT content than the row
+ * already stored. The existing (terminal) record is left untouched — this is the
+ * append-only guarantee: idempotency absorbs exact replays, but a conflicting
+ * replay is surfaced, never silently dropped or overwritten (no last-write-wins).
+ */
+export class DecisionConflictError extends Error {
+  readonly decisionId: string;
+  readonly existingDigest: string;
+  readonly incomingDigest: string;
+  constructor(decisionId: string, existingDigest: string, incomingDigest: string) {
+    super(
+      `recordDecision: decision_id "${decisionId}" already exists with different ` +
+        `content (idempotency conflict) — refusing to overwrite the terminal record.`,
+    );
+    this.name = "DecisionConflictError";
+    this.decisionId = decisionId;
+    this.existingDigest = existingDigest;
+    this.incomingDigest = incomingDigest;
+  }
 }
 
 /** Result of {@link recordDecision}. */
@@ -111,6 +151,8 @@ export interface DecisionRecord {
   readonly decision: Decision | null;
   /** Fired rules in stored order (from the normalized child table). */
   readonly firedRules: readonly RuleId[];
+  /** The tamper-evident proof, or `null` if none was persisted for this decision. */
+  readonly proof: LedgerProof | null;
   readonly ts: string;
   /**
    * `true` iff a stored JSON blob failed to parse/validate. This distinguishes
@@ -228,15 +270,50 @@ export function recordDecision(
   const attestation =
     input.facts === undefined ? null : input.facts.attestation_present ? 1 : 0;
 
+  // Reject a malformed/mislinked proof at the persistence boundary (never store
+  // a proof that doesn't belong to this decision).
+  if (input.proof !== undefined) {
+    if (!isLedgerProofShape(input.proof)) {
+      throw new Error("recordDecision: `proof` is present but malformed.");
+    }
+    if (input.proof.decisionId !== decisionId) {
+      throw new Error(
+        `recordDecision: proof.decisionId "${input.proof.decisionId}" does not ` +
+          `match decisionId "${decisionId}".`,
+      );
+    }
+  }
+
+  // Canonical digest of the SEMANTIC content (order-independent for object keys,
+  // order-preserving for arrays). Excludes `ts` (volatile). This is the
+  // idempotency/conflict key: identical content → identical digest.
+  const contentDigest = sha256OfJson({
+    request: req as unknown as Json,
+    facts: (input.facts ?? null) as Json,
+    decision: (input.decision ?? null) as Json,
+    status,
+    requestId,
+    kernelId: input.kernelId ?? null,
+    proofId: input.proof?.proofId ?? null,
+  });
+
   const insert = db.prepare(
     `INSERT OR IGNORE INTO decisions
        (decision_id, request_id, status, outcome, agent_id, vendor_id, amount,
         category, attestation_present, kernel_id, request_json, facts_json,
-        decision_json, ts)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`,
+        decision_json, content_digest, ts)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`,
   );
   const insertRule = db.prepare(
     "INSERT INTO decision_fired_rules (decision_id, ord, rule_id) VALUES (?, ?, ?)",
+  );
+  const insertProof = db.prepare(
+    `INSERT INTO decision_proofs
+       (decision_id, proof_id, proof_schema, attestation_status, proof_json)
+     VALUES (?, ?, ?, ?, ?)`,
+  );
+  const readDigest = db.prepare(
+    "SELECT content_digest FROM decisions WHERE decision_id = ?",
   );
 
   db.exec("BEGIN IMMEDIATE");
@@ -255,6 +332,7 @@ export function recordDecision(
       JSON.stringify(req),
       input.facts === undefined ? null : JSON.stringify(input.facts),
       input.decision === undefined ? null : JSON.stringify(input.decision),
+      contentDigest,
       input.ts ?? null,
     );
     const inserted = res.changes === 1;
@@ -262,6 +340,33 @@ export function recordDecision(
       let ord = 0;
       for (const rule of firedRules) {
         insertRule.run(decisionId, ord++, rule);
+      }
+      if (input.proof !== undefined) {
+        insertProof.run(
+          decisionId,
+          input.proof.proofId,
+          input.proof.schema,
+          input.proof.attestationStatus,
+          JSON.stringify(input.proof),
+        );
+      }
+    } else {
+      // decision_id already exists (INSERT OR IGNORE no-op). Content-check it:
+      // identical digest → idempotent success; different → CONFLICT (no overwrite).
+      // Reading inside this BEGIN IMMEDIATE txn (write lock held) means a racing
+      // conflicting writer cannot have interleaved between our insert and read.
+      const existing = readDigest.get(decisionId) as
+        | { content_digest: string }
+        | undefined;
+      if (
+        existing !== undefined &&
+        existing.content_digest !== contentDigest
+      ) {
+        throw new DecisionConflictError(
+          decisionId,
+          existing.content_digest,
+          contentDigest,
+        );
       }
     }
     db.exec("COMMIT");
@@ -314,6 +419,26 @@ function firedRulesFor(db: LedgerDb, decisionId: string): RuleId[] {
   return rows.map((r) => r.rule_id as RuleId);
 }
 
+/**
+ * Load the (optional) proof for a decision. Returns `null` when there is no proof
+ * row (normal for error/older rows), and flags `corrupt` when a stored proof blob
+ * fails to parse/validate — so a tampered proof is never returned as valid.
+ * Separate 1:1 lookup (not a JOIN) to leave the audited pagination SQL untouched;
+ * safe because proof rows are append-only.
+ */
+function proofFor(
+  db: LedgerDb,
+  decisionId: string,
+): { proof: LedgerProof | null; corrupt: boolean } {
+  const row = db
+    .prepare("SELECT proof_json FROM decision_proofs WHERE decision_id = ?")
+    .get(decisionId) as { proof_json: string } | undefined;
+  if (row === undefined) return { proof: null, corrupt: false };
+  const parsed = safeParse(row.proof_json);
+  const proof = isLedgerProofShape(parsed) ? parsed : null;
+  return { proof, corrupt: proof === null };
+}
+
 function mapRow(db: LedgerDb, row: DecisionRow): DecisionRecord {
   const reqParsed = safeParse(row.request_json);
   const factsParsed = safeParse(row.facts_json);
@@ -322,13 +447,16 @@ function mapRow(db: LedgerDb, row: DecisionRow): DecisionRecord {
   const request = isSpendRequest(reqParsed) ? reqParsed : null;
   const facts = isFactsShape(factsParsed) ? factsParsed : null;
   const decision = isDecisionShape(decisionParsed) ? decisionParsed : null;
+  const { proof, corrupt: proofCorrupt } = proofFor(db, row.decision_id);
 
   // Corrupt iff a stored blob was expected but failed to parse/validate. A NULL
-  // facts_json/decision_json (legitimately absent) is NOT corrupt.
+  // facts_json/decision_json (legitimately absent) is NOT corrupt; an absent proof
+  // is NOT corrupt (proof is optional), but a present-yet-unparseable proof IS.
   const corrupt =
     request === null ||
     (row.facts_json !== null && facts === null) ||
-    (row.decision_json !== null && decision === null);
+    (row.decision_json !== null && decision === null) ||
+    proofCorrupt;
 
   return {
     decisionId: row.decision_id,
@@ -346,6 +474,7 @@ function mapRow(db: LedgerDb, row: DecisionRow): DecisionRecord {
     facts,
     decision,
     firedRules: firedRulesFor(db, row.decision_id),
+    proof,
     ts: row.ts,
     corrupt,
   };
