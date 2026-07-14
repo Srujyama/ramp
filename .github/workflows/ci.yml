@@ -29,6 +29,12 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # Build the shared contract first so downstream `tsc -b` never reads a
+      # partially-emitted packages/shared/dist/*.d.ts (a `pnpm -r` parallel race
+      # that surfaces as TS2306 "is not a module" on slower CI runners).
+      - name: Build shared contract
+        run: pnpm --filter @ramp/shared build
+
       - name: Typecheck
         run: pnpm -r typecheck
 
