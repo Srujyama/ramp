@@ -14,10 +14,16 @@ import { randomUUID } from "node:crypto";
 import type { SpendRequest } from "@ramp/shared";
 
 /**
- * Mint a fresh per-attempt correlation id, e.g. "req_<uuid>". This is NOT
- * deterministic: every call returns a new value so each `pay_vendor` invocation
- * (one logical payment attempt) can be tracked distinctly. It must be generated
- * EXACTLY ONCE per attempt by the caller, then threaded through the receipt.
+ * Mint a fresh EXECUTION-scoped id for the receipt, e.g. "req_<uuid>". This is
+ * minted only when the tool actually EXECUTES, and every call returns a new value
+ * so each `pay_vendor` execution gets a distinct id for its receipt.
+ *
+ * It is NOT a policy-correlation id. Policy is decided by the PreToolUse hook
+ * BEFORE this tool runs; the hook never sees this id, and there is no native
+ * tool_use_id shared between the hook and the tool. Crucially, DENIED attempts
+ * never reach execution, so they have no id of this kind at all — do not treat it
+ * as a hook/policy correlation key.
+ *
  * Uses `crypto.randomUUID()` — no `Math.random`, no clock, no counter.
  */
 export function newRequestId(): string {
@@ -29,9 +35,14 @@ export interface FakeReceipt {
   /** Deterministic id derived from the request fields, e.g. "rcpt_a1b2c3d4". */
   readonly receiptId: string;
   /**
-   * Per-attempt correlation id (e.g. "req_<uuid>"), unique to this invocation.
-   * Unlike `receiptId`, this is NOT derived from the request — it is minted fresh
-   * per attempt and is deliberately kept OUT of the `receiptId` fingerprint.
+   * Execution-scoped id (e.g. "req_<uuid>"), minted at tool-execution time and
+   * unique per execution. Unlike `receiptId`, it is NOT derived from the request —
+   * it is minted fresh per execution and is deliberately kept OUT of the
+   * `receiptId` fingerprint.
+   *
+   * It is NOT a policy-correlation id: the PreToolUse hook decides allow/deny
+   * BEFORE the tool runs and never sees this id, and denied attempts (which never
+   * execute) have no execution id at all.
    */
   readonly requestId: string;
   /** Always `"submitted"` — the stub never actually settles a payment. */
@@ -69,8 +80,10 @@ function fnv1a32(input: string): number {
 
 /** Stable 8-char lowercase hex fingerprint of the request's identifying fields. */
 function fingerprint(req: SpendRequest): string {
-  // Join with a delimiter that cannot appear inside the numeric field so the
-  // encoding is unambiguous. invoiceRef is optional -> normalize to "".
+  // Join with a NUL ("\0") delimiter so the encoding is unambiguous: NUL cannot
+  // appear in these text fields, so adjacent fields can never alias (e.g. agent
+  // "ab" + vendor "c" no longer collides with agent "a" + vendor "bc").
+  // invoiceRef is optional -> normalize to "".
   const canonical = [
     req.requestingAgent,
     req.vendorId,
@@ -78,7 +91,7 @@ function fingerprint(req: SpendRequest): string {
     req.currency,
     String(req.amount),
     req.invoiceRef ?? "",
-  ].join("");
+  ].join("\0");
   return fnv1a32(canonical).toString(16).padStart(8, "0");
 }
 
@@ -86,10 +99,11 @@ function fingerprint(req: SpendRequest): string {
  * Build a deterministic fake receipt for a spend request. Pure function: same
  * `(req, requestId)` in -> same `FakeReceipt` out. No randomness, clock, or I/O.
  *
- * `requestId` is the per-attempt correlation id (see `newRequestId`); the caller
- * generates it ONCE per attempt and passes it in. It is echoed verbatim and does
- * NOT feed the `receiptId` fingerprint, so `receiptId` stays deterministic across
- * identical requests regardless of which `requestId` accompanies them.
+ * `requestId` is the execution-scoped id (see `newRequestId`); the caller mints it
+ * once per execution and passes it in. It is echoed verbatim and does NOT feed the
+ * `receiptId` fingerprint, so `receiptId` stays deterministic across identical
+ * requests regardless of which `requestId` accompanies them. It is NOT a
+ * policy-correlation id (the hook decides allow/deny before this ever runs).
  */
 export function makeFakeReceipt(req: SpendRequest, requestId: string): FakeReceipt {
   const receipt: FakeReceipt = {

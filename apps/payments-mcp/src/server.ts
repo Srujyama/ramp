@@ -31,6 +31,8 @@ const payVendorInputShape = {
     .describe('Vendor id the agent wants to pay, e.g. "acme_corp". Registry key.'),
   amount: z
     .number()
+    .int()
+    .nonnegative()
     .describe("Requested amount in whole currency units (non-negative integer)."),
   currency: z.string().describe('ISO 4217 currency code, e.g. "USD".'),
   category: z

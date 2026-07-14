@@ -86,3 +86,24 @@ test("receiptId is independent of requestId", () => {
   assert.notEqual(a.requestId, b.requestId);
   assert.equal(a.receiptId, b.receiptId);
 });
+
+test("fingerprint does not alias across adjacent field boundaries", () => {
+  // Under an empty-string join, requestingAgent "ab" + vendorId "c" would encode
+  // to the same string as requestingAgent "a" + vendorId "bc" (all else equal),
+  // colliding to one receiptId. With a NUL delimiter the two must differ.
+  const shift = {
+    vendorId: "c",
+    amount: 100,
+    currency: "USD",
+    category: "office_supplies",
+    requestingAgent: "ab",
+  } satisfies SpendRequest;
+  const other = { ...shift, requestingAgent: "a", vendorId: "bc" } satisfies SpendRequest;
+
+  const a = makeFakeReceipt(shift, FIXED_REQUEST_ID);
+  const b = makeFakeReceipt(other, FIXED_REQUEST_ID);
+
+  assert.notEqual(a.receiptId, b.receiptId);
+  assert.match(a.receiptId, /^rcpt_[0-9a-f]{8}$/);
+  assert.match(b.receiptId, /^rcpt_[0-9a-f]{8}$/);
+});

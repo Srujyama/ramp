@@ -24,10 +24,18 @@ Input schema mirrors `SpendRequest` from `@ramp/shared`:
 | `invoiceRef`      | `string` (opt)    | invoice/attestation reference           |
 | `requestingAgent` | `string`          | agent id, e.g. `"agent_47"`             |
 
-Returns a fake receipt: `{ receiptId, status: "submitted", vendorId, amount,
+Returns a fake receipt: `{ receiptId, requestId, status: "submitted", vendorId, amount,
 currency, category, requestingAgent, invoiceRef?, note }`. The `receiptId` is
-**deterministic** — an FNV-1a hash of the request fields (no `Math.random`, no clock),
-so identical requests yield identical ids.
+**deterministic** — an FNV-1a hash of the request fields joined with a `\0` (NUL)
+delimiter so adjacent fields can't alias (no `Math.random`, no clock), so identical
+requests yield identical ids.
+
+The `requestId` (e.g. `"req_<uuid>"`) is an **execution-scoped** id: it is minted only
+when the tool actually **executes** and is unique per execution. It is **NOT a
+policy-correlation id** — the PreToolUse hook decides allow/deny **before** this tool
+runs, never sees this id, and there is no native `tool_use_id` shared between the hook
+and the tool. **Denied** attempts never execute, so they have no `requestId` at all.
+Treat it purely as a per-execution marker on the receipt.
 
 ## Build & run
 
