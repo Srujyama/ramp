@@ -1,0 +1,27 @@
+# ============================================================================
+# @ramp/gate — wasm crate (OPTIONAL)
+# ============================================================================
+# Wraps the Souffle-generated policy evaluator (datalog/policy.dl -> C++) in a
+# #[wasm_bindgen] shell and compiles to WebAssembly via wasm-pack. Built only by
+# scripts/build-wasm.sh when souffle + wasm-pack + cargo are all present; the TS
+# reference kernel is the always-available default, so this never gates CI.
+# ----------------------------------------------------------------------------
+[package]
+name = "ramp-gate-wasm"
+version = "0.0.0"
+edition = "2021"
+description = "Provable Agent Spend — Souffle policy kernel compiled to WebAssembly."
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true

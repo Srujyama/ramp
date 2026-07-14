@@ -1,0 +1,34 @@
+{
+  "name": "@ramp/ledger",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Provable Agent Spend — the AUTHORITATIVE fact source. Reads security-critical facts (daily_total_so_far, vendor_verified, caps, approved/cleared categories) from SQLite, never from model narration.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "types": "./dist/src/index.d.ts",
+  "files": [
+    "dist",
+    "sql"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "lint": "tsc -b",
+    "pretest": "tsc -b",
+    "test": "node --test \"dist/**/*.test.js\"",
+    "db:reset": "node dist/scripts/init-db.js",
+    "db:init": "node dist/scripts/init-db.js"
+  },
+  "dependencies": {
+    "@ramp/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.7.3"
+  }
+}

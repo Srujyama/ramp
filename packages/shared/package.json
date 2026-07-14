@@ -1,0 +1,27 @@
+{
+  "name": "@ramp/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Provable Agent Spend — the shared contract (Facts, Decision, PolicyKernel, SpendRequest, fact translation). Zero runtime deps; imported by every other workspace.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

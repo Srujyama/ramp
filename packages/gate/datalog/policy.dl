@@ -1,0 +1,115 @@
+// ============================================================================
+// Provable Agent Spend — policy kernel (Souffle Datalog) — packages/gate/datalog/policy.dl
+// ============================================================================
+// This program evaluates EXACTLY ONE spend request per run. The fact-translation
+// adapter (see @ramp/shared) emits one row into each *_input relation from the
+// authoritative sources (ledger DB + vendor registry + structured tool args),
+// NEVER from the model's narration. Souffle grinds allow/deny mechanically.
+//
+// Invariant: deny dominates. The TS consumer treats the request as DENIED unless
+// allow(R) holds AND deny(R) does not. The TS ReferenceKernel in @ramp/gate is a
+// line-for-line mirror of these rules and is the golden oracle until this file is
+// compiled to WASM (build:wasm) — the parity test cross-checks them.
+//
+// Compile (optional; needs souffle):
+//   souffle -D facts -F facts packages/gate/datalog/policy.dl
+// I/O is CSV via the facts/ dir; the WASM/native harness swaps the directory.
+// ----------------------------------------------------------------------------
+
+// ---- Fact relations (all inputs; one request per evaluation) ----------------
+
+// The request under evaluation. Exactly one row.
+.decl request(r: symbol)
+.input request
+
+// requesting_agent(R, Agent): which agent asked. Exactly one row.
+.decl requesting_agent(r: symbol, agent: symbol)
+.input requesting_agent
+
+// amount(R, A): integer amount for this request. Exactly one row.
+.decl amount(r: symbol, a: number)
+.input amount
+
+// vendor(R, V): vendor id on the request. Exactly one row.
+.decl vendor(r: symbol, v: symbol)
+.input vendor
+
+// category(R, C): spend category on the request. Exactly one row.
+.decl category(r: symbol, c: symbol)
+.input category
+
+// vendor_verified(V): vendor present + verified in the registry. From registry.
+.decl vendor_verified(v: symbol)
+.input vendor_verified
+
+// approved_category(C): category is on the org's approved list.
+.decl approved_category(c: symbol)
+.input approved_category
+
+// agent_cleared_category(Agent, C): agent is cleared to spend in category C.
+.decl agent_cleared_category(agent: symbol, c: symbol)
+.input agent_cleared_category
+
+// per_txn_cap(Cap): org single-transaction cap. Exactly one row.
+.decl per_txn_cap(cap: number)
+.input per_txn_cap
+
+// daily_limit(L): org daily aggregate limit. Exactly one row.
+.decl daily_limit(l: number)
+.input daily_limit
+
+// daily_total_so_far(Agent, D): agent's spend so far today. From ledger. One row.
+.decl daily_total_so_far(agent: symbol, d: number)
+.input daily_total_so_far
+
+// attestation_present(R): a TLSNotary-style attestation accompanied this request.
+// Optional layer (Day 4). Absent in Phase 0 seeds; declared so the schema is stable.
+.decl attestation_present(r: symbol)
+.input attestation_present
+
+// ---- Derived predicate: agent uncleared for the request's category ----------
+.decl requesting_agent_uncleared_for_category(r: symbol)
+requesting_agent_uncleared_for_category(R) :-
+  request(R),
+  requesting_agent(R, Ag),
+  category(R, C),
+  !agent_cleared_category(Ag, C).
+
+// ---- ALLOW: fires only if EVERY condition holds -----------------------------
+.decl allow(r: symbol)
+.output allow
+allow(R) :-
+  request(R),
+  amount(R, A),
+  per_txn_cap(Cap), A <= Cap,
+  category(R, C), approved_category(C),
+  vendor(R, V), vendor_verified(V),
+  requesting_agent(R, Ag),
+  agent_cleared_category(Ag, C),
+  daily_total_so_far(Ag, D),
+  daily_limit(L), D + A <= L.
+
+// ---- DENY: any single trigger is enough (deny dominates) --------------------
+.decl deny(r: symbol)
+.output deny
+
+// D1: vendor not verified in the registry.
+deny(R) :- request(R), vendor(R, V), !vendor_verified(V).
+
+// D2: single transaction over the per-transaction cap.
+deny(R) :- request(R), amount(R, A), per_txn_cap(Cap), A > Cap.
+
+// D3: requesting agent not cleared for the request's category.
+deny(R) :- requesting_agent_uncleared_for_category(R).
+
+// D4: category not on the approved list.
+deny(R) :- request(R), category(R, C), !approved_category(C).
+
+// D5: this request would push the agent's daily total over the daily limit.
+deny(R) :-
+  request(R),
+  amount(R, A),
+  requesting_agent(R, Ag),
+  daily_total_so_far(Ag, D),
+  daily_limit(L),
+  D + A > L.

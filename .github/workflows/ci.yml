@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: typecheck · build · test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.13.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Build
+        run: pnpm -r build
+
+      - name: Test
+        run: pnpm -r test
+
+  # OPTIONAL job: only does real work where souffle + wasm-pack exist. It never gates
+  # the build — the TS reference kernel is always present, so the `build` job above is
+  # green with no souffle/wasm-pack. continue-on-error keeps a red X here non-blocking.
+  wasm-kernel:
+    name: wasm kernel (optional)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.13.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Probe toolchain (souffle + wasm-pack)
+        id: probe
+        run: |
+          if command -v souffle >/dev/null 2>&1 && command -v wasm-pack >/dev/null 2>&1; then
+            echo "have_toolchain=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have_toolchain=false" >> "$GITHUB_OUTPUT"
+            echo "souffle/wasm-pack not present — skipping wasm build (reference kernel covers CI)."
+          fi
+
+      - name: Build wasm kernel
+        if: steps.probe.outputs.have_toolchain == 'true'
+        run: pnpm --filter @ramp/gate build:wasm
+
+      - name: Cross-check wasm vs reference oracle (parity)
+        if: steps.probe.outputs.have_toolchain == 'true'
+        run: pnpm --filter @ramp/gate test:parity
