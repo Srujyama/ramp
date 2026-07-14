@@ -23,8 +23,12 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { rmSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 
-import { openLedger } from "@ramp/ledger";
+import { openLedger, closeLedger, getDecision } from "@ramp/ledger";
 import {
   handlePayVendor,
   createServer,
@@ -397,5 +401,35 @@ test("RAMP_FAIL_VENDORS unset: the sandbox settles normally", async () => {
     assert.equal(res.structuredContent.status, "allowed");
   } finally {
     if (prev !== undefined) process.env.RAMP_FAIL_VENDORS = prev;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// RAMP_DB_PATH honoring: the DEFAULT openDb (no injected deps) must open the
+// ledger the client docs promise, so the server + bridge + CLI share one file.
+// ---------------------------------------------------------------------------
+test("default openDb honors RAMP_DB_PATH (server + bridge share one ledger)", async () => {
+  const dbPath = join(tmpdir(), `ramp-mcp-${randomUUID()}.db`);
+  const prev = process.env.RAMP_DB_PATH;
+  process.env.RAMP_DB_PATH = dbPath;
+  try {
+    // No deps override → exercises DEFAULT_DEPS.openDb.
+    const res = await handlePayVendor({ ...ALLOW_ARGS });
+    assert.equal(res.structuredContent.status, "allowed");
+    const decisionId = res.structuredContent.decisionId as string;
+
+    // Re-open the SAME path independently: the decision + execution must be there.
+    const db = openLedger(dbPath);
+    try {
+      const rec = getDecision(db, decisionId);
+      assert.ok(rec, "decision persisted to RAMP_DB_PATH");
+      assert.equal(rec.execution?.status, "settled");
+    } finally {
+      closeLedger(db);
+    }
+  } finally {
+    if (prev === undefined) delete process.env.RAMP_DB_PATH;
+    else process.env.RAMP_DB_PATH = prev;
+    for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) rmSync(p, { force: true });
   }
 });

@@ -35,6 +35,7 @@ import {
   openLedger,
   closeLedger,
   LedgerFactSource,
+  DEFAULT_DB_PATH,
 } from "@ramp/ledger";
 import type {
   LedgerDb,
@@ -164,7 +165,11 @@ function sandboxFailVendorIds(): readonly string[] {
 }
 
 const DEFAULT_DEPS: Required<PayVendorDeps> = {
-  openDb: () => openLedger(),
+  // Honor RAMP_DB_PATH so the server, the read-only bridge, and the verify-proof
+  // CLI all read/write the SAME ledger (as the client docs promise). Without this
+  // the server silently wrote ./ramp.db (cwd-relative) while the bridge read
+  // $RAMP_DB_PATH — so the dashboard never saw the server's decisions.
+  openDb: () => openLedger(process.env.RAMP_DB_PATH || DEFAULT_DB_PATH),
   getKernel,
   makeExecutor: () => makeSandboxExecutor({ failVendorIds: sandboxFailVendorIds() }),
   runPurchase: requestPurchase,
