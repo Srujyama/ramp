@@ -148,10 +148,25 @@ export interface PayVendorDeps {
   ) => Promise<RequestPurchaseResult>;
 }
 
+/**
+ * Sandbox failure seam for demos/tests. `RAMP_FAIL_VENDORS` is a comma-separated
+ * list of vendorIds the sandbox executor should return a `failed` receipt for.
+ * This lets a LIVE stdio server deterministically exercise the `executor_error`
+ * path (allowed + persisted + verified, then payment fails) with no real
+ * provider and no secret. Unset/empty → the sandbox always settles. It can only
+ * make an allowed payment FAIL; it can never turn a deny into a payment.
+ */
+function sandboxFailVendorIds(): readonly string[] {
+  return (process.env.RAMP_FAIL_VENDORS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
 const DEFAULT_DEPS: Required<PayVendorDeps> = {
   openDb: () => openLedger(),
   getKernel,
-  makeExecutor: () => makeSandboxExecutor(),
+  makeExecutor: () => makeSandboxExecutor({ failVendorIds: sandboxFailVendorIds() }),
   runPurchase: requestPurchase,
 };
 

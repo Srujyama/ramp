@@ -361,3 +361,41 @@ test("createServer() builds a server with the pay_vendor tool registered", () =>
   const server = createServer();
   assert.ok(server, "server constructed");
 });
+
+// ---------------------------------------------------------------------------
+// RAMP_FAIL_VENDORS seam: a live server can deterministically drive the
+// executor_error path (allowed + persisted + verified, then payment fails)
+// through the REAL lifecycle with no stub, no real provider, and no secret.
+// ---------------------------------------------------------------------------
+test("RAMP_FAIL_VENDORS makes an allowed sandbox payment fail (executor_error)", async () => {
+  const prev = process.env.RAMP_FAIL_VENDORS;
+  process.env.RAMP_FAIL_VENDORS = "acme_corp";
+  try {
+    const res = await handlePayVendor({ ...ALLOW_ARGS }, seededDeps);
+    const sc = res.structuredContent;
+    // Policy still ALLOWED (the seam only affects the executor, never policy)...
+    assert.equal(res.isError, true);
+    assert.equal(sc.status, "executor_error");
+    // ...and it is NEVER represented as a settled payment.
+    assert.notEqual(sc.status, "allowed");
+    assert.equal(sc.paymentStatus, undefined);
+    assert.equal(sc.receiptId, undefined);
+    // No secret/stack trace leaks in the failure envelope.
+    const text = JSON.stringify(sc);
+    assert.doesNotMatch(text, /key|secret|token|credential|password|\bat \//i);
+  } finally {
+    if (prev === undefined) delete process.env.RAMP_FAIL_VENDORS;
+    else process.env.RAMP_FAIL_VENDORS = prev;
+  }
+});
+
+test("RAMP_FAIL_VENDORS unset: the sandbox settles normally", async () => {
+  const prev = process.env.RAMP_FAIL_VENDORS;
+  delete process.env.RAMP_FAIL_VENDORS;
+  try {
+    const res = await handlePayVendor({ ...ALLOW_ARGS }, seededDeps);
+    assert.equal(res.structuredContent.status, "allowed");
+  } finally {
+    if (prev !== undefined) process.env.RAMP_FAIL_VENDORS = prev;
+  }
+});
