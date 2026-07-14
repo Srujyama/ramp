@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Stub MCP server exposing mcp__payments__pay_vendor. Enforcement lives in the PreToolUse hook, not here.",
+  "description": "Self-enforcing MCP server exposing mcp__payments__pay_vendor. Drives the shared requestPurchase lifecycle (policy → provenance → proof → persist → verify → sandbox execute), fail-closed.",
   "bin": {
     "ramp-payments-mcp": "dist/server.js"
   },
@@ -20,6 +20,8 @@
   },
   "dependencies": {
     "@ramp/shared": "workspace:*",
+    "@ramp/ledger": "workspace:*",
+    "@ramp/gate": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.23.8"
   },
