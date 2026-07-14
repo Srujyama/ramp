@@ -26,6 +26,9 @@ export const DEFAULT_DB_PATH = "ramp.db";
 /** In-memory sentinel path — a throwaway DB that lives only for the process. */
 export const IN_MEMORY_PATH = ":memory:";
 
+/** How long a contended writer waits for the lock before surfacing SQLITE_BUSY. */
+export const BUSY_TIMEOUT_MS = 5000;
+
 // Resolve the packaged SQL files relative to THIS module, so it works no matter
 // the process cwd. Compiled layout: dist/src/db.js -> package root is ../../ ->
 // the `sql/` dir ships alongside `dist/` (see package.json "files").
@@ -115,6 +118,16 @@ export function openLedger(
 
   // Always enforce referential integrity on this connection.
   db.exec("PRAGMA foreign_keys = ON;");
+
+  // Concurrency: the audit log has many writers (one hook process per spend) and
+  // concurrent readers (the dashboard). A bounded busy_timeout makes a contended
+  // writer WAIT for the lock instead of failing instantly with SQLITE_BUSY, and
+  // WAL lets readers see a consistent snapshot while a writer commits. WAL only
+  // applies to on-disk DBs; a :memory: DB is single-connection and ignores it.
+  db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS};`);
+  if (path !== IN_MEMORY_PATH) {
+    db.exec("PRAGMA journal_mode = WAL;");
+  }
 
   if (provisionIfEmpty && !isProvisioned(db)) {
     applySchema(db);

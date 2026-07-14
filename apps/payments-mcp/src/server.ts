@@ -18,7 +18,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { isSpendRequest, type SpendRequest } from "@ramp/shared";
-import { makeFakeReceipt } from "./receipt.js";
+import { makeFakeReceipt, newRequestId } from "./receipt.js";
 
 /**
  * Zod shape for the tool input. Field-for-field identical to `SpendRequest`
@@ -82,7 +82,10 @@ export function createServer(): McpServer {
       }
 
       const request: SpendRequest = args;
-      const receipt = makeFakeReceipt(request);
+      // One logical payment attempt -> one stable correlation id, minted exactly
+      // once here and threaded into the receipt.
+      const requestId = newRequestId();
+      const receipt = makeFakeReceipt(request, requestId);
 
       return {
         content: [

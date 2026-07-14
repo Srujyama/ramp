@@ -64,3 +64,57 @@ CREATE TABLE IF NOT EXISTS policy_limits (
   daily_limit INTEGER NOT NULL,
   currency    TEXT NOT NULL DEFAULT 'USD'
 );
+
+-- ----------------------------------------------------------------------------
+-- Decision log (audit trail). One row per policy decision the GATE makes.
+-- Written by the PreToolUse hook via @ramp/ledger's recordDecision() — the hook
+-- is the ONLY place that holds the exact Facts + Decision. This table stores the
+-- decision verbatim (JSON) for reproduction/audit; persistence NEVER recomputes
+-- or reinterprets the policy result. See src/decision-log.ts.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS decisions (
+  -- Unique per logical attempt (UUID). Idempotency key: repeated delivery of the
+  -- same decision_id is a no-op (INSERT OR IGNORE), never an overwrite.
+  decision_id         TEXT PRIMARY KEY,
+  -- Correlation id (facts.request_id / invoiceRef). NOT unique: two distinct
+  -- attempts may share one request_id and are both recorded (distinct decision_id).
+  request_id          TEXT NOT NULL,
+  -- Terminal persistence status. 'error' = an infra/validation failure recorded
+  -- as an audit row (NOT one of the five policy deny rules).
+  status              TEXT NOT NULL CHECK (status IN ('allowed', 'denied', 'error')),
+  -- The Decision.decision verbatim ('allow'/'deny'); NULL for an 'error' row.
+  outcome             TEXT CHECK (outcome IN ('allow', 'deny')),
+  agent_id            TEXT NOT NULL,
+  vendor_id           TEXT NOT NULL,
+  amount              INTEGER NOT NULL,
+  category            TEXT NOT NULL,
+  -- Day-4 provenance: 1/0 iff a TLSNotary-style attestation accompanied the
+  -- request (from Facts.attestation_present). NULL when facts weren't computed.
+  attestation_present INTEGER CHECK (attestation_present IN (0, 1)),
+  -- Which kernel produced the decision (DescribedKernel.kind), e.g. 'ts-reference'.
+  kernel_id           TEXT,
+  -- Verbatim JSON blobs. request_json is always present; facts_json/decision_json
+  -- are NULL when unavailable (e.g. an error before the kernel ran).
+  request_json        TEXT NOT NULL,
+  facts_json          TEXT,
+  decision_json       TEXT,
+  ts                  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+-- Compound (ts, decision_id) indexes back the keyset pagination + every filter.
+CREATE INDEX IF NOT EXISTS idx_decisions_ts      ON decisions (ts DESC, decision_id DESC);
+CREATE INDEX IF NOT EXISTS idx_decisions_agent   ON decisions (agent_id, ts DESC, decision_id DESC);
+CREATE INDEX IF NOT EXISTS idx_decisions_vendor  ON decisions (vendor_id, ts DESC, decision_id DESC);
+CREATE INDEX IF NOT EXISTS idx_decisions_outcome ON decisions (outcome, ts DESC, decision_id DESC);
+CREATE INDEX IF NOT EXISTS idx_decisions_status  ON decisions (status, ts DESC, decision_id DESC);
+CREATE INDEX IF NOT EXISTS idx_decisions_request ON decisions (request_id);
+
+-- Fired rules, normalized one-per-row so filtering by rule is indexable and the
+-- exact firedRules ORDER is preserved (`ord` = 0-based position). Written in the
+-- SAME transaction as the parent decision row (atomic; no partial reads).
+CREATE TABLE IF NOT EXISTS decision_fired_rules (
+  decision_id TEXT NOT NULL REFERENCES decisions(decision_id) ON DELETE CASCADE,
+  ord         INTEGER NOT NULL,
+  rule_id     TEXT NOT NULL,
+  PRIMARY KEY (decision_id, ord)
+);
+CREATE INDEX IF NOT EXISTS idx_fired_rule ON decision_fired_rules (rule_id, decision_id);

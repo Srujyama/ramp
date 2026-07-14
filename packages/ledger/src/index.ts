@@ -26,3 +26,21 @@ export type { LedgerDb, OpenLedgerOptions } from "./db.js";
 
 export { LedgerFactSource, makeFactSource } from "./dal.js";
 export type { AuthoritativeContext, Limits } from "./dal.js";
+
+// The audit trail: persist every gate decision and read it back (read-only API).
+export {
+  recordDecision,
+  getDecision,
+  listDecisions,
+  isDecisionShape,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+} from "./decision-log.js";
+export type {
+  DecisionStatus,
+  RecordDecisionInput,
+  RecordDecisionResult,
+  DecisionRecord,
+  ListDecisionsQuery,
+  ListDecisionsResult,
+} from "./decision-log.js";
