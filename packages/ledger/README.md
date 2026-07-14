@@ -30,12 +30,38 @@ Phase-F audit-trail foundation they build on.
 
 ---
 
+## 0. Purchase lifecycle (`purchase.ts` → `requestPurchase`)
+
+The shared, fail-closed purchase lifecycle lives **here**, in `@ramp/ledger`, so both
+the enforcing MCP tool (`apps/payments-mcp`) and any other caller run the identical
+sequence. `requestPurchase(input)` takes an injected kernel, fact source, ledger
+handle, and `PaymentExecutor`, and runs (strict order, executor last and conditional):
+
+1. `isSpendRequest` guard — invalid → `policy_error`, no execution.
+2. Authoritative facts via `factSource.contextFor` + `translateToFacts` — throw → `policy_error`.
+3. `kernel.evaluate(facts)` — throw/malformed → `policy_error`.
+4. Mint `decisionId` (= `idempotencyKey` if given, else `dec_<sha256>`); `requestId` = `facts.request_id` or `decisionId`.
+5. `buildDecisionProvenance(...)` — throw → `policy_error`.
+6. `buildProof(...)` with honest attestation (`present_unverified` / `absent`) — throw → `policy_error`.
+7. `recordDecision(...)` — conflict/throw → `audit_error`, no execution.
+8. Re-read + `verifyDecisionProof` — not verified → `audit_error`, no execution.
+9. If `deny` → `denied`, no execution, no receipt.
+10. Else `executor.execute(...)` — throw / `status:"failed"` → `executor_error` (decision stays persisted); else `allowed` with receipt.
+
+`requestPurchase` contains **no policy logic** of its own — it delegates to the injected
+kernel (not a second policy path) and never logs or returns secrets. Full input/output
+shapes and the `pay_vendor` response schemas are documented in
+[`apps/payments-mcp/README.md`](../../apps/payments-mcp/README.md).
+
+---
+
 ## 1. Read-only HTTP bridge (`http-bridge.ts`)
 
 A minimal read-only API built on **`node:http` only** (no Express/Fastify). It
 is the trust boundary between an untrusted browser and the authoritative store,
 so it is deliberately narrow: **GET-only, no mutation route exists.** The ledger
-is written **only** by the hook; a bridge that could write would be a way to
+is written **only** by the enforcement path (the hook and the `requestPurchase`
+tool path) — never by the bridge; a bridge that could write would be a way to
 forge audit rows, so it simply cannot.
 
 ### Construction

@@ -156,3 +156,58 @@ never for a denied attempt. It cannot correlate hook decisions. The hook-minted
 `decisionId` is the authoritative correlation id. The MCP id stays an
 execution-scoped receipt id (see `apps/payments-mcp/src/receipt.ts`), explicitly
 documented as *not* a policy-correlation id.
+
+---
+
+# The self-enforcing MCP tool and the hook (agent-integration update)
+
+**Status: NO hook change required.** As of the agent-integration work, the
+payments MCP `pay_vendor` tool is **self-enforcing**: it drives the shared
+purchase lifecycle `requestPurchase()` (exported from `@ramp/ledger`, see
+`packages/ledger/src/purchase.ts`) which evaluates policy with the SAME
+`@ramp/gate` kernel, builds provenance + a tamper-evident proof, persists the
+decision, **independently re-verifies** the proof, and only then executes payment
+through an injected sandbox executor. This is the enforcement path for **all** MCP
+clients (Claude Code, Codex, Cursor) — it does not depend on any hook.
+
+## This is NOT a second policy path
+
+`requestPurchase()` does not contain policy logic; it calls the injected
+`PolicyKernel` (`getKernel().kernel`) and the existing `@ramp/ledger` proof /
+provenance / `recordDecision` APIs — the same primitives the hook uses. The hook
+and the tool therefore share the policy *kernel* and the ledger *contracts*; only
+the thin sequencing differs.
+
+## Relationship under Claude Code (defense in depth, NOT correlated)
+
+Under Claude Code the existing PreToolUse hook still fires first and independently
+denies/persists a decision **before** the tool runs. So an allowed spend under
+Claude Code produces **two independent audit rows**: the hook's (random `decisionId`)
+and the tool's (`requestPurchase`'s content-derived `decisionId`). They are **not**
+correlated by any shared native id — do not claim end-to-end hook↔tool correlation.
+This is deliberate defense in depth: even if the hook is bypassed, the tool still
+fails closed; even if the tool were reverted, the hook still gates. Codex/Cursor
+have no hook, so the tool is their sole enforcement + audit path.
+
+## OPTIONAL future unification (cross-owner, NOT applied)
+
+To collapse Claude Code to a single audit row, the hook (`@Srujyama`-owned) could
+delegate its gate-only evaluation to a shared helper rather than re-running the
+sequence inline. This is **not** required for correctness and is **not** applied.
+Because the hook is a *gate* (it cannot execute payment — Claude Code runs the tool
+afterward), any unification would keep the hook's role as "evaluate + persist +
+allow/deny" and leave execution to the tool. Left as a documented future option for
+`@Srujyama` to weigh; the current two-path design is correct and fail-closed.
+
+## Recommended cross-owner comment fix (NOT applied)
+
+The hook's **behavior** is correct and unchanged, but its header comment is now
+stale. `hook/evaluate.mjs:5-6` and its mirror `.claude/hooks/evaluate.mjs:5-6`
+still read *"This is the ONLY enforcement point. The MCP payments tool is an
+honest, non-enforcing stub."* Since the MCP tool is now self-enforcing, the
+accurate wording is: *"This hook is an independent, fail-closed pre-gate. The MCP
+`pay_vendor` tool is ALSO self-enforcing (via `@ramp/ledger` `requestPurchase`);
+the two are independent gates over the same kernel and are not correlated by a
+shared id."* These files are `@Srujyama`-owned (`.claude/` + repo root per
+CODEOWNERS), so this is a **comment-only** change delivered here for review — not
+applied on this branch.
