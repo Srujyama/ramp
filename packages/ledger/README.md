@@ -47,6 +47,7 @@ handle, and `PaymentExecutor`, and runs (strict order, executor last and conditi
 8. Re-read + `verifyDecisionProof` — not verified → `audit_error`, no execution.
 9. If `deny` → `denied`, no execution, no receipt.
 10. Else `executor.execute(...)` — throw / `status:"failed"` → `executor_error` (decision stays persisted); else `allowed` with receipt.
+11. `recordExecution(...)` — best-effort append of the sandbox receipt (settled **or** failed) to the audit trail. The decision is already durably recorded, so a failure here never changes the payment result; it only omits the receipt from the audit view.
 
 `requestPurchase` contains **no policy logic** of its own — it delegates to the injected
 kernel (not a second policy path) and never logs or returns secrets. Full input/output
@@ -118,14 +119,23 @@ prior page's `nextCursor` to fetch the next page.
 
 The full stored `DecisionRecord` — `decisionId`, `requestId`, `status`,
 `outcome`, `agentId`, `vendorId`, `amount`, `category`, `attestationPresent`,
-`kernelId`, `request`, `facts`, `decision`, `firedRules`, `proof`, `ts`,
-`corrupt` — **plus three derived trust fields**:
+`kernelId`, `request`, `facts`, `decision`, `firedRules`, `proof`, `execution`,
+`ts`, `corrupt` — **plus three derived trust fields**:
 
 | Field | Meaning |
 |-------|---------|
+| `execution` | The sandbox execution receipt (`{ receiptId, executionId, status: "settled" \| "failed", provider, executedAt }`) or `null` when the executor never ran (every deny; any allow that failed before execution). A `"failed"` row is a genuine executor failure — **never** a settlement. |
 | `provenance` | `proof.provenance` surfaced top-level (`null` when absent). |
 | `proofVerified` | **Independently recomputed** boolean — *not* the stored bytes. |
 | `proofVerification` | `{ proofPresent, proofVerified, expectedProofId, actualProofId, reason }` where `reason ∈ "ok" \| "absent" \| "corrupt" \| "mismatch"`. |
+
+The decision + proof and the `execution` receipt are **separate appends**:
+`recordExecution` writes the receipt AFTER the decision is persisted, verified,
+and the executor runs, so it can never alter the append-only decision/proof
+record. This closes the product's "recorded" promise — the receipt an agent
+received is auditable, not just returned out-of-band — while keeping the four
+trust claims separable: *decision allowed*, *audit persisted*, *proof verified*,
+*payment executed*.
 
 ### Security / robustness
 

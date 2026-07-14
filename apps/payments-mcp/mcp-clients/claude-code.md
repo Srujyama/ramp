@@ -34,10 +34,13 @@ No credentials are needed — the executor is a sandbox. Optional env vars
 
 ## Working directory / shared ledger
 
-The server writes decisions to `ramp.db`, resolved relative to its working directory
-(default `ramp.db`). For the read-only bridge and the `verify-proof` CLI to see the
-same decisions, point them at the same file — run them from the repo root, or set
-`RAMP_DB_PATH` to one absolute path for the server, the bridge, and the CLI.
+The server **honors `RAMP_DB_PATH`** (in the config `env` object): set it to one
+absolute path and the server, the read-only bridge, and the `verify-proof` CLI all
+read/write the same ledger — so a payment made through the tool shows up in the
+bridge and the dashboard. Unset, the server writes `ramp.db` relative to its working
+directory. To demo the executor-failure path, add `RAMP_FAIL_VENDORS=<vendorId>` to
+`env` (the sandbox then returns a failed receipt for those vendors; no real provider,
+no secret).
 
 ## Defense in depth: the PreToolUse hook is separate
 

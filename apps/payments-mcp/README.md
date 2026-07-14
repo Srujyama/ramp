@@ -72,13 +72,15 @@ no real provider is configured. Everything is optional and has a safe default:
 | Var | Default | Effect |
 | --- | --- | --- |
 | `RAMP_KERNEL` | *(unset)* | Set to `wasm` to select the wasm-backed kernel **iff** the compiled artifact (`wasm/pkg`) is resolvable; otherwise the always-available TypeScript **reference kernel** is used. Leave unset for the reference kernel. |
-| `RAMP_DB_PATH` | `ramp.db` | Path to the SQLite audit ledger. The default resolves relative to the process working directory. The server, the read-only bridge, and the `verify-proof` CLI must all point at the **same** file to see the same decisions — run them from the same directory or set this consistently. |
+| `RAMP_DB_PATH` | `ramp.db` | Path to the SQLite audit ledger. **Honored by the server** (as well as the bridge and the `verify-proof` CLI): set it to one absolute path so all three read/write the **same** file. Unset → `ramp.db` relative to the process working directory. |
+| `RAMP_FAIL_VENDORS` | *(unset)* | Comma-separated `vendorId`s the sandbox executor should return a **failed** receipt for. Lets a live server deterministically demo the `executor_error` path (allowed + persisted + verified, then the payment fails) with no real provider and no secret. It can only make an allowed payment fail — never turn a deny into a payment. |
 
 ```bash
 # .env.example — copy, adjust, and DO NOT commit real values.
 # All optional. No secrets, no provider credentials — the executor is a sandbox.
 # RAMP_KERNEL=wasm                 # opt into the wasm kernel if the artifact is built
 # RAMP_DB_PATH=/ABSOLUTE/PATH/TO/ramp/ramp.db   # shared ledger path (placeholder!)
+# RAMP_FAIL_VENDORS=acme_corp      # demo: force the sandbox executor to fail for these vendors
 ```
 
 ---
