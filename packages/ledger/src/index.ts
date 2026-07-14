@@ -85,3 +85,10 @@ export type {
   ProvNodeKind,
   ProvenanceErrorKind,
 } from "./provenance.js";
+
+// First-class INDEPENDENT proof re-verification (recomputes; never trusts stored bytes).
+export { verifyDecisionProof } from "./proof-verification.js";
+export type {
+  DecisionProofVerification,
+  ProofVerificationReason,
+} from "./proof-verification.js";
