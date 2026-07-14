@@ -450,8 +450,35 @@
     <div class="sec-head"><span class="sec-num">00</span><h2>The one-sentence pitch</h2></div>
     <div class="callout win">
       <p class="ct">▶ Lead with this</p>
-      <p><b>"Everyone else scopes the card. We prove the decision."</b> Visa, Mastercard, Stripe/OpenAI, and Ramp all hand agents scoped credentials with a small blast radius — that's identity and spend-limit control. Nobody verifies that the authorization decision itself was computed from trustworthy inputs. We do: a Datalog kernel evaluates every request as formal logic (pass/fail, never "87% confident"), and TLSNotary proves the invoice really came from the vendor's server. <b>PostHog tells you your agent spent $4,000; we tell you whether it was allowed to — and prove it.</b></p>
+      <p><b>"Everyone else scopes the card. We prove the decision."</b> Visa, Mastercard, Stripe/OpenAI, and Ramp all hand agents scoped credentials with a small blast radius — that's identity and spend-limit control. Nobody verifies that the authorization decision itself was computed from trustworthy inputs. We do: a Datalog kernel evaluates every request as formal logic (pass/fail, never "87% confident"), and TLSNotary proves the invoice really came from the vendor's server. <b>Ramp's own audit log tells you what the agent did; we tell you whether it was allowed to — and prove it before the money moves.</b></p>
     </div>
+  </section>
+
+  <!-- 00.5 KNOW YOUR JUDGE -->
+  <section>
+    <div class="sec-head"><span class="sec-num">◆</span><h2>Know your judge — Ramp's own words</h2></div>
+    <p class="sec-sub">Ramp published three pieces that draw the exact boundary of their thinking. Two of them tee up your pitch; one names your product for you. Quote them back.</p>
+    <div class="duo" style="grid-template-columns:1fr 1fr;">
+      <div class="panel defense">
+        <span class="tag">Their thesis (opens the door)</span>
+        <ul>
+          <li><b>"Tokens are the third pillar."</b> People, Vendors, and now Tokens — AI inference is a new cost category their whole platform is racing to govern.</li>
+          <li><b>"Tokens are just dollars. Agents are just hires."</b> They are actively normalizing agents committing real money.</li>
+          <li><b>~$15T of B2B purchases involve AI agents by 2028</b> — their number. The stakes are theirs to argue, not yours.</li>
+          <li><b>55% of US businesses now use AI</b> (Ramp AI Index, Jun 2026) — cite it for timing.</li>
+        </ul>
+      </div>
+      <div class="panel threat">
+        <span class="tag">Their gaps (names your product)</span>
+        <ul>
+          <li>Their agentic-payments post lists what it does <i>not</i> solve: <b>no defense against fabricated or manipulated invoices.</b></li>
+          <li><b>No prompt-injection defense.</b> Stated plainly, unsolved.</li>
+          <li><b>No cryptographic attestation</b> of the underlying documents.</li>
+          <li>Vendor identity confirmed only by <b>"database lookup"</b> — not proof the invoice is authentic.</li>
+        </ul>
+      </div>
+    </div>
+    <p style="margin-top:16px; color:var(--ink-2); font-size:14.5px;"><b>The move:</b> open with <i>their</i> stat and <i>their</i> "third pillar" framing so you're extending their story, not attacking it — then land on the four gaps <i>they admitted</i> and show a live demo that closes each one. You're not the contrarian in the room; you're the missing layer they already described.</p>
   </section>
 
   <!-- 01 THREAT / DEFENSE -->
@@ -569,6 +596,10 @@
       <p class="ct">⚠ Defensibility crux #2 — where injection quietly moves</p>
       <p>The kernel is only as trustworthy as its facts. If <code>vendor_verified</code> or <code>daily_total_so_far</code> comes from the model's <i>narration</i>, the attacker just poisons the facts instead of the reasoning — same exploit, one layer up. Pull <code>daily_total_so_far</code> from the <b>ledger DB</b>, <code>vendor_verified</code> from the <b>vendor registry</b>, <code>amount/vendor</code> from the <b>structured tool args</b> — never from free text. Determinism guarantees <i>"same facts → same answer,"</i> not <i>"true facts."</i></p>
     </div>
+    <div class="callout crux">
+      <p class="ct">⚠ Defensibility crux #3 — match ≠ authenticate <span style="opacity:.7">(anticipate the Ramp rebuttal)</span></p>
+      <p>Ramp's published agentic-payments post names a <b>3-way match</b>: PO vs. invoice vs. receiving report. That checks three documents <i>against each other</i> — but if all three are spoofed together (or the invoice is tampered after the PO), the match still passes. <b>TLSNotary authenticates that the invoice bytes actually came from the vendor's real TLS session</b> — a different guarantee entirely. When a judge says "Ramp already does 3-way match," the answer is one line: <i>"matching documents against each other isn't the same as proving the document is real."</i></p>
+    </div>
   </section>
 
   <!-- 04 DETERMINISM -->
@@ -671,7 +702,7 @@
         <h3>Harden + rehearse</h3>
         <ul>
           <li>Kill the demo's rough edges; script the run end-to-end.</li>
-          <li>Rehearse the two crux answers (fail-closed, fact-source) cold.</li>
+          <li>Rehearse the three crux answers (fail-closed, fact-source, match-vs-authenticate) cold.</li>
           <li>Cut a 90-second recording as backup in case live wifi dies.</li>
         </ul>
         <span class="ship stretch">Ship: rehearsed demo + fallback video</span>
@@ -682,20 +713,21 @@
   <!-- 06 DIFFERENTIATION -->
   <section>
     <div class="sec-head"><span class="sec-num">06</span><h2>Why this isn't what's out there</h2></div>
-    <p class="sec-sub">The judges likely include Ramp people. Name the overlap precisely — you're not attacking their core, you're building what comes next in their own architecture.</p>
+    <p class="sec-sub">The judges likely include Ramp people. Name the overlap precisely — you're not attacking their core, you're building what their own published posts say comes next.</p>
     <div class="table-scroll">
       <table>
         <thead>
           <tr><th>Player</th><th>What they solve</th><th>The gap we fill</th></tr>
         </thead>
         <tbody>
+          <tr><td>Ramp Agentic Payments <span style="opacity:.6">(their newest)</span></td><td>Agent Cards (single-use Visa tokens) · "human on the loop" · <b>3-way match</b> (PO/invoice/receiving) · network fraud scoring · immutable audit log</td><td>Their own post lists the gaps: <b>no defense against fabricated/manipulated invoices, no prompt-injection defense, no cryptographic attestation, vendor identity by "database lookup."</b> <span class="us">That list is our product.</span></td></tr>
           <tr><td>Visa / MC / Stripe·OpenAI</td><td>Scoped, limited-use credentials — a $500 virtual card at one vendor</td><td><span class="us">Was the decision computed from trustworthy inputs?</span> Their model is "trust the agent within a small blast radius."</td></tr>
           <tr><td>Ramp Stack / Procurement</td><td>Agents follow codified rules & processes; deterministic compliance checks</td><td>Rules execute correctly against <b>false inputs</b>. <span class="us">We cryptographically verify the source</span> + provenance.</td></tr>
-          <tr><td>PostHog LLM analytics</td><td>Observe: traces, spans, per-token cost, after-the-fact alerts</td><td>Read-only, can't block. <span class="us">Our hook denies before the call runs</span> — non-bypassable because it's in the way.</td></tr>
+          <tr><td>Ramp Token Spend / PostHog</td><td>Observe: token cost by team/model, traces, spans, after-the-fact alerts &amp; audit trails</td><td>Read-only, can't block, and it's <b>inference</b> cost — not money leaving the company. <span class="us">Our hook denies before the call runs</span>; provenance proves the decision <i>at enforce time</i>, not just logs it after.</td></tr>
         </tbody>
       </table>
     </div>
-    <p style="margin-top:18px; color:var(--ink-2); font-size:14.5px;"><b>The framing that wins:</b> Ramp is solving the <i>platform</i> problem — deploying agents in finance at scale. We solve the <i>trust</i> problem — making the authorization both logically sound and grounded in verified inputs. Complementary, not competing. Ramp would ideally be the platform our provable decisions run on.</p>
+    <p style="margin-top:18px; color:var(--ink-2); font-size:14.5px;"><b>The framing that wins:</b> Ramp is solving the <i>platform</i> problem — deploying agents in finance at scale (their own projection: <b>~$15T of B2B purchases involve agents by 2028</b>). We solve the <i>trust</i> problem — making the authorization both logically sound and grounded in verified inputs. Complementary, not competing. Ramp would ideally be the platform our provable decisions run on. Their audit log records <i>what the agent did, after the fact</i>; our provenance <b>proves the decision was computed correctly from authenticated inputs — before the money moves.</b></p>
   </section>
 
   <!-- 07 DEMO -->
@@ -742,9 +774,9 @@
     </div>
   </section>
 
-  <div class="foot">
-    <span>Financial Infra · Provable Agent Spend</span>
-    <span>github.com/Srujyama/ramp</span>
+  <div class="foot" style="flex-direction:column; align-items:flex-start; gap:6px;">
+    <span style="opacity:.75">Sources cited: ramp.com/blog/ramp-at-44-billion-the-third-pillar · ramp.com/blog/agentic-payments · ramp.com/data (Ramp Economics Lab)</span>
+    <span style="display:flex; gap:14px; flex-wrap:wrap;"><span>Financial Infra · Provable Agent Spend</span><span>github.com/Srujyama/ramp</span></span>
   </div>
 
 </div>
