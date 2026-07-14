@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-test/
+*.tsbuildinfo
+
+# WASM / Rust build artifacts (the wasm kernel is OPTIONAL — never commit its output)
+packages/gate/wasm/pkg/
+target/
+*.wasm
+
+# Local databases (the ledger is rebuilt from schema.sql + seed.sql via `pnpm db:reset`)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# OS / editor cruft
+.DS_Store

@@ -1,0 +1,30 @@
+# CODEOWNERS — Provable Agent Spend
+# Every PR touching a path below requests a review from its owner.
+# Owners: @Srujyama (owner), @neilporw, @JonKach.
+#
+# Split of the 5 workspaces:
+#   @Srujyama  — the gate (hero) + the shared contract + repo wiring
+#   @neilporw  — the ledger/registry fact source + the payments MCP stub
+#   @JonKach   — the dashboard shell
+# Later, more specific rules win, so the fallback comes first.
+
+# Fallback: the owner reviews anything not otherwise claimed.
+*                           @Srujyama
+
+# --- Shared contract + the hero gate + hook (owner) -------------------------
+/packages/shared/           @Srujyama
+/packages/gate/             @Srujyama
+/.claude/                   @Srujyama
+
+# --- Authoritative facts + the spend seam (neil) ---------------------------
+/packages/ledger/           @neilporw
+/apps/payments-mcp/         @neilporw
+
+# --- Dashboard shell (jon) -------------------------------------------------
+/apps/dashboard/            @JonKach
+
+# --- Repo infra: owner keeps CI + CODEOWNERS + root config -----------------
+/.github/                   @Srujyama
+/package.json               @Srujyama
+/pnpm-workspace.yaml        @Srujyama
+/tsconfig.base.json         @Srujyama

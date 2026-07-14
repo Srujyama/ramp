@@ -1,0 +1,35 @@
+{
+  "name": "@ramp/gate",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Provable Agent Spend — the deterministic policy kernel (TS reference oracle + optional Souffle/WASM impl behind one PolicyKernel interface).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "datalog",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
+    "lint": "tsc -b",
+    "pretest": "tsc -b && tsc -p tsconfig.test.json",
+    "test": "node --test \"dist-test/**/*.test.js\"",
+    "build:wasm": "bash scripts/build-wasm.sh",
+    "test:parity": "tsc -p tsconfig.test.json && node --test dist-test/test/parity.test.js"
+  },
+  "dependencies": {
+    "@ramp/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.7.3"
+  }
+}

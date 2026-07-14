@@ -1,0 +1,479 @@
+/* ============================================================================
+ * @ramp/dashboard — design tokens
+ * ----------------------------------------------------------------------------
+ * Cool blue-slate neutrals, a single verification-green accent (used ONLY to
+ * signal a proven ALLOW), and deny-red / warn-amber / info-blue SEMANTIC
+ * colors. Light is the default; dark applies via prefers-color-scheme AND an
+ * explicit [data-theme="dark"] override so a future toggle can force either.
+ *
+ * These mirror the hackathon plan's palette:
+ *   --bg #F7F8FA · --surface #FFFFFF · --ink #131924
+ *   --accent #06A97A (verification green, ALLOW only)
+ *   --deny #E5484D · --warn #C77700 · --info #3358D4
+ * ==========================================================================*/
+
+:root {
+  /* --- neutrals: cool blue-slate ------------------------------------------ */
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-2: #f1f3f7;
+  --ink: #131924;
+  --ink-muted: #566072;
+  --ink-faint: #8a93a5;
+  --border: #e3e7ee;
+  --border-strong: #cdd4e0;
+
+  /* --- semantic ----------------------------------------------------------- */
+  --accent: #06a97a; /* verification green — reserved for proven ALLOW */
+  --accent-soft: #e2f6ef;
+  --deny: #e5484d;
+  --deny-soft: #fdeaea;
+  --warn: #c77700;
+  --warn-soft: #fbf0dc;
+  --info: #3358d4;
+  --info-soft: #e7ecfb;
+
+  /* --- elevation / radius ------------------------------------------------- */
+  --shadow-sm: 0 1px 2px rgba(19, 25, 36, 0.06);
+  --shadow-md: 0 4px 16px rgba(19, 25, 36, 0.08);
+  --radius: 10px;
+  --radius-sm: 7px;
+  --radius-lg: 16px;
+
+  /* --- type stacks -------------------------------------------------------- */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo,
+    Consolas, "Liberation Mono", monospace;
+
+  /* --- layout ------------------------------------------------------------- */
+  --sidebar-w: 248px;
+  --header-h: 60px;
+
+  color-scheme: light;
+}
+
+/* Dark palette — applied automatically by OS preference … */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1117;
+    --surface: #161b24;
+    --surface-2: #1d2430;
+    --ink: #eef2f8;
+    --ink-muted: #a4afc0;
+    --ink-faint: #6b7688;
+    --border: #262d3a;
+    --border-strong: #333c4c;
+
+    --accent: #2fd6a5;
+    --accent-soft: #0f2b25;
+    --deny: #ff6369;
+    --deny-soft: #2c1516;
+    --warn: #e79b2f;
+    --warn-soft: #2b2110;
+    --info: #6b8afd;
+    --info-soft: #141c34;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 18px rgba(0, 0, 0, 0.45);
+
+    color-scheme: dark;
+  }
+}
+
+/* … and forced on by an explicit toggle, regardless of OS preference. */
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --surface: #161b24;
+  --surface-2: #1d2430;
+  --ink: #eef2f8;
+  --ink-muted: #a4afc0;
+  --ink-faint: #6b7688;
+  --border: #262d3a;
+  --border-strong: #333c4c;
+
+  --accent: #2fd6a5;
+  --accent-soft: #0f2b25;
+  --deny: #ff6369;
+  --deny-soft: #2c1516;
+  --warn: #e79b2f;
+  --warn-soft: #2b2110;
+  --info: #6b8afd;
+  --info-soft: #141c34;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 18px rgba(0, 0, 0, 0.45);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+code,
+kbd,
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* ---- app frame --------------------------------------------------------- */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100vh;
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-header {
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.app-header h1 {
+  font-size: 15px;
+  font-weight: 650;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.app-header .crumb {
+  color: var(--ink-faint);
+  font-weight: 400;
+}
+
+.app-content {
+  padding: 28px;
+  flex: 1;
+  max-width: 1180px;
+  width: 100%;
+}
+
+.page-head {
+  margin: 0 0 22px;
+}
+
+.page-head h2 {
+  font-size: 22px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+
+.page-head p {
+  margin: 0;
+  color: var(--ink-muted);
+  max-width: 62ch;
+}
+
+/* ---- sidebar ----------------------------------------------------------- */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px;
+  gap: 4px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 20px;
+}
+
+.sidebar .brand .mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--info));
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+  flex: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar .brand .name {
+  font-weight: 680;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.sidebar .brand .sub {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-muted);
+  font-weight: 520;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.nav-link:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.nav-link.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 620;
+}
+
+.nav-link .ico {
+  width: 18px;
+  text-align: center;
+  font-size: 15px;
+}
+
+.sidebar .foot {
+  margin-top: auto;
+  padding: 12px 12px 0;
+  border-top: 1px solid var(--border);
+  color: var(--ink-faint);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ---- cards / grid ------------------------------------------------------ */
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.grid.tiles {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.grid.two {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+.card h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 640;
+}
+
+.card .card-sub {
+  color: var(--ink-faint);
+  font-size: 12px;
+  margin: 0 0 14px;
+}
+
+/* ---- stat tile --------------------------------------------------------- */
+.stat-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-tile .st-label {
+  font-size: 12px;
+  color: var(--ink-muted);
+  font-weight: 550;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.stat-tile .st-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex: none;
+}
+
+.stat-tile.accent .st-dot {
+  background: var(--accent);
+}
+.stat-tile.deny .st-dot {
+  background: var(--deny);
+}
+.stat-tile.warn .st-dot {
+  background: var(--warn);
+}
+.stat-tile.info .st-dot {
+  background: var(--info);
+}
+
+.stat-tile .st-value {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-tile .st-value.placeholder {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 20px;
+}
+
+.stat-tile .st-hint {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+/* ---- badges ------------------------------------------------------------ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 640;
+  letter-spacing: 0.01em;
+}
+
+.badge.allow {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.badge.deny {
+  background: var(--deny-soft);
+  color: var(--deny);
+}
+.badge.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.badge.info {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+/* ---- empty state ------------------------------------------------------- */
+.empty {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--ink-muted);
+}
+
+.empty .em-icon {
+  font-size: 26px;
+  opacity: 0.55;
+  margin-bottom: 8px;
+}
+
+.empty h4 {
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 620;
+}
+
+.empty p {
+  margin: 0 auto;
+  max-width: 44ch;
+  font-size: 13px;
+}
+
+/* ---- misc -------------------------------------------------------------- */
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.kbar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.kbar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--info));
+}
+
+@media (max-width: 780px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar .foot {
+    display: none;
+  }
+}
