@@ -86,6 +86,10 @@ export type {
   ProvenanceErrorKind,
 } from "./provenance.js";
 
+// Deterministic, trust-derived provenance-DAG builder (feeds buildProof).
+export { buildDecisionProvenance } from "./provenance-builder.js";
+export type { DecisionProvenanceInput } from "./provenance-builder.js";
+
 // First-class INDEPENDENT proof re-verification (recomputes; never trusts stored bytes).
 export { verifyDecisionProof } from "./proof-verification.js";
 export type {

@@ -24,6 +24,8 @@
 // under --dangerously-skip-permissions.
 // ----------------------------------------------------------------------------
 
+import { randomUUID } from "node:crypto";
+
 /**
  * Emit a PreToolUse deny decision and exit non-zero. This is the ONLY error
  * path — every catch funnels here so a failure can never allow a spend.
@@ -127,6 +129,21 @@ async function main() {
     facts = shared.translateToFacts(req, authoritative);
   } catch (err) {
     // Unreachable/malformed authoritative source -> fail closed.
+    // Best-effort audit of the infrastructure failure: we have `req` and (usually)
+    // an open `db`. status:"error", no decision, no fabricated rule — an honest
+    // infra row, NOT one of the five policy denies. Never blocks the fail-closed
+    // deny below (a failed audit here must not mask the original error).
+    try {
+      if (db && typeof ledger.recordDecision === "function") {
+        ledger.recordDecision(db, {
+          decisionId: randomUUID(),
+          request: req,
+          status: "error",
+        });
+      }
+    } catch {
+      /* best-effort; the deny below still fails closed */
+    }
     closeQuietly(ledger, db);
     denyAndExit(
       "denied (fail-closed): authoritative fact source unavailable (" +
@@ -138,11 +155,14 @@ async function main() {
 
   // ---- 4. evaluate with the deterministic kernel -----------------------
   let decision;
+  let kernelId;
   try {
     if (typeof gate.getKernel !== "function") {
       throw new Error("@ramp/gate.getKernel missing");
     }
     const described = gate.getKernel();
+    kernelId =
+      described && typeof described.kind === "string" ? described.kind : undefined;
     const kernel = described && described.kernel ? described.kernel : described;
     if (!kernel || typeof kernel.evaluate !== "function") {
       throw new Error("kernel has no evaluate()");
@@ -151,6 +171,74 @@ async function main() {
   } catch (err) {
     closeQuietly(ledger, db);
     denyAndExit("denied (fail-closed): kernel failed (" + errMsg(err) + ")");
+    return;
+  }
+
+  // ---- 4b. PERSIST the audit row (allow OR deny) BEFORE enforcing ------
+  //   The hook is the only holder of exact facts+decision, so it is the writer.
+  //   A fresh hook-minted UUID is the stable correlation id (no native tool_use_id
+  //   exists, and no frozen shape carries one). recordDecision stores facts +
+  //   decision VERBATIM and derives status from the decision — it never recomputes
+  //   policy or fabricates a rule. A tamper-evident proof is built and persisted
+  //   ATOMICALLY with the decision; attestation is reported honestly
+  //   (present_unverified when an attestation accompanied the request, else absent
+  //   — never "verified", which would require an actual verification result we do
+  //   not have here). policy/kernel-version digests we lack stay null, unfabricated.
+  //   FAIL-CLOSED: if the audit write throws, we DENY (an un-auditable allow is not
+  //   a provable allow). This is an infrastructure deny — the reason says so and NO
+  //   fired rule is fabricated, so it is never mislabeled as a policy deny.
+  try {
+    if (
+      typeof ledger.recordDecision === "function" &&
+      decision &&
+      typeof decision === "object"
+    ) {
+      const decisionId = randomUUID();
+      // Derive INDEPENDENT provenance from trusted execution context only (the
+      // structured request, the AUTHORITATIVE facts, the decision, the kernel id).
+      // The graph is DERIVED here — never accepted from the agent — and folded into
+      // the proof hash by buildProof (which validates it first). If provenance
+      // construction is unavailable OR the graph is invalid, buildProof throws and
+      // this whole block fails closed below, exactly like an audit-write failure —
+      // an un-provable allow is never persisted as an incomplete proof.
+      let provenance;
+      if (typeof ledger.buildDecisionProvenance === "function") {
+        provenance = ledger.buildDecisionProvenance({
+          request: req,
+          decision,
+          facts,
+          kernelId,
+        });
+      }
+      let proof;
+      if (typeof ledger.buildProof === "function") {
+        proof = ledger.buildProof({
+          decisionId,
+          request: req,
+          decision,
+          facts,
+          kernelId,
+          attestation: {
+            status:
+              facts && facts.attestation_present ? "present_unverified" : "absent",
+          },
+          provenance,
+        });
+      }
+      ledger.recordDecision(db, {
+        decisionId,
+        request: req,
+        facts,
+        decision,
+        kernelId,
+        proof,
+      });
+    }
+  } catch (err) {
+    closeQuietly(ledger, db);
+    denyAndExit(
+      "denied (fail-closed): could not persist audit record (" + errMsg(err) + ")",
+    );
     return;
   } finally {
     closeQuietly(ledger, db);
