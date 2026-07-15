@@ -209,7 +209,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
         <Timeline v={v} />
       </Section>
 
-      <div className="grid two">
+      <div className="detail-cards">
         <Section title="Purchase request" sub="The structured spend request the agent submitted (untrusted input).">
           <dl className="kv">
             <Row k="Agent">{v.agentId}</Row>

@@ -1046,6 +1046,23 @@ kbd,
 }
 .sim-result > :first-child { margin-top: 0; }
 
+/* --- decision detail cards: masonry column-flow so uneven-height cards pack
+   tightly instead of stranding gaps under short cards in a rigid grid row --- */
+.detail-cards {
+  column-count: 3;
+  column-gap: 16px;
+}
+.detail-cards > .card {
+  break-inside: avoid;
+  margin-bottom: 16px;
+}
+@media (max-width: 900px) {
+  .detail-cards { column-count: 2; }
+}
+@media (max-width: 600px) {
+  .detail-cards { column-count: 1; }
+}
+
 /* --- decision detail header (title / badges / timestamp / labeled ids) ------ */
 .detail-head {
   display: flex;
