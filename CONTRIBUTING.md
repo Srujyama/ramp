@@ -64,6 +64,9 @@ review is required.
 | The hook              | `.claude/`             | @Srujyama   | The fail-closed PreToolUse enforcement point. |
 | Repo infra            | `.github/`, root config| @Srujyama   | CI, CODEOWNERS, root scaffolding.       |
 
+Collaborators: **@Srujyama** (owner), **@neilporw**, **@JonKach**, **@tomasciar**. @tomasciar has no
+workspace claimed yet — pick one and add a `CODEOWNERS` line rather than leaving it to the fallback.
+
 ## The contract is frozen — do not drift it
 
 The whole security argument is "same facts → same answer, and the facts are true." That

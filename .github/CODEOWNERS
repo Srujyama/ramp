@@ -1,11 +1,12 @@
 # CODEOWNERS — Provable Agent Spend
 # Every PR touching a path below requests a review from its owner.
-# Owners: @Srujyama (owner), @neilporw, @JonKach.
+# Owners: @Srujyama (owner), @neilporw, @JonKach, @tomasciar.
 #
 # Split of the 8 workspaces:
 #   @Srujyama  — the gate (hero) + the three security pillars + the shared contract + repo wiring
 #   @neilporw  — the ledger/registry fact source + the payments MCP stub
 #   @JonKach   — the dashboard shell
+#   @tomasciar — see the fallback; no area claimed yet
 # Later, more specific rules win, so the fallback comes first.
 
 # Fallback: the owner reviews anything not otherwise claimed.

@@ -23,6 +23,7 @@ import {
   StateCard,
   Skeleton,
 } from "../components/ui.js";
+import Rederive from "../components/Rederive.js";
 
 /**
  * @ramp/dashboard — DecisionDetail
@@ -301,6 +302,13 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
               <Row k="Policy engine">{v.proof?.kernelId ?? v.kernelId ?? "—"}</Row>
             </dl>
           </div>
+        </Section>
+
+        <Section
+          title="Re-derive the decision"
+          sub="Don't take our word for it: run the real policy engine on the stored facts, here in your browser, and see if the recorded outcome falls out."
+        >
+          <Rederive facts={v.facts} decision={v.decision} />
         </Section>
 
         <Section title="Payment · sandbox receipt" sub="What the sandbox executor did. No real money moves; a failed receipt is never shown as settled.">
