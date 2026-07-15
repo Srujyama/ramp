@@ -94,6 +94,41 @@ numbers wearing one name, which is how caps get argued upward until they're deco
 `--dangerously-skip-permissions`**. The model can't talk past it and a flag can't
 skip it. Human-in-the-loop is a control here, not a convention.
 
+### The agent cannot approve itself. That's the whole ballgame.
+
+An escalation the requester can grant is **worse than no escalation at all** — it
+manufactures a documented human-in-the-loop that never had a human in it, and
+everyone downstream believes it.
+
+So there is **no MCP tool that approves.** The agent's tools are read-only by
+construction: `check_budget` (how much room is left), `preview_payment` (what
+*would* policy say — real kernel, zero side effects), `check_approval` (has a
+human answered?), `list_decisions`. It can **wait** for an answer; it cannot
+**make** one. Approving is `pnpm approve` — a person at a terminal, on a channel
+the agent cannot reach.
+
+That separation isn't a tool description asking the model nicely; the model is
+free to ignore prose. It's enforced by there being **no code path**, and by an
+architecture test that fails CI if anyone adds one. (Mutation-tested: importing
+the approver into the agent's tools turns CI red.)
+
+**And approval binds to the exact facts.** A human approves *one decision*,
+identified by its content digest — not "the next payment from agent_47".
+Otherwise: get a $1 escalation approved, then present it against a $50,000
+payment. Change the facts and the approval evaporates.
+
+Two more defaults that matter: **silence is not consent** (an unresolved
+escalation is not payable — stated positively, because a `!rejected` check would
+treat "nobody looked yet" as permission), and **a deny cannot be approved** (the
+lattice holds here too, or every deny rule is negotiable).
+
+*Stated honestly:* `--by alice` is **recorded, not authenticated**. In the demo,
+whoever runs the CLI can write any name. A real deployment puts an authenticated
+identity there and the ledger's shape doesn't change — it already treats the
+approver as data to record, not a claim to believe. An approval trail that looks
+authoritative and is really "whoever ran the command" is exactly what gets
+mistaken for a control.
+
 ## The hero: hook, not tool (non-bypassable, fail-closed)
 
 Enforcement is a Claude Code **`PreToolUse` hook**, matcher `mcp__payments__.*`.
@@ -250,7 +285,7 @@ workspaces: `@ramp/shared` (frozen contract), `@ramp/gate` (kernel + real Souffl
 **`@ramp/quarantine`**, **`@ramp/attestation`**, **`@ramp/provenance`**, `@ramp/payments-mcp`
 (self-enforcing tool), `@ramp/dashboard` (the audit console). CI, branch protection, 4 collaborators.
 
-**387 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
+**405 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 

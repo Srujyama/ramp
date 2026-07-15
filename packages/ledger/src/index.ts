@@ -10,6 +10,22 @@
  * These are pure DB reads; they NEVER trust the model's narration.
  */
 export { migrateDecisionsChecks } from "./migrate.js";
+
+// Human resolution of an escalation. NOTE: `resolveEscalation` is HUMAN-CHANNEL
+// ONLY — no MCP tool may reach it, or the requesting agent approves itself and
+// escalation becomes theatre. Agent-facing code gets the read-only helpers.
+export {
+  resolveEscalation,
+  approvalFor,
+  isApprovedForPayment,
+  listPendingEscalations,
+  ApprovalError,
+} from "./approval.js";
+export type {
+  ApprovalRecord,
+  ApprovalVerdict,
+  ResolveEscalationInput,
+} from "./approval.js";
 export {
   openLedger,
   openLedgerStrict,
