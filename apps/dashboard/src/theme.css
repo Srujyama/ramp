@@ -563,29 +563,24 @@ kbd,
   border: 0;
 }
 
-/* --- persistent sandbox banner (never let an amount imply real money) ------ */
-.sandbox-banner {
+/* --- subtle sandbox indicator (honest context, not an alarm) --------------- */
+.sandbox-note {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: var(--warn-soft);
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 16px;
+  gap: 7px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 4px 16px;
   border-bottom: 1px solid var(--border);
 }
-.sandbox-banner .dot {
-  width: 7px;
-  height: 7px;
+.sandbox-note .dot {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--warn);
   flex: none;
-}
-.sandbox-banner .muted {
-  color: var(--ink-muted);
-  font-weight: 500;
 }
 
 /* --- status chips ---------------------------------------------------------- */
@@ -1043,3 +1038,13 @@ kbd,
 }
 .id-copy:hover { color: var(--ink); }
 
+
+/* --- decision-row explanation (deterministic human summary above the rules) - */
+.explain-cell { max-width: 42ch; }
+.row-explain {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.row-explain + .cell-rules { margin-top: 2px; }

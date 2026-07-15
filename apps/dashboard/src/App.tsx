@@ -17,7 +17,7 @@ import Policy from "./pages/Policy.js";
  * and money. Reads the append-only decision log through the read-only ledger
  * bridge and shows, per autonomous purchase, the policy outcome, its independent
  * proof verification, its provenance, and its sandbox payment — nothing
- * fabricated. Enforcement lives in the gate/hook, not this UI.
+ * fabricated. Enforcement lives in the policy gate, not this UI.
  */
 
 const CRUMBS: Record<string, string> = {

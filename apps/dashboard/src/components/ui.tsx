@@ -23,13 +23,20 @@ export function Chip({ chip }: { chip: StatusChip }): JSX.Element {
   );
 }
 
-/** Persistent, unmissable "this is a sandbox" banner. */
+/**
+ * Subtle, persistent environment indicator. Small by design — the sandbox
+ * nature is honest context, not an alarm. Reads "Demo environment · Sandbox
+ * payments"; the full "no real money moves" detail is the tooltip.
+ */
 export function SandboxBanner(): JSX.Element {
   return (
-    <div className="sandbox-banner" role="note">
+    <div
+      className="sandbox-note"
+      role="note"
+      title="Sandbox payments — amounts and receipts are simulated. No real money moves."
+    >
       <span className="dot" aria-hidden="true" />
-      Sandbox mode — no real money moves.
-      <span className="muted">Amounts and receipts are simulated for the demo.</span>
+      Demo environment · Sandbox payments
     </div>
   );
 }

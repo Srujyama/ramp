@@ -48,8 +48,7 @@ export function Sidebar(): JSX.Element {
       ))}
 
       <div className="foot">
-        Read-only audit console. Enforcement lives in the policy gate + PreToolUse
-        hook, not this UI.
+        Read-only audit console. Enforcement lives in the policy gate, not this UI.
       </div>
     </nav>
   );
