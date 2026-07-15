@@ -104,8 +104,24 @@ CREATE TABLE IF NOT EXISTS decisions (
   -- a repeat with a DIFFERENT digest is a conflict and is REJECTED (never
   -- overwritten). See recordDecision() in src/decision-log.ts.
   content_digest      TEXT NOT NULL,
+  -- ---- HASH CHAIN (tamper-evidence ACROSS decisions) ----------------------
+  -- Without these, every proof is an island: each one commits only to itself, so
+  -- `DELETE FROM decisions WHERE ...` leaves a trail where every remaining proof
+  -- still verifies perfectly. That was demonstrated against this DB, not assumed.
+  -- Each decision commits to the one before it, so removal/reordering/insertion
+  -- breaks the chain from that point to the head. See src/chain.ts.
+  --
+  -- Nullable because rows written before the chain existed legitimately have no
+  -- link, and back-filling one would be fabricating a history we cannot vouch
+  -- for. verifyChain() skips them and says so rather than quietly inventing it.
+  seq                 INTEGER,          -- 1-based position; genesis is 0
+  prev_chain_hash     TEXT,             -- the previous decision's chain_hash
+  chain_hash          TEXT,             -- H(prev_chain_hash || proof_id || decision_id)
   ts                  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Position must be unique: two rows claiming one slot is a fork, not a log.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_decisions_seq ON decisions (seq) WHERE seq IS NOT NULL;
 -- Compound (ts, decision_id) indexes back the keyset pagination + every filter.
 CREATE INDEX IF NOT EXISTS idx_decisions_ts      ON decisions (ts DESC, decision_id DESC);
 CREATE INDEX IF NOT EXISTS idx_decisions_agent   ON decisions (agent_id, ts DESC, decision_id DESC);

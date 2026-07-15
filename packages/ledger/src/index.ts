@@ -108,6 +108,22 @@ export type {
 } from "./provenance.js";
 
 // Deterministic, trust-derived provenance-DAG builder (feeds buildProof).
+// Hash chain: tamper-evidence ACROSS decisions (deletion/reordering), which
+// per-proof integrity cannot see. Publish `chainHead` where you don't control it.
+export {
+  verifyChain,
+  chainHead,
+  nextLink,
+  linkHash,
+  GENESIS_CHAIN_HASH,
+} from "./chain.js";
+export type {
+  ChainVerification,
+  ChainDefect,
+  ChainDefectKind,
+  ChainLink,
+} from "./chain.js";
+
 export { buildDecisionProvenance } from "./provenance-builder.js";
 export type { DecisionProvenanceInput } from "./provenance-builder.js";
 

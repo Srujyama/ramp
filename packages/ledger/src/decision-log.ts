@@ -44,6 +44,7 @@ import type {
 } from "@ramp/shared";
 import { isSpendRequest } from "@ramp/shared";
 import type { LedgerDb } from "./db.js";
+import { nextLink } from "./chain.js";
 import { sha256OfJson, type Json } from "./canonical-hash.js";
 import { isLedgerProofShape, type LedgerProof } from "./proof.js";
 
@@ -324,8 +325,8 @@ export function recordDecision(
     `INSERT OR IGNORE INTO decisions
        (decision_id, request_id, status, outcome, agent_id, vendor_id, amount,
         category, attestation_present, kernel_id, request_json, facts_json,
-        decision_json, content_digest, ts)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`,
+        decision_json, content_digest, seq, prev_chain_hash, chain_hash, ts)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`,
   );
   const insertRule = db.prepare(
     "INSERT INTO decision_fired_rules (decision_id, ord, rule_id) VALUES (?, ?, ?)",
@@ -341,6 +342,15 @@ export function recordDecision(
 
   db.exec("BEGIN IMMEDIATE");
   try {
+    // The chain link is computed HERE, inside BEGIN IMMEDIATE, on purpose. The
+    // write lock is already held, so `nextLink`'s read of the current head cannot
+    // interleave with a racing writer's. Computing it before the transaction
+    // would let two concurrent writers read the same head, claim the same `seq`,
+    // and fork the chain — which the unique index on `seq` would then surface as
+    // a crash rather than a fork, but only after one of them had already been
+    // told its decision was recorded.
+    const link = nextLink(db, decisionId, input.proof?.proofId ?? null);
+
     const res = insert.run(
       decisionId,
       requestId,
@@ -356,6 +366,9 @@ export function recordDecision(
       input.facts === undefined ? null : JSON.stringify(input.facts),
       input.decision === undefined ? null : JSON.stringify(input.decision),
       contentDigest,
+      link.seq,
+      link.prevChainHash,
+      link.chainHash,
       input.ts ?? null,
     );
     const inserted = res.changes === 1;
