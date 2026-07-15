@@ -62,9 +62,25 @@ jobs:
         run: pnpm demo
 
       # Re-verify the bundles the gate just sealed, with an independent verifier
-      # that re-derives each decision from its recorded facts.
-      - name: Independently verify the sealed provenance bundles
+      # that re-derives each decision from its recorded facts. Also walks the
+      # hash chain — deleting a decision used to be completely invisible.
+      - name: Independently verify the sealed provenance bundles + the chain
         run: pnpm proof --summary
+
+      # Run the AUDITOR'S verifier exactly as an auditor would: one file, copied
+      # out of the repo, with no node_modules and nothing from the workspace.
+      #
+      # Running it in place would prove nothing — it would silently keep working
+      # if it ever grew a dependency on the monorepo, and the whole claim of that
+      # file is that it has none. Copying it to an empty directory is the claim,
+      # tested. If this step fails, the file we hand auditors is a lie.
+      - name: Verify bundles with the standalone auditor's verifier (zero deps)
+        run: |
+          mkdir -p /tmp/auditor-ci
+          cp verify-ramp-proof.mjs /tmp/auditor-ci/
+          cp -r .ramp/bundles /tmp/auditor-ci/bundles
+          cd /tmp/auditor-ci
+          node verify-ramp-proof.mjs bundles
 
   # OPTIONAL job: only does real work where souffle + wasm-pack exist. It never gates
   # the build — the TS reference kernel is always present, so the `build` job above is

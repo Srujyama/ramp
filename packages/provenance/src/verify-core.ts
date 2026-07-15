@@ -139,6 +139,17 @@ export interface DecisionBundle {
   readonly evaluatedAt: string;
   /** sha256 over everything above. Pins the entire bundle. */
   readonly bundleDigest: string;
+  /**
+   * The gate's signature over `bundleDigest`, when the gate was configured with a
+   * key. Optional: bundles written before signing existed are legitimately
+   * unsigned, and treating them as forged would be as wrong as treating an
+   * unsigned forgery as genuine.
+   *
+   * EXCLUDED from `bundleDigest` — it is computed over the digest, so it cannot
+   * also be inside it. Verified separately via @ramp/provenance's
+   * `verifyBundleSignature` with a keyring supplied OUT OF BAND.
+   */
+  readonly gateSignature?: import("./sign.js").GateSignature;
 }
 
 /**
@@ -295,7 +306,15 @@ export function verifyBundleCore(
     });
   }
 
-  const { bundleDigest, ...unsealed } = bundle;
+  // BOTH `bundleDigest` and `gateSignature` are excluded from the digest.
+  //
+  // `bundleDigest` obviously — it is the digest. `gateSignature` because it is
+  // computed OVER the digest and attached afterwards: including it would require
+  // the signature to be inside the thing it signs, which is not a thing that can
+  // exist. Forgetting this made every signed bundle report
+  // `bundle_digest_mismatch` — i.e. "tampered" — the moment signing was turned
+  // on. Caught by running the demo, not by the unit tests.
+  const { bundleDigest, gateSignature: _signature, ...unsealed } = bundle;
   const recomputedBundle = sha256(canonicalJson(unsealed as UnsealedBundle));
   if (recomputedBundle !== bundleDigest) {
     defects.push({

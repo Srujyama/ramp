@@ -58,7 +58,11 @@ export async function verifyInBrowser(
   const factsCanonical = canonicalJson(bundle.facts);
   wanted.set(factsCanonical, await sha256Hex(factsCanonical));
 
-  const { bundleDigest: _omit, ...unsealed } = bundle;
+  // Strip `gateSignature` as well as `bundleDigest`: the signature is computed
+  // over the digest and attached after sealing, so it cannot be inside it. Must
+  // match verify-core's exclusion exactly or the browser and the CLI disagree —
+  // and "the two verifiers disagree" is the one bug a proof system can't survive.
+  const { bundleDigest: _omit, gateSignature: _sig, ...unsealed } = bundle;
   const unsealedCanonical = canonicalJson(unsealed);
   wanted.set(unsealedCanonical, await sha256Hex(unsealedCanonical));
 

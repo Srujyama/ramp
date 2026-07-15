@@ -141,6 +141,27 @@ pnpm dev             # dashboard (Vite) — the Audit page re-verifies in your b
 pnpm mcp             # (separately) run the stub payments MCP server
 ```
 
+### Auditing this without trusting us
+
+`pnpm proof` verifies bundles — by importing our code, from our repo. If you're auditing us that's
+worth nothing: you'd be asking the thing under audit whether it's honest. So there's one file with
+**zero dependencies** you can copy anywhere:
+
+```bash
+cp verify-ramp-proof.mjs /somewhere/empty/
+cd /somewhere/empty && node verify-ramp-proof.mjs bundles/          # no install, no network
+node verify-ramp-proof.mjs bundles/ --gate-key gate-public.pem      # also check authenticity
+```
+
+It re-derives every decision from its own recorded facts and checks the recorded verdict falls out.
+You don't have to trust our monorepo — only ~300 lines you can read in ten minutes, and `node`. CI
+runs it from an empty directory, so the "zero deps" claim can't quietly rot.
+
+It's a **second kernel**, which is a real risk: two implementations can disagree, and a verifier that
+disagrees with the gate is worse than none. That's handled the same way the repo handles its WASM
+kernel — a parity test cross-checks it against the reference oracle on the golden cases and **5000
+randomized fact sets**, and CI fails on a single character of drift.
+
 **`pnpm test` is not the bar; `pnpm demo` is.** The tests prove the *kernel* works. `pnpm demo`
 spawns `hook/evaluate.mjs` as a real subprocess — exactly how Claude Code invokes it — and asserts
 the **exit code**, which is the actual contract with Claude Code. A green kernel behind a broken

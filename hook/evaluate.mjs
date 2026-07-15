@@ -258,7 +258,7 @@ async function main() {
       },
     ];
 
-    const bundle = provenanceLib.buildBundle({
+    const sealed = provenanceLib.buildBundle({
       requestId: facts.request_id,
       facts,
       provenance,
@@ -266,6 +266,23 @@ async function main() {
       kernel: { kind: kernelId ?? "reference" },
       evaluatedAt: new Date().toISOString(),
     });
+
+    // SIGN the sealed bundle. Re-derivation already catches an EDITED bundle —
+    // you cannot reseal your way out of arithmetic. It cannot catch a FABRICATED
+    // one: a forger who writes a new, internally coherent bundle passes every
+    // check, because nothing is wrong with it except that it never happened.
+    // The signature is what says "the gate produced this", and it separates disk
+    // compromise (stopped) from gate compromise (not stopped — they'd have the
+    // key). Audit artifacts get copied, synced and archived far more widely than
+    // the process that made them, and every copy is a place to tamper.
+    const bundle = {
+      ...sealed,
+      gateSignature: provenanceLib.signBundleDigest(
+        sealed.bundleDigest,
+        provenanceLib.demoGatePrivateKey(),
+        provenanceLib.DEMO_GATE_KEY_ID,
+      ),
+    };
 
     // Best-effort: failing to write the PORTABLE bundle must not move the
     // decision. It is a convenience artifact for the auditor CLI; the ledger row
