@@ -32,11 +32,14 @@ import {
   type DecisionRecord,
   type ListDecisionsQuery,
 } from "./decision-log.js";
-import type { DecisionOutcome, RuleId } from "@ramp/shared";
+import type { DecisionOutcome, RuleId, PolicyKernel } from "@ramp/shared";
+import { getKernel } from "@ramp/gate";
 import type { DecisionStatus } from "./decision-log.js";
 import type { ProvenanceGraph } from "./provenance.js";
 // SEAM: independent proof re-verification lives in its own module (Agent B).
 import { verifyDecisionProof, type DecisionProofVerification } from "./proof-verification.js";
+// SEAM: the read-only Policy Simulator (no persistence, no execution).
+import { simulate } from "./simulate.js";
 
 /** Options for {@link createLedgerBridge}. */
 export interface LedgerBridgeOptions {
@@ -48,6 +51,12 @@ export interface LedgerBridgeOptions {
   readonly maxUrlLength?: number;
   /** Max request `Content-Length` before a 413. Default 0 — this is a GET API. */
   readonly maxBodyBytes?: number;
+  /**
+   * OPTIONAL policy kernel for the read-only `/simulate` route. When omitted, the
+   * simulator defaults to `getKernel().kernel`. Injectable so tests can pin the
+   * reference kernel.
+   */
+  readonly kernel?: PolicyKernel;
 }
 
 /**
@@ -126,6 +135,51 @@ function parseListQuery(params: URLSearchParams): ListDecisionsQuery {
   }
 
   return query;
+}
+
+/**
+ * Parse + validate the `/simulate` query into a {@link SimulationInput}. All of
+ * `agent`, `vendor`, `amount`, `category` are REQUIRED; `currency` is optional.
+ * `amount` MUST be an integer (whole currency units) — anything else is a 400.
+ *
+ * @throws {BadRequestError} on a missing required param or a non-integer amount.
+ */
+function parseSimulateQuery(params: URLSearchParams): {
+  agent: string;
+  vendor: string;
+  amount: number;
+  category: string;
+  currency?: string;
+} {
+  const agent = params.get("agent");
+  const vendor = params.get("vendor");
+  const amountRaw = params.get("amount");
+  const category = params.get("category");
+  const currency = params.get("currency");
+
+  if (agent === null || agent === "") throw new BadRequestError("missing agent");
+  if (vendor === null || vendor === "") throw new BadRequestError("missing vendor");
+  if (category === null || category === "") throw new BadRequestError("missing category");
+  if (amountRaw === null || amountRaw === "") throw new BadRequestError("missing amount");
+
+  // Strict integer only (whole currency units) — reject "abc", "", "1.5", " 3".
+  if (!/^-?\d+$/.test(amountRaw)) {
+    throw new BadRequestError("invalid amount");
+  }
+  const amount = Number(amountRaw);
+  if (!Number.isFinite(amount)) {
+    throw new BadRequestError("invalid amount");
+  }
+
+  const input: {
+    agent: string;
+    vendor: string;
+    amount: number;
+    category: string;
+    currency?: string;
+  } = { agent, vendor, amount, category };
+  if (currency !== null && currency !== "") input.currency = currency;
+  return input;
 }
 
 /** A 400 the handler distinguishes from an unknown 500. */
@@ -240,6 +294,28 @@ export function createLedgerBridge(options: LedgerBridgeOptions): Server {
         return;
       }
 
+      // GET /simulate — READ-ONLY policy preview. Persists nothing, executes
+      // nothing; it reuses the real kernel over authoritative DB reads.
+      if (segments.length === 1 && segments[0] === "simulate") {
+        const input = parseSimulateQuery(parsed.searchParams);
+        let result;
+        try {
+          result =
+            options.kernel !== undefined
+              ? simulate(db, input, options.kernel)
+              : simulate(db, input);
+        } catch (err) {
+          // simulate() throws on an invalid amount (e.g. negative) → 400.
+          if (err instanceof Error) {
+            send(400, { error: "bad_request", detail: "invalid amount" });
+            return;
+          }
+          throw err;
+        }
+        send(200, result);
+        return;
+      }
+
       send(404, { error: "not_found" });
     } catch (err) {
       // KNOWN client error (bad limit) → 400; everything else is an opaque 500.
@@ -267,7 +343,7 @@ export async function startLedgerBridge(): Promise<Server> {
   const port = Number(process.env.PORT ?? "8787");
 
   const db = openLedger(dbPath, { provisionIfEmpty: true });
-  const server = createLedgerBridge({ db, allowedOrigin });
+  const server = createLedgerBridge({ db, allowedOrigin, kernel: getKernel().kernel });
   server.listen(port, () => {
     // eslint-disable-next-line no-console
     console.log(`@ramp/ledger bridge listening on :${port} (origin ${allowedOrigin})`);

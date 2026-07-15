@@ -40,6 +40,7 @@ import {
   DecisionConflictError,
 } from "./decision-log.js";
 import { buildProof, type LedgerProof } from "./proof.js";
+import { policyDigest } from "./policy-digest.js";
 import { buildDecisionProvenance } from "./provenance-builder.js";
 import { verifyDecisionProof } from "./proof-verification.js";
 import { sha256OfJson, type Json } from "./canonical-hash.js";
@@ -303,6 +304,7 @@ export async function requestPurchase(
       request,
       decision,
       facts,
+      policyDigest: policyDigest(facts),
       kernelId,
       attestation: {
         status: facts.attestation_present ? "present_unverified" : "absent",

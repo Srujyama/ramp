@@ -96,6 +96,9 @@ importers:
 
   packages/ledger:
     dependencies:
+      '@ramp/gate':
+        specifier: workspace:*
+        version: link:../gate
       '@ramp/shared':
         specifier: workspace:*
         version: link:../shared

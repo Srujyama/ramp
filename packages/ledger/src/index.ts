@@ -27,6 +27,15 @@ export type { LedgerDb, OpenLedgerOptions } from "./db.js";
 export { LedgerFactSource, makeFactSource } from "./dal.js";
 export type { AuthoritativeContext, Limits } from "./dal.js";
 
+// Policy identity: a stable sha256 digest of the org policy that judges a request.
+export { policyDigest, policyDocumentOf } from "./policy-digest.js";
+export type { PolicyDocument } from "./policy-digest.js";
+
+// Read-only Policy Simulator: run a hypothetical request through the real kernel.
+// Side-effect free — never persists a decision, proof, or execution.
+export { simulate } from "./simulate.js";
+export type { SimulationInput, SimulationResult } from "./simulate.js";
+
 // The audit trail: persist every gate decision and read it back (read-only API).
 export {
   recordDecision,
