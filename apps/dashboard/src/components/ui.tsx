@@ -2,9 +2,9 @@
  * @ramp/dashboard — shared UI primitives
  *
  * Small, presentational building blocks shared across screens: status chips,
- * the persistent sandbox banner, loading skeletons, honest error/empty states
- * (including the four bridge failure modes), the provenance flow, and a
- * copy-to-clipboard id. No data fetching here.
+ * loading skeletons, honest error/empty states (including the four bridge
+ * failure modes), the provenance flow, and a copy-to-clipboard id. No data
+ * fetching here.
  */
 import { useState } from "react";
 import type { JSX, ReactNode } from "react";
@@ -20,24 +20,6 @@ export function Chip({ chip }: { chip: StatusChip }): JSX.Element {
       <span className="cdot" aria-hidden="true" />
       {chip.label}
     </span>
-  );
-}
-
-/**
- * Subtle, persistent environment indicator. Small by design — the sandbox
- * nature is honest context, not an alarm. Reads "Demo environment · Sandbox
- * payments"; the full "no real money moves" detail is the tooltip.
- */
-export function SandboxBanner(): JSX.Element {
-  return (
-    <div
-      className="sandbox-note"
-      role="note"
-      title="Sandbox payments — amounts and receipts are simulated. No real money moves."
-    >
-      <span className="dot" aria-hidden="true" />
-      Demo environment · Sandbox payments
-    </div>
   );
 }
 

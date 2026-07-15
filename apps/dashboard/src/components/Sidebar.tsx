@@ -46,10 +46,6 @@ export function Sidebar(): JSX.Element {
           {item.label}
         </NavLink>
       ))}
-
-      <div className="foot">
-        Read-only audit console. Enforcement lives in the policy gate, not this UI.
-      </div>
     </nav>
   );
 }

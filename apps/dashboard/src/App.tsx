@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import { useEffect } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import Sidebar from "./components/Sidebar.js";
-import { SkipLink, SandboxBanner } from "./components/ui.js";
+import { SkipLink } from "./components/ui.js";
 import { useTheme } from "./lib/useTheme.js";
 import { useBridgeHealth, type Health } from "./lib/useBridgeHealth.js";
 import Overview from "./pages/Overview.js";
@@ -110,7 +110,6 @@ export function App(): JSX.Element {
       <SkipLink />
       <Sidebar />
       <div className="app-main">
-        <SandboxBanner />
         <Header crumb={crumb} health={health} />
         <main className="app-content" id="main">
           <Routes>
