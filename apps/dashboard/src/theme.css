@@ -340,6 +340,18 @@ kbd,
   margin: 0 0 var(--space-lg);
 }
 
+/* The one primary card on a page (e.g. the execution timeline) gets slightly
+   more presence than the supporting cards beneath it. */
+.card.card-primary {
+  padding: var(--space-2xl);
+}
+.card.card-primary h3 {
+  font-size: 15px;
+}
+.card.card-primary .card-sub {
+  max-width: 72ch;
+}
+
 /* ---- stat tile --------------------------------------------------------- */
 .stat-tile {
   background: var(--surface);

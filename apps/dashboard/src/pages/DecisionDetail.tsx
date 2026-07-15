@@ -134,9 +134,19 @@ function Timeline({ v }: { v: DecisionView }): JSX.Element {
   );
 }
 
-function Section({ title, sub, children }: { title: string; sub?: string; children: ReactNode }): JSX.Element {
+function Section({
+  title,
+  sub,
+  primary,
+  children,
+}: {
+  title: string;
+  sub?: string;
+  primary?: boolean;
+  children: ReactNode;
+}): JSX.Element {
   return (
-    <div className="card">
+    <div className={primary ? "card card-primary" : "card"}>
       <h3>{title}</h3>
       {sub ? <p className="card-sub">{sub}</p> : null}
       {children}
@@ -203,6 +213,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
 
       {/* PRIMARY: the six-stage execution timeline, trust ladder folded in. */}
       <Section
+        primary
         title="Execution timeline"
         sub="The full lifecycle of this spend, top to bottom — every stage's state derived only from what the audit trail records. Each id/digest is copyable."
       >
