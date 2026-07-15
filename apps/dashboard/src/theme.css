@@ -156,13 +156,24 @@ kbd,
   height: var(--header-h);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 28px;
+  padding: 0;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+/* Header content shares the same centered column as .app-content so the title
+   lines up with the page content instead of hugging the far edge. */
+.app-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1080px;
+  margin-inline: auto;
+  padding: 0 28px;
 }
 
 .app-header h1 {

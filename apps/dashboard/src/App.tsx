@@ -76,12 +76,14 @@ function Header({
 }): JSX.Element {
   return (
     <header className="app-header">
-      <h1>
-        Provable Agent Spend <span className="crumb">/ {crumb}</span>
-      </h1>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <ConnPill health={health} />
-        <ThemeToggle />
+      <div className="app-header-inner">
+        <h1>
+          Provable Agent Spend <span className="crumb">/ {crumb}</span>
+        </h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <ConnPill health={health} />
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );
