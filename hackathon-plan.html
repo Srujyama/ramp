@@ -516,7 +516,7 @@
         <span class="idx">1</span>
         <div class="body">
           <h3>Datalog policy kernel</h3>
-          <p>Soufflé rules in Rust → WASM. Translates the request into facts, grinds out Allow/Deny mechanically. Same facts → same answer, always.</p>
+          <p>Soufflé rules → WASM, behind a TS interface, with a pure TS reference kernel as the always-available golden oracle. Translates the request into facts and grinds out allow/deny mechanically. Same facts → same answer, always — which is exactly what makes a decision re-derivable, and therefore provable.</p>
         </div>
         <span class="stamp enforce">Enforce</span>
       </div>
@@ -524,7 +524,7 @@
         <span class="idx">2</span>
         <div class="body">
           <h3>Provenance graph</h3>
-          <p>Fingerprints where each request came from and how it was derived. Tampering or weird lineage becomes detectable — and auditable in real time.</p>
+          <p>Every fact traced to the exact query, notary, or declassifier it produced it. An auditor RE-RUNS the kernel on the recorded facts and checks the verdict falls out. <b>Integrity is not soundness:</b> an immutable log proves nobody edited the record; it cannot tell you the record was right. We prove both.</p>
         </div>
         <span class="stamp verify">Prove</span>
       </div>
@@ -532,7 +532,7 @@
         <span class="idx">3</span>
         <div class="body">
           <h3>CaMeL-style quarantine</h3>
-          <p>Untrusted content the agent reads (emails, invoices, web) is walled off. It can never directly trigger an authorization — it must pass through the kernel as data, not instructions.</p>
+          <p>Untrusted content REFUSES to become a string — <code>${q}</code>, <code>String(q)</code>, <code>JSON.stringify(q)</code> all throw. It escapes only through a total declassifier into a codomain of size <b>n</b> we chose in advance, so the attacker's reachable set is a number we can count — not &ldquo;strings we failed to imagine.&rdquo; Detection is telemetry that gates nothing.</p>
         </div>
         <span class="stamp wall">Isolate</span>
       </div>
@@ -540,7 +540,7 @@
         <span class="idx">4</span>
         <div class="body">
           <h3>TLSNotary attestation</h3>
-          <p>Cryptographic proof that an invoice actually came from the real vendor's server — instead of trusting the agent's summary of it.</p>
+          <p>Real Ed25519 over a canonical, domain-separated statement, bound to the vendor's <b>registered</b> domain, verified before money moves. Scope stated plainly: this is the verification half, <b>not</b> the TLSNotary MPC protocol. Stronger than trusting narration; weaker than real TLSNotary. We say so first.</p>
         </div>
         <span class="stamp verify">Verify</span>
       </div>
@@ -632,6 +632,7 @@
   <section>
     <div class="sec-head"><span class="sec-num">05</span><h2>The week</h2></div>
     <p class="sec-sub">Sequenced so the hero path — a live deny in Claude Code — is bulletproof by the end of Day 3. Everything after amplifies why the gate is worth having.</p>
+    <p class="sec-sub" style="border-left:3px solid var(--green,#22c55e);padding-left:12px;"><b>Status: all six days shipped.</b> All four pillars are built and enforced, plus the audit console, policy simulator, decision log, and sandbox payment lifecycle. <b>345 tests pass</b>; CI drives every demo beat through the real hook and asserts the exit codes, then independently re-verifies the sealed proofs. Kept below as the record of the plan — and because the sequencing argument still holds.</p>
 
     <div class="phase">
       <div class="when"><div class="day">Day 1</div><div class="goal">Spine up</div></div>
@@ -642,7 +643,7 @@
           <li>Ledger DB + vendor registry as the two authoritative fact sources (SQLite is fine).</li>
           <li>Write the fact-translation adapter: tool args + DB → Datalog facts. <b>This is the seam</b> — get it pulling from DB, not narration, from hour one.</li>
         </ul>
-        <span class="ship">Ship: tool call → facts printed</span>
+        <span class="ship">✓ Shipped: tool call → facts printed</span>
       </div>
     </div>
 
@@ -655,7 +656,7 @@
           <li>TS wrapper: facts in → <code>{decision, reason}</code> out. Warm, deterministic, sub-ms.</li>
           <li>Golden tests: same facts → same answer, twice. Screenshot for the pitch.</li>
         </ul>
-        <span class="ship">Ship: facts → Allow / Deny + reason</span>
+        <span class="ship">✓ Shipped: facts → Allow / Deny + reason</span>
       </div>
     </div>
 
@@ -668,7 +669,7 @@
           <li><b>Fail-closed:</b> unreachable kernel → exit 2, transaction blocked.</li>
           <li>Prove it: run with <code>--dangerously-skip-permissions</code>, watch an over-limit spend still get denied.</li>
         </ul>
-        <span class="ship">Ship: live deny survives bypass mode ★</span>
+        <span class="ship">✓ Shipped: live deny survives bypass mode ★</span>
       </div>
     </div>
 
@@ -680,7 +681,7 @@
           <li>TLSNotary proof that an invoice came from the vendor's server → feeds <code>vendor_verified</code>. Spoofed invoice → no proof → deny.</li>
           <li>CaMeL quarantine: agent-read documents enter as tagged data that can't become instructions.</li>
         </ul>
-        <span class="ship">Ship: spoofed invoice rejected</span>
+        <span class="ship">✓ Shipped: spoofed invoice rejected</span>
       </div>
     </div>
 
@@ -692,7 +693,7 @@
           <li>Provenance graph: every decision links to its facts and their sources.</li>
           <li>Dashboard as a <b>byproduct</b> of provenance — cards, limits, spend graphs, and an audit trail. Never lead with this.</li>
         </ul>
-        <span class="ship stretch">Ship: "prove this to an auditor" view</span>
+        <span class="ship">✓ Shipped: "prove this to an auditor" view — re-derives in your browser</span>
       </div>
     </div>
 
@@ -749,11 +750,11 @@
     </div>
     <div class="beat">
       <span class="n">4</span>
-      <div><h3>The spoof</h3><p>A fake invoice claims to be from Acme. No TLSNotary proof → <code>vendor_verified = false</code> → deny. Real invoice → valid proof → allow.</p></div>
+      <div><h3>The spoof</h3><p><b>The subtle one — a 3-way match passes this.</b> <code>acme-corp-billing.example</code> serves a byte-perfect invoice over <b>real TLS</b>, genuinely notarised. Every document agrees with every other document. → the registry says Acme is <code>acme.example.com</code> → <code>deny/attestation_invalid</code> (domain_mismatch). Also demoed: <b>no attestation at all</b>, and <b>replay</b> of a genuine hour-old one. Consistency isn't authenticity.</p></div>
     </div>
     <div class="beat">
       <span class="n">5</span>
-      <div><h3>The proof</h3><p>Open the provenance view. Point at the denied decision → trace it to the facts → trace each fact to its authoritative source. "This is what you show an auditor."</p></div>
+      <div><h3>The proof</h3><p>Open the decision in the audit console. Trace it → facts → each fact's authoritative source (the exact SQL, the notary, the declassifier). Then the punchline: <b>two cards side by side</b> — <i>&ldquo;Proof valid&rdquo;</i> (unaltered) and <i>&ldquo;✓ Re-derived in your browser&rdquo;</i> (correct). Your machine just re-ran the real kernel on the recorded facts. <b>Integrity is not soundness</b> — an immutable log proves nobody edited the record; it can't tell you the record was right. "This is what you show an auditor."</p></div>
     </div>
     <div class="beat">
       <span class="n">6</span>

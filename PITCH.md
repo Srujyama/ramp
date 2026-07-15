@@ -3,9 +3,9 @@
 > **Single source of truth for the pitch.** The plan (`hackathon-plan.html`) and the slide
 > deck (`pitch-deck.html`) both derive from this file. **If you change the pitch, change it
 > HERE first, then propagate to both artifacts** (see `CLAUDE.md` → "Keeping the pitch in sync").
-> Last substantive update: 2026-07-15 — **all four pillars are now built and enforced**
-> (previously only the kernel was). ⚠️ **`hackathon-plan.html` and `pitch-deck.html` have NOT yet
-> been propagated to and are stale against this file.**
+> Last substantive update: 2026-07-15 — **all four pillars built and enforced**, plus the audit
+> console, policy simulator, and decision log merged in. Both HTML artifacts are propagated and
+> in sync as of this date.
 >
 > **Published artifact URLs (republish to these; don't mint new ones):**
 > - Plan: https://claude.ai/code/artifact/30f5b98e-903f-4f8d-80f6-aaab5d80a2de
@@ -45,10 +45,11 @@ A spend request flows **down** through all four before a dollar moves. Enforceme
 1. **Datalog policy kernel** (`@ramp/gate`; Soufflé → WASM behind a TS interface, with a pure TS
    reference kernel as the always-available golden oracle). Translates a request into plain **facts**
    and grinds out allow/deny mechanically. Same facts → same answer. **Deny dominates.**
-2. **Provenance graph** (`@ramp/provenance`) — every decision is sealed into a content-addressed
-   **bundle**: the decision, the exact facts, and for each fact the specific query/notary/declassifier
-   it came from. An auditor **re-runs the kernel on the recorded facts** and checks the verdict falls
-   out. Proves the decision **at enforce time**, not just logs it after.
+2. **Provenance graph** (`@ramp/provenance` + `@ramp/ledger`) — every decision is sealed into a
+   content-addressed **bundle**: the decision, the exact facts, and for each fact the specific
+   query/notary/declassifier it came from. An auditor **re-runs the kernel on the recorded facts** and
+   checks the verdict falls out. Proves the decision **at enforce time**, not just logs it after.
+   Two records are written, deliberately — see "Integrity is not soundness" below.
 3. **CaMeL-style quarantine** (`@ramp/quarantine`) — untrusted content (invoices, emails, web) is
    wrapped at the boundary in a value that **refuses to become a string**. It escapes only through a
    total declassifier into a **bounded codomain**, so an attacker's reachable set is a number we
@@ -72,6 +73,32 @@ Enforcement is a Claude Code **`PreToolUse` hook**, matcher `mcp__payments__.*`.
   reintroduces the exact hole. The hook is *enforced*.
 - **Command hook = fail-closed.** A crashed policy service must **deny**, never fail open. (An HTTP
   hook treats non-2xx as non-blocking → fails open → unacceptable for money.)
+
+## Integrity is not soundness (the distinction nobody else draws)
+
+Every "immutable audit log" on the market proves **integrity**: *nobody edited this record after it
+was written.* That is a real guarantee, and it is not the one people think they are buying.
+
+**A perfectly intact record of a wrong decision passes an integrity check.** If the gate has a bug —
+or is compromised — and writes "allow" for facts that plainly deny, the hash still verifies. Nobody
+tampered with the answer. The answer was simply wrong when it was written. Integrity tells you the
+record wasn't altered; it tells you nothing about whether it was *right*.
+
+So we prove both, with two records per decision:
+
+| | Question it answers | Fails when |
+| --- | --- | --- |
+| **Ledger proof** (`@ramp/ledger`) | **Integrity** — "has this record been altered since it was written?" | Someone edits the stored bytes |
+| **Provenance bundle** (`@ramp/provenance`) | **Soundness** — "does this decision *follow from* these facts?" | The decision was wrong when made |
+
+Soundness is only checkable because the kernel is **pure and deterministic**. Determinism makes a
+decision reproducible; reproducibility is what makes it *provable*. That is the whole reason we
+traded flexibility for a Datalog kernel — and this is where that trade pays out.
+
+**In the dashboard, you watch it happen:** *"Proof valid"* (unaltered) sits beside *"✓ Re-derived in
+your browser"* (correct), where your own machine re-runs the real kernel on the recorded facts.
+Nothing asks the server whether the decision was valid. **You cannot reseal your way out of
+arithmetic.**
 
 ## The anti-injection seam (the crux)
 
@@ -103,11 +130,29 @@ asserts the **exit code** on every beat. It runs in CI, so these are not claims:
    over real TLS with a real notary signature**. Every document agrees with every other document —
    **a 3-way match passes this.** → **deny** (`deny/attestation_invalid`, domain_mismatch).
    Variants also demoed: **no attestation at all**, and **replay** of a genuine hour-old one.
-5. **The proof** — `pnpm proof` (CLI) or the dashboard's Audit page re-derives each decision → its
-   facts → each fact's authoritative source, **without trusting the gate**. The dashboard verifies
-   in your **browser**, with WebCrypto and the real kernel. *"This is what you show an auditor."*
+5. **The proof** — `pnpm proof` (CLI), or the dashboard's decision detail, re-derives each decision →
+   its facts → each fact's authoritative source, **without trusting the gate**. The dashboard runs
+   the real kernel **in your browser**. *"This is what you show an auditor."*
 
 Plus **fail-closed**, demoed: an unreachable ledger → deny, exit 2 (see below).
+
+### The audit console (`pnpm dev` + `pnpm --filter @ramp/ledger bridge`)
+
+Every decision the gate makes is persisted and readable, over a **read-only** HTTP bridge — there is
+deliberately no mutation route, because a dashboard that could decide anything would be a second
+enforcement path:
+
+- **Decisions** — the append-only log: outcome, fired rules, proof state, payment, per request.
+- **Decision detail** — the six-stage execution timeline (request → trusted facts → policy evaluated
+  → decision → proof re-verified → payment), the exact facts, the fired rules in plain language, the
+  provenance flow, and **both** proof cards side by side.
+- **Policy** — the live rulebook plus a **read-only simulator**: run a hypothetical spend through the
+  *real kernel* and see what policy would say, with zero writes. (It states its own premise: a
+  hypothetical has no invoice, so it reports the attestation it *assumed*.)
+- **Overview** — posture at a glance.
+
+Nothing is fabricated. A corrupt row is shown as corrupt, an unexecuted allow as skipped, an
+unverified proof as unverified.
 
 ## Differentiation (quote their own posts back)
 
@@ -124,11 +169,13 @@ Plus **fail-closed**, demoed: an unreachable ledger → deny, exit 2 (see below)
   invoice bytes to a TLS session with a **named server**, checked against the vendor's registered
   domain. **Demo beat 4 is exactly this**: a lookalike domain, a byte-perfect invoice, a real
   signature — every document agrees, a 3-way match passes, and we deny.
-- **"Ramp already has audit trails."** → Their log records what the agent **did, after the fact**
-  (for SOX). An audit log is a claim a system writes about itself — believing it means already
-  trusting the thing you're auditing. Our provenance bundle is **re-derivable**: `pnpm proof` re-runs
-  the kernel on the recorded facts and checks the verdict falls out. **You cannot reseal your way out
-  of arithmetic.** Enforce-time and independently checkable, vs. after-the-fact and trusted.
+- **"Ramp already has audit trails."** → **Their log proves integrity. We prove soundness too.** An
+  immutable log proves nobody edited the record; it cannot tell you the record was *right*. A
+  perfectly intact "allow" written by a buggy gate passes every hash check ever devised. Our bundle
+  is **re-derivable**: `pnpm proof` re-runs the kernel on the recorded facts and checks the verdict
+  falls out — and the dashboard does it in your browser while you watch. **You cannot reseal your way
+  out of arithmetic.** Nobody else in this space draws that distinction, and it is the difference
+  between an audit trail and a proof.
 - **"Isn't the injection defence just a fancy blocklist?"** → No — and the repo proves it. Detection
   is **telemetry that gates nothing**; if it returned `false` for every real attack the guarantees
   would be unchanged. The defence is structural: untrusted bytes can't become a string, and escape
@@ -150,14 +197,20 @@ already described in their own posts.
 
 ## Traction (this is not vaporware)
 
-**All four pillars are built, wired into the enforcement path, and green.** 8 workspaces:
-`@ramp/shared` (frozen contract), `@ramp/gate` (kernel + real Soufflé `policy.dl`), `@ramp/ledger`
-(authoritative facts), **`@ramp/quarantine`**, **`@ramp/attestation`**, **`@ramp/provenance`**,
-`@ramp/payments-mcp`, `@ramp/dashboard`. CI, branch protection, 3 collaborators.
+**All four pillars are built, wired into the enforcement path, and green** — plus a working audit
+console, a policy simulator, an append-only decision log, and a sandbox payment lifecycle. 8
+workspaces: `@ramp/shared` (frozen contract), `@ramp/gate` (kernel + real Soufflé `policy.dl`),
+`@ramp/ledger` (authoritative facts + decision log + proofs + read-only bridge),
+**`@ramp/quarantine`**, **`@ramp/attestation`**, **`@ramp/provenance`**, `@ramp/payments-mcp`
+(self-enforcing tool), `@ramp/dashboard` (the audit console). CI, branch protection, 4 collaborators.
 
-**121 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
+**345 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
+
+**Two independent gates over one kernel.** The `PreToolUse` hook denies before the tool is ever
+invoked; the MCP tool *also* enforces on its own via the shared purchase lifecycle, so it is safe to
+call directly with no hook present. Neither relies on the other.
 
 ### We hold ourselves to the same bar (two real fail-opens, found and fixed)
 
