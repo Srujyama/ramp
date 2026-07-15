@@ -17,7 +17,7 @@ the visual system.
 
 | Route | Page | What it shows |
 |---|---|---|
-| `/` | **Overview** | Value-prop hero, the 6-step workflow strip, live KPI tiles (total, allowed, denied, proofs valid, failed/corrupt), a **Recent activity** feed of the five most recent decisions (each with outcome/proof/payment chips, a deterministic explanation, a relative timestamp, an honest "Updated Xs ago", and a link to detail), and a "How a purchase is proven" explainer. |
+| `/` | **Overview** | Value-prop hero, the 6-step workflow strip, live KPI tiles (total, allowed, denied, proofs valid, failed/corrupt), a **Recent activity** feed of the five most recent decisions (each with outcome/proof/payment chips, a deterministic explanation, a relative timestamp, an honest "Updated Xs ago", and a link to detail), and a "How a purchase is evaluated and proven" explainer. |
 | `/decisions` | **Decisions** | The real ledger table: Time, Agent, Vendor, Amount, Outcome, Proof, Payment, and a deterministic **Explanation** (fired rules kept visible beneath). Filters by outcome, status, agent, and fired rule; cursor "Load more" pagination; corrupt rows flagged. |
 | `/decisions/:id` | **Decision detail** | The auditor view, built around the **execution timeline** (below) with request, outcome + fired rules, provenance flow, trusted facts, proof id + independent verification, policy digest, and the sandbox receipt beneath it. |
 | `/policy` | **Policy** | The caps and clearances the kernel enforces, **derived** from the authoritative facts on recorded decisions, plus the **Policy digest** and a read-only **Policy simulator** (below). |
