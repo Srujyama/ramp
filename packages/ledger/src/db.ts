@@ -23,6 +23,9 @@ export type LedgerDb = DatabaseSync;
 /** In-memory sentinel path — a throwaway DB that lives only for the process. */
 export const IN_MEMORY_PATH = ":memory:";
 
+/** How long a contended writer waits for the lock before surfacing SQLITE_BUSY. */
+export const BUSY_TIMEOUT_MS = 5000;
+
 // Resolve the packaged SQL files relative to THIS module, so it works no matter
 // the process cwd. Compiled layout: dist/src/db.js -> package root is ../../ ->
 // the `sql/` dir ships alongside `dist/` (see package.json "files").
@@ -182,9 +185,25 @@ export function openLedger(
   // Always enforce referential integrity on this connection.
   db.exec("PRAGMA foreign_keys = ON;");
 
-  if (provisionIfEmpty && !isProvisioned(db)) {
+  // Concurrency: the audit log has many writers (one hook process per spend) and
+  // concurrent readers (the dashboard). A bounded busy_timeout makes a contended
+  // writer WAIT for the lock instead of failing instantly with SQLITE_BUSY, and
+  // WAL lets readers see a consistent snapshot while a writer commits. WAL only
+  // applies to on-disk DBs; a :memory: DB is single-connection and ignores it.
+  db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS};`);
+  if (path !== IN_MEMORY_PATH) {
+    db.exec("PRAGMA journal_mode = WAL;");
+  }
+
+  if (provisionIfEmpty) {
+    // `applySchema` is idempotent (every statement is `IF NOT EXISTS`), so running
+    // it on every writable open HEALS additive schema changes on a pre-existing DB
+    // — e.g. a ledger created before `decision_executions` existed gets the new
+    // table now, instead of the bridge 500-ing with "no such table" when it's read.
+    // Seed ONLY a genuinely fresh DB (inserts are not idempotent — never re-seed).
+    const fresh = !isProvisioned(db);
     applySchema(db);
-    if (seed) applySeed(db);
+    if (fresh && seed) applySeed(db);
   }
 
   if (requireProvisioned && !isProvisioned(db)) {

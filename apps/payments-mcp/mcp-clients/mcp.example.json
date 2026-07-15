@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "payments": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/ramp/apps/payments-mcp/dist/server.js"],
+      "env": {}
+    }
+  }
+}

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
-    "test": "node --test",
+    "test": "tsc -p tsconfig.test.json && node --test \"dist-test/**/*.test.js\"",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -19,6 +19,7 @@
     "@ramp/gate": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",

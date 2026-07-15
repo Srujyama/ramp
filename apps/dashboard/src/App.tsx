@@ -1,252 +1,124 @@
-import { useEffect, useState } from "react";
-import type { JSX, ReactNode } from "react";
-import { NavLink, Route, Routes, useLocation } from "react-router-dom";
-import type { RuleId } from "@ramp/shared";
+import type { JSX } from "react";
+import { useEffect } from "react";
+import { Route, Routes, useLocation } from "react-router-dom";
 import Sidebar from "./components/Sidebar.js";
-import StatTile from "./components/StatTile.js";
-import ProofView from "./components/ProofView.js";
+import { SkipLink } from "./components/ui.js";
+import { useTheme } from "./lib/useTheme.js";
+import { useBridgeHealth, type Health } from "./lib/useBridgeHealth.js";
+import Overview from "./pages/Overview.js";
+import Decisions from "./pages/Decisions.js";
+import DecisionDetail from "./pages/DecisionDetail.js";
+import Policy from "./pages/Policy.js";
 
 /**
  * @ramp/dashboard — App
  *
- * Layout frame + routing ONLY. Every panel is an honest Phase-0 placeholder:
- * the shell renders real structure with "no data yet" empty states, never
- * fabricated decisions. Live data will arrive from the ledger + audit trail
- * in a later phase; the gate itself is the hook, not this UI.
+ * The audit console for Provable Agent Spend: the trust layer between AI agents
+ * and money. Reads the append-only decision log through the read-only ledger
+ * bridge and shows, per autonomous purchase, the policy outcome, its independent
+ * proof verification, its provenance, and its sandbox payment — nothing
+ * fabricated. Enforcement lives in the policy gate, not this UI.
  */
 
-const RULE_CATALOG: readonly { id: RuleId; blurb: string }[] = [
-  { id: "allow/all_conditions_met", blurb: "Every condition held — proven allow." },
-  { id: "deny/vendor_not_verified", blurb: "Vendor absent/unverified in registry." },
-  { id: "deny/over_per_txn_cap", blurb: "Amount exceeds the per-transaction cap." },
-  {
-    id: "deny/agent_uncleared_for_category",
-    blurb: "Agent not cleared to spend in this category.",
-  },
-  { id: "deny/category_not_approved", blurb: "Category is not on the approved list." },
-  {
-    id: "deny/daily_limit_exceeded",
-    blurb: "This spend would push the daily total over the limit.",
-  },
-  {
-    id: "deny/attestation_invalid",
-    blurb: "No verified attestation binds this invoice to the vendor's registered domain.",
-  },
-];
+const CRUMBS: Record<string, string> = {
+  "/": "Overview",
+  "/decisions": "Decisions",
+  "/policy": "Policy",
+};
 
-function useDocTitle(section: string): void {
-  const loc = useLocation();
-  useEffect(() => {
-    document.title = `${section} · Provable Agent Spend`;
-  }, [section, loc.pathname]);
+function crumbFor(pathname: string): string {
+  if (pathname.startsWith("/decisions/")) return "Decision";
+  return CRUMBS[pathname] ?? "…";
 }
 
-function Header({ crumb }: { crumb: string }): JSX.Element {
+function useDocTitle(section: string): void {
+  useEffect(() => {
+    document.title = `${section} · Provable Agent Spend`;
+  }, [section]);
+}
+
+const CONN_LABEL: Record<Health, string> = {
+  wait: "Connecting…",
+  live: "Bridge live",
+  down: "Bridge offline",
+};
+
+function ConnPill({ health }: { health: Health }): JSX.Element {
   return (
-    <header className="app-header">
-      <h1>
-        Provable Agent Spend <span className="crumb">/ {crumb}</span>
-      </h1>
-      <ThemeToggle />
-    </header>
+    <span className={`conn ${health}`} title="Read-only ledger audit bridge">
+      <span className="cdot" aria-hidden="true" />
+      {CONN_LABEL[health]}
+    </span>
   );
 }
 
 function ThemeToggle(): JSX.Element {
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    const root = document.documentElement;
-    if (dark) root.setAttribute("data-theme", "dark");
-    else root.removeAttribute("data-theme");
-  }, [dark]);
+  const { dark, toggle } = useTheme();
   return (
     <button
       type="button"
-      className="badge info"
-      style={{ cursor: "pointer", border: "none" }}
-      onClick={() => setDark((v) => !v)}
+      className="btn ghost"
+      onClick={toggle}
       aria-pressed={dark}
+      title={dark ? "Switch to light theme" : "Switch to dark theme"}
     >
       {dark ? "☾ Dark" : "☀ Light"}
     </button>
   );
 }
 
-function PageHead({ title, sub }: { title: string; sub: string }): JSX.Element {
-  return (
-    <div className="page-head">
-      <h2>{title}</h2>
-      <p>{sub}</p>
-    </div>
-  );
-}
-
-function EmptyState({
-  icon,
-  title,
-  children,
+function Header({
+  crumb,
+  health,
 }: {
-  icon: string;
-  title: string;
-  children: ReactNode;
+  crumb: string;
+  health: Health;
 }): JSX.Element {
   return (
-    <div className="empty">
-      <div className="em-icon" aria-hidden="true">
-        {icon}
-      </div>
-      <h4>{title}</h4>
-      <p>{children}</p>
-    </div>
-  );
-}
-
-function Overview(): JSX.Element {
-  useDocTitle("Overview");
-  return (
-    <>
-      <PageHead
-        title="Overview"
-        sub="Live posture of the spend gate. Numbers populate once the ledger and audit trail are wired; the shell shows structure only."
-      />
-      <div className="grid tiles" style={{ marginBottom: 20 }}>
-        <StatTile label="Decisions today" tone="info" hint="allow + deny" />
-        <StatTile label="Allowed" tone="accent" hint="proven by the kernel" />
-        <StatTile label="Denied" tone="deny" hint="deny dominates" />
-        <StatTile label="Daily budget used" tone="warn" hint="vs. daily limit" />
-      </div>
-      <div className="grid two">
-        <div className="card">
-          <h3>Spend vs. daily limit</h3>
-          <p className="card-sub">Aggregate against the org daily cap.</p>
-          <EmptyState icon="▤" title="No data yet">
-            Connect the ledger fact source to plot today&apos;s running total
-            against the daily limit.
-          </EmptyState>
-        </div>
-        <div className="card">
-          <h3>Policy kernel</h3>
-          <p className="card-sub">
-            Deterministic Datalog rules. Same facts → same answer.
-          </p>
-          <div className="pill-row">
-            {RULE_CATALOG.map((r) => (
-              <span
-                key={r.id}
-                className={`badge ${r.id.startsWith("allow/") ? "allow" : "deny"}`}
-                title={r.blurb}
-              >
-                {r.id}
-              </span>
-            ))}
-          </div>
+    <header className="app-header">
+      <div className="app-header-inner">
+        <h1>
+          Provable Agent Spend <span className="crumb">/ {crumb}</span>
+        </h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <ConnPill health={health} />
+          <ThemeToggle />
         </div>
       </div>
-    </>
-  );
-}
-
-function CardsAndLimits(): JSX.Element {
-  useDocTitle("Cards & Limits");
-  return (
-    <>
-      <PageHead
-        title="Cards & Limits"
-        sub="Org policy limits and per-agent clearances — the authoritative caps the kernel evaluates against."
-      />
-      <div className="grid tiles" style={{ marginBottom: 20 }}>
-        <StatTile label="Per-transaction cap" hint="policy_config" />
-        <StatTile label="Daily limit" hint="policy_config" />
-        <StatTile label="Approved categories" hint="from the ledger" />
-        <StatTile label="Cleared agents" hint="agent clearances" />
-      </div>
-      <div className="card">
-        <h3>Agent clearances</h3>
-        <p className="card-sub">
-          Which categories each agent may spend in. Sourced from the ledger, not
-          model narration.
-        </p>
-        <EmptyState icon="▤" title="No data yet">
-          The clearance matrix renders here once the ledger fact source is
-          connected to the dashboard.
-        </EmptyState>
-      </div>
-    </>
-  );
-}
-
-function Decisions(): JSX.Element {
-  useDocTitle("Decisions");
-  return (
-    <>
-      <PageHead
-        title="Decisions"
-        sub="Every evaluated spend request with the facts that drove it and the rules that fired — the provenance behind each allow/deny."
-      />
-      <div className="card">
-        <h3>Decision log</h3>
-        <p className="card-sub">
-          One row per request: outcome, fired rules, and the authoritative facts.
-        </p>
-        <EmptyState icon="⚖" title="No decisions yet">
-          Trigger a payment through the MCP tool; the PreToolUse hook evaluates
-          it and decisions stream in here with full provenance.
-        </EmptyState>
-      </div>
-    </>
-  );
-}
-
-function Audit(): JSX.Element {
-  useDocTitle("Audit");
-  return (
-    <>
-      <PageHead
-        title="Audit"
-        sub="Prove a decision to an auditor: the exact facts, their sources, and the deterministic rules that produced the outcome — re-derived in your browser from the record alone."
-      />
-      <ProofView />
-    </>
+    </header>
   );
 }
 
 function NotFound(): JSX.Element {
   useDocTitle("Not found");
   return (
-    <>
-      <PageHead title="Not found" sub="That route does not exist." />
-      <div className="card">
-        <EmptyState icon="✧" title="Off the map">
-          <NavLink to="/" className="badge info">
-            Back to Overview
-          </NavLink>
-        </EmptyState>
+    <div className="state-card">
+      <div className="s-icon" aria-hidden="true">
+        ✧
       </div>
-    </>
+      <h4>Off the map</h4>
+      <p>That route does not exist.</p>
+    </div>
   );
 }
 
-const CRUMBS: Record<string, string> = {
-  "/": "Overview",
-  "/cards": "Cards & Limits",
-  "/decisions": "Decisions",
-  "/audit": "Audit",
-};
-
 export function App(): JSX.Element {
   const loc = useLocation();
-  const crumb = CRUMBS[loc.pathname] ?? "…";
+  const crumb = crumbFor(loc.pathname);
+  const { health, bump } = useBridgeHealth();
+
   return (
     <div className="app-shell">
+      <SkipLink />
       <Sidebar />
       <div className="app-main">
-        <Header crumb={crumb} />
-        <main className="app-content">
+        <Header crumb={crumb} health={health} />
+        <main className="app-content" id="main">
           <Routes>
-            <Route path="/" element={<Overview />} />
-            <Route path="/cards" element={<CardsAndLimits />} />
+            <Route path="/" element={<Overview onHealth={bump} />} />
             <Route path="/decisions" element={<Decisions />} />
-            <Route path="/audit" element={<Audit />} />
+            <Route path="/decisions/:id" element={<DecisionDetail />} />
+            <Route path="/policy" element={<Policy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

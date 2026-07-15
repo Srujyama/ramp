@@ -64,3 +64,107 @@ CREATE TABLE IF NOT EXISTS policy_limits (
   daily_limit INTEGER NOT NULL,
   currency    TEXT NOT NULL DEFAULT 'USD'
 );
+
+-- ----------------------------------------------------------------------------
+-- Decision log (audit trail). One row per policy decision the GATE makes.
+-- Written by the PreToolUse hook via @ramp/ledger's recordDecision() — the hook
+-- is the ONLY place that holds the exact Facts + Decision. This table stores the
+-- decision verbatim (JSON) for reproduction/audit; persistence NEVER recomputes
+-- or reinterprets the policy result. See src/decision-log.ts.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS decisions (
+  -- Unique per logical attempt (UUID). Idempotency key: repeated delivery of the
+  -- same decision_id is a no-op (INSERT OR IGNORE), never an overwrite.
+  decision_id         TEXT PRIMARY KEY,
+  -- Correlation id (facts.request_id / invoiceRef). NOT unique: two distinct
+  -- attempts may share one request_id and are both recorded (distinct decision_id).
+  request_id          TEXT NOT NULL,
+  -- Terminal persistence status. 'error' = an infra/validation failure recorded
+  -- as an audit row (NOT one of the five policy deny rules).
+  status              TEXT NOT NULL CHECK (status IN ('allowed', 'denied', 'error')),
+  -- The Decision.decision verbatim ('allow'/'deny'); NULL for an 'error' row.
+  outcome             TEXT CHECK (outcome IN ('allow', 'deny')),
+  agent_id            TEXT NOT NULL,
+  vendor_id           TEXT NOT NULL,
+  amount              INTEGER NOT NULL,
+  category            TEXT NOT NULL,
+  -- Day-4 provenance: 1/0 iff a TLSNotary-style attestation accompanied the
+  -- request (from Facts.attestation_present). NULL when facts weren't computed.
+  attestation_present INTEGER CHECK (attestation_present IN (0, 1)),
+  -- Which kernel produced the decision (DescribedKernel.kind), e.g. 'ts-reference'.
+  kernel_id           TEXT,
+  -- Verbatim JSON blobs. request_json is always present; facts_json/decision_json
+  -- are NULL when unavailable (e.g. an error before the kernel ran).
+  request_json        TEXT NOT NULL,
+  facts_json          TEXT,
+  decision_json       TEXT,
+  -- Canonical SHA-256 over the semantically-meaningful content (request + facts +
+  -- decision + status + kernel + proof id). Idempotency is CONTENT-checked against
+  -- this: a repeat of decision_id with an IDENTICAL digest is an idempotent no-op;
+  -- a repeat with a DIFFERENT digest is a conflict and is REJECTED (never
+  -- overwritten). See recordDecision() in src/decision-log.ts.
+  content_digest      TEXT NOT NULL,
+  ts                  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+-- Compound (ts, decision_id) indexes back the keyset pagination + every filter.
+CREATE INDEX IF NOT EXISTS idx_decisions_ts      ON decisions (ts DESC, decision_id DESC);
+CREATE INDEX IF NOT EXISTS idx_decisions_agent   ON decisions (agent_id, ts DESC, decision_id DESC);
+CREATE INDEX IF NOT EXISTS idx_decisions_vendor  ON decisions (vendor_id, ts DESC, decision_id DESC);
+CREATE INDEX IF NOT EXISTS idx_decisions_outcome ON decisions (outcome, ts DESC, decision_id DESC);
+CREATE INDEX IF NOT EXISTS idx_decisions_status  ON decisions (status, ts DESC, decision_id DESC);
+CREATE INDEX IF NOT EXISTS idx_decisions_request ON decisions (request_id);
+
+-- Fired rules, normalized one-per-row so filtering by rule is indexable and the
+-- exact firedRules ORDER is preserved (`ord` = 0-based position). Written in the
+-- SAME transaction as the parent decision row (atomic; no partial reads).
+CREATE TABLE IF NOT EXISTS decision_fired_rules (
+  decision_id TEXT NOT NULL REFERENCES decisions(decision_id) ON DELETE CASCADE,
+  ord         INTEGER NOT NULL,
+  rule_id     TEXT NOT NULL,
+  PRIMARY KEY (decision_id, ord)
+);
+CREATE INDEX IF NOT EXISTS idx_fired_rule ON decision_fired_rules (rule_id, decision_id);
+
+-- ----------------------------------------------------------------------------
+-- Proof records (tamper-evident attestation, one-per-decision, OPTIONAL).
+-- Written in the SAME transaction as the parent decision (atomic). A decision
+-- may exist with NO proof row (older/error rows stay readable). The proof_json
+-- is the verbatim LedgerProof; proof_id is its stable SHA-256 identity. A
+-- duplicate decision_id whose proof differs is rejected upstream via the parent
+-- row's content_digest (which folds in proof_id) — proofs are never overwritten.
+-- See src/proof.ts + src/decision-log.ts.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS decision_proofs (
+  decision_id        TEXT PRIMARY KEY REFERENCES decisions(decision_id) ON DELETE CASCADE,
+  proof_id           TEXT NOT NULL,
+  proof_schema       TEXT NOT NULL,
+  attestation_status TEXT NOT NULL
+    CHECK (attestation_status IN
+      ('absent', 'present_unverified', 'verified', 'verification_failed')),
+  proof_json         TEXT NOT NULL,
+  created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_proof_id ON decision_proofs (proof_id);
+
+-- ----------------------------------------------------------------------------
+-- Sandbox execution receipts (one-per-decision, OPTIONAL).
+-- The decision + proof above record what the GATE DECIDED. This table records
+-- what the SANDBOX EXECUTOR then DID — closing the "recorded" loop so the
+-- receipt an agent received is also auditable, not just returned out-of-band.
+-- Written by requestPurchase() AFTER the decision is persisted + independently
+-- verified AND the executor runs; a deny never produces a row (nothing executed).
+-- A separate, later append: NEVER in the decision's transaction, so it cannot
+-- alter or forge the append-only decision/proof record. `status = 'failed'`
+-- records a genuine executor failure and MUST NOT be read as a settlement.
+-- NO secret-bearing column exists by construction (receiptId/executionId/
+-- provider only). See recordExecution() in src/decision-log.ts.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS decision_executions (
+  decision_id  TEXT PRIMARY KEY REFERENCES decisions(decision_id) ON DELETE CASCADE,
+  receipt_id   TEXT NOT NULL,
+  execution_id TEXT NOT NULL,
+  status       TEXT NOT NULL CHECK (status IN ('settled', 'failed')),
+  provider     TEXT NOT NULL,
+  executed_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_execution_receipt ON decision_executions (receipt_id);
