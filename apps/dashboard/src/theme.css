@@ -491,6 +491,9 @@ kbd,
   .app-content {
     padding: 16px;
   }
+  .app-header-inner {
+    padding: 0 16px;
+  }
   .sidebar {
     position: static;
     height: auto;
