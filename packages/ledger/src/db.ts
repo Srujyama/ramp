@@ -13,6 +13,7 @@
  * `sql/schema.sql` + `sql/seed.sql` so a fresh checkout "just works".
  */
 import { DatabaseSync } from "node:sqlite";
+import { migrateDecisionsChecks } from "./migrate.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
@@ -168,6 +169,20 @@ const ADDITIVE_COLUMNS: ReadonlyArray<{
   ddl: string;
 }> = [
   { table: "decisions", column: "seq", ddl: "ALTER TABLE decisions ADD COLUMN seq INTEGER" },
+  // Escalation. Both carry defaults chosen so a migrated ledger behaves EXACTLY
+  // as it did before escalation existed: a threshold equal to "effectively
+  // infinite" escalates nothing, and 'standard' is not an elevated tier. A
+  // migration must never invent policy — the operator sets these deliberately.
+  {
+    table: "policy_limits",
+    column: "escalation_threshold",
+    ddl: "ALTER TABLE policy_limits ADD COLUMN escalation_threshold INTEGER NOT NULL DEFAULT 2147483647",
+  },
+  {
+    table: "vendors",
+    column: "risk_tier",
+    ddl: "ALTER TABLE vendors ADD COLUMN risk_tier TEXT NOT NULL DEFAULT 'standard'",
+  },
   {
     table: "decisions",
     column: "prev_chain_hash",
@@ -213,6 +228,10 @@ export function healColumns(db: LedgerDb): void {
 export function applySchema(db: LedgerDb): void {
   db.exec(readSchemaSql());
   healColumns(db);
+  // CHECK constraints cannot be ALTERed in SQLite, so widening one means
+  // rebuilding the table. See migrate.ts — it is the only migration here that
+  // can destroy data if it is edited carelessly.
+  migrateDecisionsChecks(db);
 }
 
 /** Apply the demo seed. Assumes a fresh schema (inserts are not idempotent). */

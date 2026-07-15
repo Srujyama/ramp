@@ -374,6 +374,8 @@ async function main() {
       );
     }
 
+    const suffix = notes.length ? " | " + notes.join(" | ") : "";
+
     if (decision.decision === "allow") {
       const out = {
         hookSpecificOutput: {
@@ -382,8 +384,7 @@ async function main() {
           permissionDecisionReason:
             (reasons.length > 0
               ? reasons.join("; ")
-              : "allow: every policy condition held") +
-            (notes.length ? " | " + notes.join(" | ") : ""),
+              : "allow: every policy condition held") + suffix,
           firedRules,
         },
       };
@@ -392,9 +393,43 @@ async function main() {
       return;
     }
 
+    // ---- ESCALATE -> "ask": the payment is HELD until a human says yes -------
+    //
+    // EXIT 0, NOT 2. Exit 2 is the blocking-deny channel; returning it here
+    // would turn "a human must approve this" into "denied", and the third
+    // outcome would never reach anybody. `ask` is delivered as JSON on stdout
+    // with a zero exit, exactly like `allow`.
+    //
+    // The reason this is a real control and not a suggestion: `ask` STILL
+    // PROMPTS under --dangerously-skip-permissions. The bypass flag skips the
+    // normal permission flow; an explicit `ask` from a hook is not skipped. So
+    // human-in-the-loop is as non-bypassable as the deny is — the model cannot
+    // talk its way past it, and neither can a flag.
+    //
+    // Nothing is executed here and nothing is recorded as allowed: the ledger row
+    // is status 'escalated'. A held payment is not a made one.
+    if (decision.decision === "escalate") {
+      const out = {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "ask",
+          permissionDecisionReason:
+            (reasons.length > 0
+              ? "HELD for human approval: " + reasons.join("; ")
+              : "HELD for human approval") + suffix,
+          firedRules,
+        },
+      };
+      process.stdout.write(JSON.stringify(out) + "\n");
+      process.exit(0);
+      return;
+    }
+
+    // Anything that is not an explicit allow or escalate denies. Stated as a
+    // fall-through on purpose: an outcome this hook does not recognise must fail
+    // CLOSED, not sail past a `=== "deny"` check that does not match it.
     denyAndExit(
-      (reasons.length > 0 ? "denied: " + reasons.join("; ") : "denied by policy") +
-        (notes.length ? " | " + notes.join(" | ") : ""),
+      (reasons.length > 0 ? "denied: " + reasons.join("; ") : "denied by policy") + suffix,
       firedRules,
     );
   } catch (err) {

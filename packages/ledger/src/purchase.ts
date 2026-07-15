@@ -33,6 +33,10 @@ import {
   type PolicyKernel,
   type AuthoritativeFacts,
   type AuthoritativeFactSource,
+  type DecisionOutcome,
+  isDenied,
+  isEscalated,
+  permitsPayment,
 } from "@ramp/shared";
 import {
   recordDecision,
@@ -95,6 +99,7 @@ export type FactSourcePort = AuthoritativeFactSource;
  * The terminal status of a purchase attempt.
  *   - `allowed`        — policy allow, persisted, verified, executed OK.
  *   - `denied`         — policy deny; NO execution.
+ *   - `escalated`      — policy says a human must approve; HELD, NO execution.
  *   - `policy_error`   — facts/kernel/provenance/proof construction failed; NO execution.
  *   - `audit_error`    — recordDecision failed OR proof did not verify; NO execution.
  *   - `executor_error` — allowed + persisted + verified, but the executor threw / returned failed.
@@ -102,6 +107,7 @@ export type FactSourcePort = AuthoritativeFactSource;
 export type PurchaseStatus =
   | "allowed"
   | "denied"
+  | "escalated"
   | "policy_error"
   | "audit_error"
   | "executor_error";
@@ -149,7 +155,8 @@ export interface RequestPurchaseInput {
 export interface RequestPurchaseResult {
   readonly status: PurchaseStatus;
   readonly decisionId: string | null;
-  readonly outcome: "allow" | "deny" | null;
+  /** The kernel's verdict. `escalate` means HELD — a human must approve. */
+  readonly outcome: DecisionOutcome | null;
   readonly firedRules: readonly string[];
   readonly reasons: readonly string[];
   readonly proofId: string | null;
@@ -169,7 +176,7 @@ function isValidDecision(value: unknown): value is Decision {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
-    (v.decision === "allow" || v.decision === "deny") &&
+    (v.decision === "allow" || v.decision === "deny" || v.decision === "escalate") &&
     Array.isArray(v.reasons) &&
     v.reasons.every((r) => typeof r === "string") &&
     Array.isArray(v.firedRules) &&
@@ -402,8 +409,35 @@ export async function requestPurchase(
     });
   }
 
-  // 9. DENY → return without ever touching the executor.
-  if (decision.decision === "deny") {
+  // 9. ESCALATE → HELD. Return without ever touching the executor.
+  //
+  // THIS BLOCK IS LOAD-BEARING. Before it, step 9 returned early only on "deny"
+  // and then fell through to execute — so adding a third outcome would have made
+  // every ESCALATED payment EXECUTE. Policy would say "a human must approve
+  // this" and the money would move anyway, with a proof recording that it was
+  // escalated. That is the single worst bug a third outcome can introduce, and
+  // it is invisible: no error, no throw, nothing red. Just a payment.
+  //
+  // Hence `permitsPayment` in @ramp/shared: `allow` is the ONLY verdict that
+  // moves money, stated positively, so the next outcome added to the lattice
+  // fails closed here instead of falling through.
+  if (isEscalated(decision)) {
+    return makeResult({
+      ...decided,
+      status: "escalated",
+      proofId: proof.proofId,
+      proofVerified: true,
+      executed: false,
+      receipt: null,
+      message:
+        decision.reasons.length > 0
+          ? `Payment held for human approval: ${decision.reasons.join("; ")}`
+          : "Payment held for human approval.",
+    });
+  }
+
+  // 9b. DENY → return without ever touching the executor.
+  if (isDenied(decision)) {
     return makeResult({
       ...decided,
       status: "denied",
@@ -420,6 +454,23 @@ export async function requestPurchase(
 
   // 10. Allowed + persisted + verified → execute (LAST, CONDITIONAL). Throw or a
   //     failed receipt → executor_error; the decision stays persisted regardless.
+  //
+  // The guard is deliberately redundant with the two early returns above. Both of
+  // those are `if (specific outcome) return` — a shape that fails OPEN when a new
+  // outcome is added, because the new value matches neither and falls through to
+  // here. This one asks the positive question instead ("may money move?") so an
+  // unrecognised verdict can never reach the executor.
+  if (!permitsPayment(decision)) {
+    return makeResult({
+      ...decided,
+      status: "policy_error",
+      proofId: proof.proofId,
+      proofVerified: true,
+      executed: false,
+      receipt: null,
+      message: `Refusing to execute: unrecognised policy outcome "${decision.decision}".`,
+    });
+  }
   let receipt: ExecutorReceipt;
   try {
     receipt = await executor.execute({

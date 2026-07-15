@@ -30,6 +30,8 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     // True since pillar 4: D6 denies without a verified attestation, so the
     // baseline (an ALLOW case) must carry one.
     attestation_present: true,
+  escalation_threshold: 400,
+  vendor_risk_tier: "standard",
   };
   return { ...base, ...overrides };
 }

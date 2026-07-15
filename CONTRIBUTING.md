@@ -110,6 +110,18 @@ Things that look like bugs but are not — read before "fixing":
   a real attack the guarantees would be unchanged, because the defence is structural. Do not wire it
   into a decision.
 
+- **`escalate` is a THIRD outcome, and two-valued logic silently mis-handles it.** When it landed,
+  every `if (decision === "deny") return;` in the codebase started letting escalations *fall through*
+  — `purchase.ts` would have EXECUTED every payment policy said a human must approve, with no error
+  anywhere. Use `permitsPayment(d)` (allow only, stated positively), never `!isDenied(d)`. Ternaries
+  on outcome are the same trap: one recorded an escalation as `"denied"`, and the dashboard chip
+  showed a HELD payment as refused.
+- **`migrate.ts` can delete the audit trail if you edit it carelessly.** SQLite can't ALTER a CHECK,
+  so widening one rebuilds `decisions` — and `decision_proofs` references it `ON DELETE CASCADE`.
+  Without `PRAGMA foreign_keys = OFF` before the swap, the DROP erases every proof. There is a
+  mutation-tested guard (`THE FOOTGUN: migrating does NOT cascade-delete proofs`); removing the
+  pragma makes 8 tests fail. Keep it that way.
+
 ## Optional: the Souffle → WASM kernel
 
 The gate ships a TS reference kernel (the golden oracle) that is always available. A

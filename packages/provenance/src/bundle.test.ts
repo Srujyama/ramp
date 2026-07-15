@@ -54,6 +54,14 @@ const kernel: PolicyKernel = {
         firedRules: denies.map(([id]) => id) as Decision["firedRules"],
       };
     }
+    // deny > escalate > allow
+    if (f.amount > f.escalation_threshold || f.vendor_risk_tier === "elevated") {
+      return {
+        decision: "escalate",
+        reasons: ["needs_human"],
+        firedRules: ["escalate/over_escalation_threshold"],
+      };
+    }
     return {
       decision: "allow",
       reasons: ["all_conditions_met"],
@@ -76,6 +84,8 @@ const HERO_FACTS: Facts = {
   approved_categories: ["office_supplies", "software", "travel"],
   agent_cleared_categories: ["office_supplies", "software"],
   attestation_present: true,
+escalation_threshold: 400,
+vendor_risk_tier: "standard",
 };
 
 /** Complete, honest provenance for HERO_FACTS — one entry per Facts field. */
@@ -93,6 +103,8 @@ function heroProvenance(facts: Facts = HERO_FACTS): FactProvenance[] {
     { fact: "approved_categories", value: facts.approved_categories, source: "policy_config", derivation: { kind: "sql", table: "categories", query: "SELECT category_id FROM categories WHERE approved = 1", params: [] } },
     { fact: "agent_cleared_categories", value: facts.agent_cleared_categories, source: "policy_config", derivation: { kind: "sql", table: "agent_category_clearances", query: "SELECT category_id FROM agent_category_clearances WHERE agent_id = ?", params: ["agent_47"] } },
     { fact: "attestation_present", value: facts.attestation_present, source: "attestation", derivation: { kind: "attestation", notaryKeyId: "notary_demo_ed25519_1", statementDigest: "a".repeat(64), verified: true } },
+    { fact: "escalation_threshold", value: facts.escalation_threshold, source: "policy_config", derivation: { kind: "sql", table: "policy_limits", query: "SELECT escalation_threshold FROM policy_limits WHERE id = 1", params: [] } },
+    { fact: "vendor_risk_tier", value: facts.vendor_risk_tier, source: "vendor_registry", derivation: { kind: "sql", table: "vendors", query: "SELECT risk_tier FROM vendors WHERE vendor_id = ?", params: ["acme_corp"] } },
   ];
 }
 
@@ -166,6 +178,8 @@ test("factsDigest is key-order independent (canonical encoding)", () => {
     per_txn_cap: HERO_FACTS.per_txn_cap,
     approved_categories: HERO_FACTS.approved_categories,
     agent_cleared_categories: HERO_FACTS.agent_cleared_categories,
+    escalation_threshold: HERO_FACTS.escalation_threshold,
+    vendor_risk_tier: HERO_FACTS.vendor_risk_tier,
   } as Facts;
   assert.equal(digestFacts(reordered), digestFacts(HERO_FACTS));
 });

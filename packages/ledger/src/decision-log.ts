@@ -49,7 +49,13 @@ import { sha256OfJson, type Json } from "./canonical-hash.js";
 import { isLedgerProofShape, type LedgerProof } from "./proof.js";
 
 /** Terminal persistence status of an audit row. */
-export type DecisionStatus = "allowed" | "denied" | "error";
+/**
+ * Terminal persistence status.
+ *   - `escalated` — policy could not settle it; a human must. HELD, never paid.
+ *   - `error`     — an infra/validation failure recorded as an audit row, NOT a
+ *                   policy outcome and never one of the policy rules.
+ */
+export type DecisionStatus = "allowed" | "denied" | "escalated" | "error";
 
 /** Terminal status of a recorded sandbox execution. */
 export type ExecutionStatus = "settled" | "failed";
@@ -218,7 +224,7 @@ export function isDecisionShape(value: unknown): value is Decision {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
-    (v.decision === "allow" || v.decision === "deny") &&
+    (v.decision === "allow" || v.decision === "deny" || v.decision === "escalate") &&
     Array.isArray(v.reasons) &&
     v.reasons.every((r) => typeof r === "string") &&
     Array.isArray(v.firedRules) &&
@@ -272,7 +278,12 @@ export function recordDecision(
       );
     }
     outcome = input.decision.decision;
-    status = outcome === "allow" ? "allowed" : "denied";
+    // Map the kernel's verdict onto a persistence status. Exhaustive on purpose:
+    // a ternary here would have silently recorded an ESCALATED decision as
+    // "denied" — a held payment filed as a refused one, which is a different
+    // event, and the audit trail would say the wrong thing forever.
+    status =
+      outcome === "allow" ? "allowed" : outcome === "escalate" ? "escalated" : "denied";
     firedRules = input.decision.firedRules;
   } else if (input.status === "error") {
     status = "error";

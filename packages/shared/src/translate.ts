@@ -72,6 +72,10 @@ export interface AuthoritativeFacts {
    * the model. Optional so Phase 0 callers may omit it (defaults to `false`).
    */
   readonly attestationPresent?: boolean;
+  /** Org escalation threshold, from `policy_limits`. */
+  readonly escalationThreshold: number;
+  /** The vendor's registry risk tier; `"unknown"` when unregistered. */
+  readonly vendorRiskTier: string;
 }
 
 /**
@@ -130,6 +134,8 @@ export function translateToFacts(
     agent_cleared_categories: authoritative.agentClearedCategories,
     // Day-4 layer; absent authoritative attestation => false (fail-closed default).
     attestation_present: authoritative.attestationPresent ?? false,
+    escalation_threshold: authoritative.escalationThreshold,
+    vendor_risk_tier: authoritative.vendorRiskTier,
   };
 }
 

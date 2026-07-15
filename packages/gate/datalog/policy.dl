@@ -72,6 +72,16 @@
 .decl daily_total_so_far(agent: symbol, d: number)
 .input daily_total_so_far
 
+// escalation_threshold(T): org amount above which a human must approve, even
+// though the spend is within every hard cap. From policy_config. One row.
+.decl escalation_threshold(t: number)
+.input escalation_threshold
+
+// vendor_risk_tier(V, Tier): the vendor's registry risk tier — "trusted",
+// "standard", or "elevated". From the vendor registry.
+.decl vendor_risk_tier(v: symbol, tier: symbol)
+.input vendor_risk_tier
+
 // attestation_present(R): a TLSNotary-style attestation for this request was
 // VERIFIED by @ramp/attestation (pillar 4) before evaluation.
 //
@@ -103,7 +113,35 @@ allow(R) :-
   agent_cleared_category(Ag, C),
   daily_total_so_far(Ag, D),
   daily_limit(L), D + A <= L,
-  attestation_present(R).
+  attestation_present(R),
+  !escalate(R).
+
+// ---- ESCALATE: the rulebook cannot settle this; a human must ----------------
+//
+// A third outcome, and NOT a soft deny. The consumer treats an escalated request
+// as HELD: nothing executes and nothing is recorded as allowed.
+//
+// The lattice is deny > escalate > allow. `allow` requires !escalate(R) above,
+// and the TS/Rust consumers check deny(R) BEFORE escalate(R) — so an escalation
+// can never rescue a request a deny rule rejected. If it could, a human would be
+// handed something policy already refused and asked to approve it, which turns
+// every deny rule into a suggestion.
+.decl escalate(r: symbol)
+.output escalate
+
+// E1: within every hard cap, but over the threshold a human should see.
+escalate(R) :-
+  request(R),
+  amount(R, A),
+  escalation_threshold(T),
+  A > T.
+
+// E2: the vendor is verified and registered, but recently onboarded.
+// Verified is not the same as familiar.
+escalate(R) :-
+  request(R),
+  vendor(R, V),
+  vendor_risk_tier(V, "elevated").
 
 // ---- DENY: any single trigger is enough (deny dominates) --------------------
 .decl deny(r: symbol)

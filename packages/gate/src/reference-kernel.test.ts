@@ -37,6 +37,8 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     approved_categories: ["office_supplies", "software", "travel"],
     agent_cleared_categories: ["office_supplies", "software"],
     attestation_present: true,
+  escalation_threshold: 400,
+  vendor_risk_tier: "standard",
   };
   return { ...base, ...overrides };
 }
@@ -100,10 +102,27 @@ test("deny: category approved but agent uncleared (travel)", () => {
 
 test("boundary: amount exactly at per_txn_cap (500) allows if daily fits", () => {
   // Lower prior so 500 fits under the daily limit: 1000 + 500 = 1500 <= 1500.
+  // escalation_threshold raised to 500 so this tests the CAP boundary and not
+  // E1 — at the default threshold of 400, a 500 spend escalates before the cap
+  // is even relevant. (That is correct behaviour; it is just a different test.)
   const d = referenceKernel.evaluate(
-    baseFacts({ amount: 500, daily_total_so_far: 1000 }),
+    baseFacts({ amount: 500, daily_total_so_far: 1000, escalation_threshold: 500 }),
   );
   assert.equal(d.decision, "allow");
+});
+
+test("boundary: amount exactly AT the escalation threshold still allows", () => {
+  // E1 is `amount > threshold`, not `>=`. At exactly the threshold no human is
+  // needed — the same <= convention as the caps.
+  //
+  // daily_total_so_far: 0 because the seeded prior of 1140 makes 1140+400 = 1540
+  // break the DAILY LIMIT before the threshold is ever reached. With the hero
+  // agent's prior there is literally no amount that can escalate on E1: anything
+  // over 400 also busts 1500. That is correct (deny dominates) and it is exactly
+  // why the demo's escalate beat uses the idle agent_12, which has headroom.
+  const idle = { daily_total_so_far: 0 } as const;
+  assert.equal(referenceKernel.evaluate(baseFacts({ ...idle, amount: 400 })).decision, "allow");
+  assert.equal(referenceKernel.evaluate(baseFacts({ ...idle, amount: 401 })).decision, "escalate");
 });
 
 test("boundary: daily total exactly at daily_limit (1500) allows", () => {

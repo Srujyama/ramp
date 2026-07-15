@@ -84,7 +84,14 @@ function policyStage(v: DecisionView): TimelineStage {
       meta: policyDigest,
     };
   }
-  const verdict = v.outcome === "allow" ? "Allowed" : v.outcome === "deny" ? "Denied" : "Evaluated";
+  const verdict =
+    v.outcome === "allow"
+      ? "Allowed"
+      : v.outcome === "deny"
+        ? "Denied"
+        : v.outcome === "escalate"
+          ? "Held for approval"
+          : "Evaluated";
   const rules =
     v.firedRules.length > 0
       ? v.firedRules.map((r) => ruleTitle(r)).join(", ")
@@ -195,6 +202,15 @@ function paymentStage(v: DecisionView): TimelineStage {
       title: "Payment blocked",
       state: "blocked",
       detail: "Denied by policy — executor never called.",
+    };
+  }
+  if (v.outcome === "escalate") {
+    return {
+      key: "payment",
+      title: "Payment held",
+      state: "pending",
+      detail:
+        "Policy escalated this to a human — executor never called. Held, awaiting approval.",
     };
   }
   if (v.outcome === "allow") {

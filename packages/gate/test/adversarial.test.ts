@@ -28,6 +28,8 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     approved_categories: ["office_supplies", "software", "travel"],
     agent_cleared_categories: ["office_supplies", "software"],
     attestation_present: true,
+    escalation_threshold: 400,
+    vendor_risk_tier: "standard",
     ...overrides,
   };
 }
@@ -69,6 +71,8 @@ function randomFacts(rng: () => number): Facts {
     approved_categories: CATEGORIES.filter(() => rng() > 0.5),
     agent_cleared_categories: CATEGORIES.filter(() => rng() > 0.5),
     attestation_present: rng() > 0.5,
+  escalation_threshold: Math.floor(rng() * 1000),
+  vendor_risk_tier: "standard",
   };
 }
 
@@ -109,34 +113,78 @@ test("PROPERTY: the kernel never throws, for any fact set", () => {
   }
 });
 
-test("PROPERTY: deny dominates — ANY failing condition forces deny", () => {
+test("PROPERTY: the lattice holds — deny > escalate > allow", () => {
+  // Three-valued now. The ORDER is the property: a request that both denies and
+  // escalates must DENY. If escalate could win, a human would be handed a request
+  // policy already rejected and asked to approve it.
   const rng = makeRng(0xfeed);
   for (let i = 0; i < 2000; i++) {
     const f = randomFacts(rng);
+    const malformed = [f.amount, f.daily_total_so_far, f.per_txn_cap, f.daily_limit].some(
+      (v) => !Number.isInteger(v) || v < 0,
+    );
     const shouldDeny =
+      malformed ||
       !f.vendor_verified ||
       f.amount > f.per_txn_cap ||
       !f.approved_categories.includes(f.category) ||
       !f.agent_cleared_categories.includes(f.category) ||
       f.daily_total_so_far + f.amount > f.daily_limit ||
       !f.attestation_present;
+    const shouldEscalate =
+      f.amount > f.escalation_threshold || f.vendor_risk_tier === "elevated";
 
+    const expected = shouldDeny ? "deny" : shouldEscalate ? "escalate" : "allow";
     const d = referenceKernel.evaluate(f);
     assert.equal(
       d.decision,
-      shouldDeny ? "deny" : "allow",
+      expected,
       `wrong verdict at iteration ${i} for ${JSON.stringify(f)}`,
     );
   }
 });
 
-test("PROPERTY: an allow requires ALL SIX conditions — no allow ever has a fired deny", () => {
+test("PROPERTY: an escalation NEVER rescues a denied request", () => {
+  // The single most important property of the new outcome, stated on its own.
+  const rng = makeRng(0xd00d);
+  let sawBoth = 0;
+  for (let i = 0; i < 2000; i++) {
+    const f = randomFacts(rng);
+    const denies =
+      !f.vendor_verified ||
+      f.amount > f.per_txn_cap ||
+      !f.approved_categories.includes(f.category) ||
+      !f.agent_cleared_categories.includes(f.category) ||
+      f.daily_total_so_far + f.amount > f.daily_limit ||
+      !f.attestation_present;
+    const escalates =
+      f.amount > f.escalation_threshold || f.vendor_risk_tier === "elevated";
+    if (!(denies && escalates)) continue;
+    sawBoth++;
+    const d = referenceKernel.evaluate(f);
+    assert.equal(d.decision, "deny", "a denied request must never become escalate");
+    assert.ok(
+      !d.firedRules.some((r) => r.startsWith("escalate/")),
+      "a deny must not report escalate rules — it was never a candidate for review",
+    );
+  }
+  assert.ok(sawBoth > 50, `the property needs real coverage; only ${sawBoth} cases hit both`);
+});
+
+test("PROPERTY: an allow is clean — no deny and no escalate rule on it", () => {
   const rng = makeRng(0xabcd);
   for (let i = 0; i < 2000; i++) {
     const d = referenceKernel.evaluate(randomFacts(rng));
     if (d.decision === "allow") {
       assert.deepEqual(d.firedRules, ["allow/all_conditions_met"]);
       assert.ok(!d.firedRules.some((r: RuleId) => r.startsWith("deny/")));
+      assert.ok(!d.firedRules.some((r: RuleId) => r.startsWith("escalate/")));
+    } else if (d.decision === "escalate") {
+      // An escalation reports ONLY escalate rules. It is not "allowed pending
+      // review", so it must not carry the allow reason.
+      assert.ok(d.firedRules.length > 0);
+      assert.ok(d.firedRules.every((r: RuleId) => r.startsWith("escalate/")));
+      assert.equal(d.firedRules.length, d.reasons.length);
     } else {
       assert.ok(d.firedRules.length > 0, "a deny must name at least one rule");
       assert.ok(d.firedRules.every((r: RuleId) => r.startsWith("deny/")));
@@ -262,14 +310,17 @@ test("a prototype-polluted facts object cannot forge an allow", () => {
 test("boundary arithmetic is exact at every edge", () => {
   // Integer whole units exist so these are exact, not approximate.
   const at = (o: Partial<Facts>) => referenceKernel.evaluate(baseFacts(o)).decision;
+  // Escalation is disabled here (threshold == cap) so these test the CAP itself
+  // rather than tripping E1 on the way. The escalation boundary gets its own test.
+  const noEsc = { escalation_threshold: 500 } as const;
   // per_txn_cap boundary
-  assert.equal(at({ amount: 500, daily_total_so_far: 1000 }), "allow", "<= cap");
-  assert.equal(at({ amount: 501, daily_total_so_far: 999 }), "deny", "> cap");
+  assert.equal(at({ ...noEsc, amount: 500, daily_total_so_far: 1000 }), "allow", "<= cap");
+  assert.equal(at({ ...noEsc, amount: 501, daily_total_so_far: 999 }), "deny", "> cap");
   // daily_limit boundary
-  assert.equal(at({ daily_total_so_far: 1160 }), "allow", "1160+340 = 1500 <= 1500");
-  assert.equal(at({ daily_total_so_far: 1161 }), "deny", "1161+340 = 1501 > 1500");
+  assert.equal(at({ ...noEsc, daily_total_so_far: 1160 }), "allow", "1160+340 = 1500 <= 1500");
+  assert.equal(at({ ...noEsc, daily_total_so_far: 1161 }), "deny", "1161+340 = 1501 > 1500");
   // zero-amount edge
-  assert.equal(at({ amount: 0 }), "allow", "a zero-amount request is within every limit");
+  assert.equal(at({ ...noEsc, amount: 0 }), "allow", "a zero-amount request is within every limit");
 });
 
 test("reasons never contain the request_id (the untrusted free-text field)", () => {

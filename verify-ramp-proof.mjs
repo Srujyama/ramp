@@ -187,11 +187,38 @@ function evaluate(f) {
     ]);
   }
 
+  // ESCALATE (E1, E2) — a third outcome: the rulebook cannot settle this, a
+  // human must. The payment is HELD; it is not "allowed pending review".
+  const escalations = [];
+  if (f.amount > f.escalation_threshold) {
+    escalations.push([
+      "escalate/over_escalation_threshold",
+      `over_escalation_threshold: amount ${f.amount} > escalation_threshold ` +
+        `${f.escalation_threshold} (within the ${f.per_txn_cap} cap, but a human must approve)`,
+    ]);
+  }
+  if (f.vendor_risk_tier === "elevated") {
+    escalations.push([
+      "escalate/elevated_risk_vendor",
+      `elevated_risk_vendor: vendor "${f.vendor}" is verified but carries risk tier ` +
+        `"${f.vendor_risk_tier}" — a human must approve`,
+    ]);
+  }
+
+  // deny > escalate > allow. Deny first: an escalation must never hand a human a
+  // request that policy already rejected.
   if (denies.length > 0) {
     return {
       decision: "deny",
       reasons: denies.map(([, r]) => r),
       firedRules: denies.map(([id]) => id),
+    };
+  }
+  if (escalations.length > 0) {
+    return {
+      decision: "escalate",
+      reasons: escalations.map(([, r]) => r),
+      firedRules: escalations.map(([id]) => id),
     };
   }
   return {
@@ -223,6 +250,8 @@ const FACT_SOURCES = {
   approved_categories: "policy_config",
   agent_cleared_categories: "policy_config",
   attestation_present: "attestation",
+  escalation_threshold: "policy_config",
+  vendor_risk_tier: "vendor_registry",
 };
 
 // ---------------------------------------------------------------------------

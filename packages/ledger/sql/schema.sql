@@ -27,6 +27,12 @@ CREATE TABLE IF NOT EXISTS vendors (
   registry_domain      TEXT,
   registry_verified_at TEXT,
   registry_method      TEXT,
+  -- Risk tier: 'trusted' | 'standard' | 'elevated'. Verified is not the same as
+  -- familiar — a vendor can be exactly who they claim and still be one we
+  -- started paying yesterday. 'standard' is the safe default for a migration:
+  -- it escalates nothing, matching what a pre-escalate ledger did.
+  risk_tier            TEXT NOT NULL DEFAULT 'standard'
+    CHECK (risk_tier IN ('trusted', 'standard', 'elevated')),
   created_at           TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -62,6 +68,13 @@ CREATE TABLE IF NOT EXISTS policy_limits (
   id          INTEGER PRIMARY KEY CHECK (id = 1),
   per_txn_cap INTEGER NOT NULL,
   daily_limit INTEGER NOT NULL,
+  -- Amount above which a human must approve, even though the spend is within
+  -- every hard cap. Lets per_txn_cap mean ONE thing again ("the most an agent
+  -- may ever spend") instead of doubling as "the most it may spend unattended".
+  -- Defaulted so the additive column migration can add it to an existing ledger
+  -- without inventing a policy: a threshold equal to the cap escalates nothing,
+  -- which is exactly the behaviour a pre-escalate ledger already had.
+  escalation_threshold INTEGER NOT NULL DEFAULT 2147483647,
   currency    TEXT NOT NULL DEFAULT 'USD'
 );
 
@@ -81,9 +94,10 @@ CREATE TABLE IF NOT EXISTS decisions (
   request_id          TEXT NOT NULL,
   -- Terminal persistence status. 'error' = an infra/validation failure recorded
   -- as an audit row (NOT one of the five policy deny rules).
-  status              TEXT NOT NULL CHECK (status IN ('allowed', 'denied', 'error')),
+  -- 'escalated' = policy could not settle it; a human must. HELD, never paid.
+  status              TEXT NOT NULL CHECK (status IN ('allowed', 'denied', 'escalated', 'error')),
   -- The Decision.decision verbatim ('allow'/'deny'); NULL for an 'error' row.
-  outcome             TEXT CHECK (outcome IN ('allow', 'deny')),
+  outcome             TEXT CHECK (outcome IN ('allow', 'deny', 'escalate')),
   agent_id            TEXT NOT NULL,
   vendor_id           TEXT NOT NULL,
   amount              INTEGER NOT NULL,

@@ -41,6 +41,25 @@ export interface Facts {
   readonly agent_cleared_categories: readonly string[];
   /** True iff a TLSNotary-style attestation accompanied this request (Day 4 layer). */
   readonly attestation_present: boolean;
+  /**
+   * Org threshold above which a spend needs a human, even though it is within
+   * every hard cap. From `policy_limits`.
+   *
+   * This is what lets `per_txn_cap` mean one thing again. Before it, the cap had
+   * to be both "the most an agent may spend unattended" and "the most an agent
+   * may spend" — two different numbers wearing one name, which is how caps get
+   * argued upward until they mean nothing.
+   */
+  readonly escalation_threshold: number;
+  /**
+   * The vendor's risk tier from the registry: `"trusted"`, `"standard"`, or
+   * `"elevated"`. An unregistered vendor is `"unknown"` (and denies on
+   * `vendor_not_verified` long before tier matters).
+   *
+   * Verified is not the same as familiar — a vendor can be exactly who they say
+   * and still be one we started paying yesterday.
+   */
+  readonly vendor_risk_tier: string;
 }
 
 /** Field-by-field provenance for a `Facts` object — where each fact came from. */
@@ -68,4 +87,6 @@ export const FACT_SOURCES: { readonly [K in keyof Facts]: FactSource } = {
   approved_categories: "policy_config",
   agent_cleared_categories: "policy_config",
   attestation_present: "attestation",
+  escalation_threshold: "policy_config",
+  vendor_risk_tier: "vendor_registry",
 };
