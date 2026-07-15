@@ -50,6 +50,15 @@
   --sidebar-w: 248px;
   --header-h: 60px;
 
+  /* --- spacing scale (4pt base) — intra-group tight, inter-section generous */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+
   color-scheme: light;
 }
 
@@ -315,12 +324,12 @@ kbd,
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: var(--space-xl);
   box-shadow: var(--shadow-sm);
 }
 
 .card h3 {
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-xs);
   font-size: 14px;
   font-weight: 640;
 }
@@ -328,7 +337,7 @@ kbd,
 .card .card-sub {
   color: var(--ink-faint);
   font-size: 12px;
-  margin: 0 0 14px;
+  margin: 0 0 var(--space-lg);
 }
 
 /* ---- stat tile --------------------------------------------------------- */
@@ -921,7 +930,7 @@ kbd,
   gap: 6px;
   font-size: 13px;
   color: var(--ink-muted);
-  margin-bottom: 14px;
+  margin-bottom: var(--space-md);
 }
 .detail-back:hover { color: var(--ink); }
 
@@ -960,7 +969,7 @@ kbd,
 .kv {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 8px 18px;
+  gap: var(--space-sm) var(--space-lg);
   font-size: 13px;
 }
 .kv dt { color: var(--ink-faint); font-weight: 550; }
@@ -1003,7 +1012,7 @@ kbd,
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 12px 14px;
+  padding: var(--space-md) var(--space-lg);
   font-size: 12.5px;
 }
 .proof-box .pid {
@@ -1068,8 +1077,8 @@ kbd,
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: var(--space-md);
+  margin-bottom: var(--space-3xl);
 }
 .detail-head h2 { margin: 0; }
 .detail-badges {
@@ -1085,10 +1094,10 @@ kbd,
 }
 .detail-ids {
   display: grid;
-  gap: 10px;
+  gap: var(--space-sm);
   width: 100%;
   margin: 2px 0 0;
-  padding: 14px 16px;
+  padding: var(--space-md) var(--space-lg);
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;
