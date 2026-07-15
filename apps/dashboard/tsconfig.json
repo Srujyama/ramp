@@ -11,6 +11,10 @@
     "module": "ESNext",
     "allowImportingTsExtensions": true
   },
-  "references": [{ "path": "../../packages/shared" }],
+  "references": [
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/provenance" },
+    { "path": "../../packages/gate" }
+  ],
   "include": ["src", "vite.config.ts"]
 }

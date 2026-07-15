@@ -44,6 +44,28 @@ jobs:
       - name: Test
         run: pnpm -r test
 
+      # The unit tests prove the KERNEL works. These prove the GATE works.
+      #
+      # `pnpm demo` spawns `hook/evaluate.mjs` as a real subprocess — exactly how
+      # Claude Code invokes it — for every beat in PITCH.md, and asserts the exit
+      # code (2 = denied), because the exit code IS the contract with Claude Code.
+      # A green kernel with a broken hook is a broken product; CI should notice.
+      #
+      # This is also what stops PITCH.md from drifting into fiction. If someone
+      # changes the policy so the happy path denies, or reintroduces the
+      # fail-open that let the $400 over-limit beat through, this job goes red —
+      # the pitch is executable, not prose.
+      - name: Seed the authoritative ledger
+        run: pnpm db:reset
+
+      - name: Drive every PITCH.md demo beat through the real hook
+        run: pnpm demo
+
+      # Re-verify the bundles the gate just sealed, with an independent verifier
+      # that re-derives each decision from its recorded facts.
+      - name: Independently verify the sealed provenance bundles
+        run: pnpm proof --summary
+
   # OPTIONAL job: only does real work where souffle + wasm-pack exist. It never gates
   # the build — the TS reference kernel is always present, so the `build` job above is
   # green with no souffle/wasm-pack. continue-on-error keeps a red X here non-blocking.

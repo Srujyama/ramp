@@ -11,8 +11,12 @@
 -- "1200 + 340 > 1500" describes the OVER-LIMIT beat, not the happy path).
 -- ----------------------------------------------------------------------------
 
+-- agent_47 is the hero. agent_12 is REGISTERED but has spent nothing today — it
+-- exists so tests can cover "an authoritative zero" separately from "I don't know
+-- who this is" (which now throws UnknownAgentError instead of reading as zero).
 INSERT INTO agents (agent_id, display_name) VALUES
-  ('agent_47', 'Procurement Agent 47');
+  ('agent_47', 'Procurement Agent 47'),
+  ('agent_12', 'Ops Agent 12');
 
 -- Vendor registry: one verified vendor + two unverified (for the spoof/deny beats).
 INSERT INTO vendors (vendor_id, display_name, verified, registry_domain, registry_verified_at, registry_method) VALUES
@@ -31,7 +35,8 @@ INSERT INTO categories (category_id, display_name, approved) VALUES
 -- "category approved but agent uncleared" deny).
 INSERT INTO agent_category_clearances (agent_id, category_id) VALUES
   ('agent_47', 'office_supplies'),
-  ('agent_47', 'software');
+  ('agent_47', 'software'),
+  ('agent_12', 'office_supplies');
 
 -- Prior spend today for agent_47 totalling 1140 (600 + 540) so 340 more still allows.
 INSERT INTO ledger_entries (agent_id, vendor_id, category_id, amount, currency, request_id, ts) VALUES

@@ -22,6 +22,10 @@ export type { PolicyKernel, KernelKind, DescribedKernel } from "./kernel.js";
 export type { SpendRequest } from "./spend-request.js";
 export { isSpendRequest } from "./spend-request.js";
 
+// Canonical encoding — one value, one byte string. Shared so @ramp/attestation
+// (signing) and @ramp/provenance (content-addressing) cannot drift apart.
+export { canonicalJson } from "./canonical.js";
+
 // Fact translation — the anti-injection seam (untrusted keys + authoritative DB facts).
 export type {
   AuthoritativeFacts,

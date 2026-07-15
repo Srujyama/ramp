@@ -11,6 +11,16 @@
 // line-for-line mirror of these rules and is the golden oracle until this file is
 // compiled to WASM (build:wasm) — the parity test cross-checks them.
 //
+// ONE DELIBERATE ASYMMETRY: the TS/Rust kernels carry an extra rule,
+// `deny/malformed_facts`, that has no counterpart here. That is not drift — it is
+// the mirrors paying for a difference in number types. Souffle's `number` is an
+// INTEGER: NaN, Infinity and floats are UNREPRESENTABLE in this file, so the
+// rules below never have to consider them. TypeScript's `number` is IEEE-754 and
+// admits all three, and NaN is poison because every comparison against it is
+// false — with `amount = NaN`, both D2 and D5 silently fail to fire and the
+// request is ALLOWED. The TS kernel therefore enforces at runtime what Souffle
+// enforces in its type system. Do not "restore parity" by deleting that rule.
+//
 // Compile (optional; needs souffle):
 //   souffle -D facts -F facts packages/gate/datalog/policy.dl
 // I/O is CSV via the facts/ dir; the WASM/native harness swaps the directory.
@@ -62,8 +72,13 @@
 .decl daily_total_so_far(agent: symbol, d: number)
 .input daily_total_so_far
 
-// attestation_present(R): a TLSNotary-style attestation accompanied this request.
-// Optional layer (Day 4). Absent in Phase 0 seeds; declared so the schema is stable.
+// attestation_present(R): a TLSNotary-style attestation for this request was
+// VERIFIED by @ramp/attestation (pillar 4) before evaluation.
+//
+// This is the VERDICT of signature verification + binding checks, established out
+// of band — never a claim off the request. The attestation blob rides in on the
+// untrusted tool_input; whether it is genuine is decided by the attestation layer,
+// and only the resulting boolean reaches this relation. See D6.
 .decl attestation_present(r: symbol)
 .input attestation_present
 
@@ -87,7 +102,8 @@ allow(R) :-
   requesting_agent(R, Ag),
   agent_cleared_category(Ag, C),
   daily_total_so_far(Ag, D),
-  daily_limit(L), D + A <= L.
+  daily_limit(L), D + A <= L,
+  attestation_present(R).
 
 // ---- DENY: any single trigger is enough (deny dominates) --------------------
 .decl deny(r: symbol)
@@ -113,3 +129,15 @@ deny(R) :-
   daily_total_so_far(Ag, D),
   daily_limit(L),
   D + A > L.
+
+// D6: no VERIFIED attestation accompanies this request (pillar 4).
+//
+// Every payment must be backed by a notary-signed statement that binds the invoice
+// bytes, the amount, and the vendor's REGISTERED domain — checked before the money
+// moves. An unattested payment is one where we are trusting somebody's summary of a
+// document, which is the exact thing this project exists to stop doing.
+//
+// Deliberately negative ("deny unless present") so the fail-closed direction is the
+// default: a missing, malformed, expired, forged, or unbound attestation all reduce
+// to the same absent fact, and absence denies.
+deny(R) :- request(R), !attestation_present(R).

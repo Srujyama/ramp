@@ -2,7 +2,7 @@
   "name": "@ramp/ledger",
   "version": "0.0.0",
   "private": true,
-  "description": "Provable Agent Spend — the AUTHORITATIVE fact source. Reads security-critical facts (daily_total_so_far, vendor_verified, caps, approved/cleared categories) from SQLite, never from model narration.",
+  "description": "Provable Agent Spend \u2014 the AUTHORITATIVE fact source. Reads security-critical facts (daily_total_so_far, vendor_verified, caps, approved/cleared categories) from SQLite, never from model narration.",
   "type": "module",
   "exports": {
     ".": {
@@ -25,7 +25,8 @@
     "db:init": "node dist/scripts/init-db.js"
   },
   "dependencies": {
-    "@ramp/shared": "workspace:*"
+    "@ramp/shared": "workspace:*",
+    "@ramp/provenance": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -17,6 +17,11 @@ import { ReferenceKernel, referenceKernel } from "./reference-kernel.js";
  * Base facts = the hero happy path (req_9f, agent_47, acme_corp, office_supplies,
  * 340) against the seeded org (per_txn_cap 500, daily_limit 1500, prior 1140).
  * 1140 + 340 = 1480 <= 1500 => ALLOW. Individual tests override single fields.
+ *
+ * `attestation_present` is TRUE here. It was false before pillar 4 landed, when
+ * the fact was declared but consulted by no rule; now D6 denies without a
+ * verified attestation, so the happy path must carry one — the hero request is
+ * backed by a real notary-signed invoice. See `deny: no verified attestation`.
  */
 function baseFacts(overrides: Partial<Facts> = {}): Facts {
   const base: Facts = {
@@ -31,7 +36,7 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     daily_limit: 1500,
     approved_categories: ["office_supplies", "software", "travel"],
     agent_cleared_categories: ["office_supplies", "software"],
-    attestation_present: false,
+    attestation_present: true,
   };
   return { ...base, ...overrides };
 }
@@ -124,6 +129,41 @@ test("deny dominates: multiple triggers all appear, decision is deny", () => {
     "deny/category_not_approved",
     "deny/agent_uncleared_for_category",
     "deny/daily_limit_exceeded",
+  ]);
+});
+
+test("deny: no verified attestation (pillar 4, D6)", () => {
+  // An otherwise-perfect request — verified vendor, approved category, cleared
+  // agent, within both limits — still denies without a verified attestation.
+  // Missing / malformed / expired / forged / unbound all collapse to this one
+  // fact being false, because the attestation layer decides that out of band
+  // and only the verdict crosses into the kernel.
+  const d = referenceKernel.evaluate(baseFacts({ attestation_present: false }));
+  assert.equal(d.decision, "deny");
+  assert.deepEqual(d.firedRules, ["deny/attestation_invalid"]);
+  assert.ok(d.reasons[0]?.includes("unattested document"));
+});
+
+test("D6 is appended LAST in the fixed evaluation order", () => {
+  // Pins the ordering choice: D6 sits last so the pre-existing reason ordering
+  // stayed byte-stable when pillar 4 landed. Order never affects allow/deny.
+  const d = referenceKernel.evaluate(
+    baseFacts({
+      vendor: "sketchy_llc",
+      vendor_verified: false,
+      amount: 999,
+      category: "crypto",
+      attestation_present: false,
+    }),
+  );
+  assert.equal(d.decision, "deny");
+  assert.deepEqual(d.firedRules, [
+    "deny/vendor_not_verified",
+    "deny/over_per_txn_cap",
+    "deny/category_not_approved",
+    "deny/agent_uncleared_for_category",
+    "deny/daily_limit_exceeded",
+    "deny/attestation_invalid",
   ]);
 });
 

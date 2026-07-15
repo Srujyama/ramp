@@ -9,7 +9,17 @@ spend request is reduced to a closed set of **facts pulled from authoritative so
 returns `allow` / `deny` the same way every time. Same facts → same answer, and the facts
 are true.
 
-> See the full pitch and demo script in **[`hackathon-plan.html`](./hackathon-plan.html)**.
+> **The canonical pitch is [`PITCH.md`](./PITCH.md).** (`hackathon-plan.html` and
+> `pitch-deck.html` derive from it — see `CLAUDE.md` → "Keeping the pitch in sync".)
+
+**All four pillars are built and enforced.** One-liner: *everyone else scopes the card; we prove the
+decision.*
+
+```bash
+pnpm install && pnpm db:reset && pnpm build && pnpm test   # 121 tests
+pnpm demo     # drive every pitch beat through the REAL hook; assert exit codes
+pnpm proof    # independently re-verify the bundles the gate sealed
+```
 
 ## Why it's trustworthy
 
@@ -22,35 +32,73 @@ are true.
 - **Enforcement is fail-closed.** A `PreToolUse` command hook intercepts the payment tool
   *before* it runs; any bad input, unreachable DB, or kernel error emits a **deny** and exits
   non-zero. There is no "fail open" path.
-- **It's auditable.** Every decision carries the exact `RuleId`s that fired and a
-  human-readable reason per rule — the same rule ids used by both kernel implementations, the
-  dashboard, and the audit view.
+- **It's auditable — and the audit is *re-derivable*.** Every decision is sealed into a
+  content-addressed **provenance bundle**: the decision, the exact facts, and for each fact the
+  specific query / notary / declassifier it came from. `pnpm proof` re-runs the kernel on the
+  recorded facts and checks the verdict falls out. An audit *log* is a claim a system writes about
+  itself; a bundle can be checked by someone who trusts nothing. You cannot reseal your way out of
+  arithmetic.
+- **Untrusted content can't act.** Invoices and emails are wrapped at the boundary in a value that
+  **refuses to become a string** (`${q}`, `String(q)`, `JSON.stringify(q)` all throw). It escapes
+  only through a total declassifier into a **bounded codomain** — so an attacker's reachable set is a
+  number we chose in advance, not "strings we failed to imagine."
+- **Invoices are authenticated, not just matched.** A notary-signed statement binds the invoice
+  bytes, the amount, and the vendor's **registered** domain, verified before money moves. A 3-way
+  match compares documents to *each other*; three consistent forgeries pass it. (Scope stated plainly
+  in [`packages/attestation/README.md`](./packages/attestation/README.md): real Ed25519 and real
+  binding checks, **not** the TLSNotary MPC protocol.)
 
 ## Architecture
+
+A request flows **down** through every pillar before a dollar moves. Enforcement comes from the
+**topology**, not from the agent cooperating.
 
 ```
   agent calls  mcp__payments__pay_vendor
         │
         ▼
-  ┌──────────────────────────────┐   raw SpendRequest (UNTRUSTED transport)
-  │  .claude/hooks/evaluate.mjs  │   — used only as lookup keys
+  ┌──────────────────────────────┐   raw SpendRequest — ALL of it untrusted transport,
+  │      hook/evaluate.mjs       │   including the attestation blob. Used only as keys.
   │      (fail-closed hook)      │
   └──────────────┬───────────────┘
-                 │  keys: agent, vendor, category, amount
+                 │
+                 ▼
+  ┌──────────────────────────────┐   PILLAR 3 — invoice + invoiceRef wrapped at the
+  │      @ramp/quarantine        │   boundary. Cannot become a string. Escapes only
+  │   (CaMeL: data cannot act)   │   via a total declassifier into a bounded codomain.
+  └──────────────┬───────────────┘
+                 │  a digest — never the bytes
+                 ▼
+  ┌──────────────────────────────┐   PILLAR 4 — Ed25519 signature vs a trusted notary
+  │      @ramp/attestation       │   keyring, AND binding: invoice digest, the vendor's
+  │  (authenticate, don't match) │   REGISTERED domain, amount, currency, freshness.
+  └──────────────┬───────────────┘
+                 │  attestation_present: a verified BOOLEAN (never a claim)
                  ▼
   ┌──────────────────────────────┐   AUTHORITATIVE facts:
-  │   @ramp/ledger  (SQLite)     │   vendor_verified, daily_total_so_far,
-  │   + vendor registry          │   caps, approved + cleared categories
-  └──────────────┬───────────────┘
+  │   @ramp/ledger  (SQLite)     │   vendor_verified, daily_total_so_far, caps,
+  │   + vendor registry          │   approved + cleared categories — and the exact
+  └──────────────┬───────────────┘   SQL it ran, recorded as provenance.
                  │  Facts  (the frozen contract, @ramp/shared)
                  ▼
-  ┌──────────────────────────────┐   policy.dl (Souffle) ⇄ TS reference kernel
-  │   @ramp/gate  PolicyKernel   │   deny dominates; deterministic + pure
+  ┌──────────────────────────────┐   PILLAR 1 — policy.dl (Souffle) ⇄ TS reference kernel
+  │   @ramp/gate  PolicyKernel   │   deny dominates; deterministic, pure, no clock.
   └──────────────┬───────────────┘
                  │  Decision { decision, reasons, firedRules }
                  ▼
-     hook returns allow / deny   ──►  @ramp/dashboard visualizes decisions & audit
+  ┌──────────────────────────────┐   PILLAR 2 — seal a content-addressed bundle:
+  │      @ramp/provenance        │   decision + facts + where every fact came from.
+  │  (re-derivable, not logged)  │   `pnpm proof` re-runs the kernel and checks.
+  └──────────────┬───────────────┘
+                 │
+       exit 0 = allow  ·  exit 2 = deny   ──►  @ramp/dashboard re-verifies in your BROWSER
 ```
+
+**Where the clock lives.** Freshness needs wall time, so exactly one place reads it: the hook, in the
+fact-gathering layer, alongside the DB reads. It passes `now` *into* the attestation verifier (which
+stays pure), and only the resulting boolean crosses into the kernel. Gathering facts may read the
+world; **deciding** may not. That split is what keeps *"same Facts → same Decision"* true — and it's
+what makes pillar 2's re-derivation possible at all.
 
 The seam between "facts" and "allow/deny" is a single interface, `PolicyKernel`, with **two
 implementations behind it**: a TypeScript **reference kernel** (the golden oracle, always
@@ -61,15 +109,18 @@ implementation-agnostic; a parity test cross-checks the two.
 
 | Workspace             | Path                   | Depends on        | What it is                                                            |
 | --------------------- | ---------------------- | ----------------- | -------------------------------------------------------------------- |
-| **`@ramp/shared`**    | `packages/shared/`     | —                 | The **frozen contract**: `Facts`, `Decision`, `RuleId`, `PolicyKernel`, `SpendRequest`, fact translation. Zero runtime deps; imported by everyone. |
-| **`@ramp/gate`**      | `packages/gate/`       | `@ramp/shared`    | The **policy kernel** (hero). `policy.dl` (Souffle) is the source of truth; the TS reference kernel mirrors it line-for-line; optional WASM build. |
-| **`@ramp/ledger`**    | `packages/ledger/`     | `@ramp/shared`    | The **authoritative fact source** (SQLite) + vendor registry. Pure DB reads — never model narration. |
+| **`@ramp/shared`**    | `packages/shared/`     | —                 | The **frozen contract**: `Facts`, `Decision`, `RuleId`, `PolicyKernel`, `SpendRequest`, fact translation, `canonicalJson`. Zero runtime deps; browser-safe; imported by everyone. |
+| **`@ramp/gate`**      | `packages/gate/`       | `@ramp/shared`    | **Pillar 1** — the **policy kernel** (hero). `policy.dl` (Souffle) is the source of truth; the TS reference kernel mirrors it line-for-line; optional WASM build. |
+| **`@ramp/provenance`**| `packages/provenance/` | `@ramp/shared`    | **Pillar 2** — decision bundles + `verifyBundle`, the auditor's function. Does **not** depend on `@ramp/gate`: an auditor brings their own kernel. |
+| **`@ramp/quarantine`**| `packages/quarantine/` | `@ramp/shared`    | **Pillar 3** — the CaMeL wrapper + total declassifiers into bounded codomains. |
+| **`@ramp/attestation`**| `packages/attestation/`| `@ramp/shared`   | **Pillar 4** — Ed25519 notary attestation, canonical domain-separated signing, binding checks. |
+| **`@ramp/ledger`**    | `packages/ledger/`     | shared + provenance | The **authoritative fact source** (SQLite) + vendor registry. Pure DB reads — never model narration. Records the exact SQL it ran as provenance. |
 | **`@ramp/payments-mcp`** | `apps/payments-mcp/`| `@ramp/shared`    | Stub MCP server exposing `mcp__payments__pay_vendor`. An honest non-enforcing stub — enforcement lives in the hook. |
-| **`@ramp/dashboard`** | `apps/dashboard/`      | `@ramp/shared`    | Vite + React shell to view decisions and "prove this to an auditor". |
-| The hook              | `.claude/`             | gate + ledger + shared | The fail-closed `PreToolUse` enforcement point — the ONLY place policy is enforced. |
+| **`@ramp/dashboard`** | `apps/dashboard/`      | shared + provenance + gate | Vite + React. The **Audit page re-verifies bundles in your browser** with WebCrypto and the real kernel. |
+| The gate              | `hook/` (+ `.claude/` shim) | all of the above | The fail-closed `PreToolUse` enforcement point — the ONLY place policy is enforced. |
 
-**Ownership:** @Srujyama owns the gate + shared contract + repo wiring; @neilporw owns the
-ledger fact source + payments MCP stub; @JonKach owns the dashboard shell. See
+**Ownership:** @Srujyama owns the gate + the three pillars + shared contract + repo wiring;
+@neilporw owns the ledger fact source + payments MCP stub; @JonKach owns the dashboard shell. See
 [`.github/CODEOWNERS`](./.github/CODEOWNERS).
 
 ## Quickstart
@@ -82,11 +133,20 @@ corepack enable
 pnpm install         # install the whole workspace
 pnpm db:reset        # build the demo ledger from schema.sql + seed.sql
 pnpm build           # tsc build every package
-pnpm test            # run every workspace's node:test suite
+pnpm test            # run every workspace's node:test suite (121 tests)
 
-pnpm dev             # start the dashboard shell (Vite)
+pnpm demo            # drive EVERY pitch beat through the real hook, assert exit codes
+pnpm proof           # independently re-verify the bundles the gate just sealed
+pnpm dev             # dashboard (Vite) — the Audit page re-verifies in your browser
 pnpm mcp             # (separately) run the stub payments MCP server
 ```
+
+**`pnpm test` is not the bar; `pnpm demo` is.** The tests prove the *kernel* works. `pnpm demo`
+spawns `hook/evaluate.mjs` as a real subprocess — exactly how Claude Code invokes it — and asserts
+the **exit code**, which is the actual contract with Claude Code. A green kernel behind a broken
+hook is a broken product: that is exactly how a fail-open allowing a $400 over-limit payment once
+survived a fully green suite. Both `pnpm demo` and `pnpm proof` run in CI, so the pitch is
+executable and cannot quietly drift into fiction.
 
 The demo scenario is seeded: agent `agent_47`, verified vendor `acme_corp`, approved
 category `office_supplies`, per-transaction cap `500`, daily limit `1500`, prior spend today

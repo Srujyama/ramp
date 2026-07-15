@@ -11,12 +11,15 @@
  */
 export {
   openLedger,
+  openLedgerStrict,
   closeLedger,
   isProvisioned,
   applySchema,
   applySeed,
   readSchemaSql,
   readSeedSql,
+  resolveDbPath,
+  LedgerNotProvisionedError,
   DEFAULT_DB_PATH,
   IN_MEMORY_PATH,
   SCHEMA_SQL_PATH,
@@ -24,5 +27,5 @@ export {
 } from "./db.js";
 export type { LedgerDb, OpenLedgerOptions } from "./db.js";
 
-export { LedgerFactSource, makeFactSource } from "./dal.js";
-export type { AuthoritativeContext, Limits } from "./dal.js";
+export { LedgerFactSource, makeFactSource, UnknownAgentError } from "./dal.js";
+export type { Limits } from "./dal.js";

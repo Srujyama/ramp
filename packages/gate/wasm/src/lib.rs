@@ -46,6 +46,36 @@ fn evaluate_facts(f: &Facts) -> Decision {
     let mut reasons: Vec<String> = Vec::new();
     let mut fired: Vec<String> = Vec::new();
 
+    // D0: malformed facts — mirrors the TS kernel's `deny/malformed_facts`.
+    //
+    // Rust is already safe from the NaN fail-open that bit the TS kernel: these
+    // fields are `i64`, so serde REFUSES to deserialize NaN/Infinity/a float and
+    // `evaluate` returns an error before we get here (an error the hook turns
+    // into a deny). Negative amounts, however, do parse — an i64 is signed —
+    // so this rule is not redundant, and it keeps the two kernels answering the
+    // same question rather than relying on a type-system accident for parity.
+    let bad: Vec<&str> = [
+        ("amount", f.amount),
+        ("daily_total_so_far", f.daily_total_so_far),
+        ("per_txn_cap", f.per_txn_cap),
+        ("daily_limit", f.daily_limit),
+    ]
+    .iter()
+    .filter(|(_, v)| *v < 0)
+    .map(|(k, _)| *k)
+    .collect();
+
+    if !bad.is_empty() {
+        return Decision {
+            decision: "deny".to_string(),
+            reasons: vec![format!(
+                "malformed_facts: {} must be finite, non-negative integers (money is whole units); refusing to evaluate",
+                bad.join(", ")
+            )],
+            fired_rules: vec!["deny/malformed_facts".to_string()],
+        };
+    }
+
     let category_approved = f.approved_categories.iter().any(|c| c == &f.category);
     let agent_cleared = f.agent_cleared_categories.iter().any(|c| c == &f.category);
 
@@ -87,6 +117,15 @@ fn evaluate_facts(f: &Facts) -> Decision {
         reasons.push(format!(
             "daily_limit_exceeded: {} + {} > daily_limit {}",
             f.daily_total_so_far, f.amount, f.daily_limit
+        ));
+    }
+    // D6: no verified attestation (pillar 4). Appended last to keep the
+    // pre-existing reason ordering byte-stable; order never affects allow/deny.
+    if !f.attestation_present {
+        fired.push("deny/attestation_invalid".to_string());
+        reasons.push(format!(
+            "attestation_invalid: no verified attestation binds this invoice to vendor \"{}\" — refusing to pay on an unattested document",
+            f.vendor
         ));
     }
 

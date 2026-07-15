@@ -16,7 +16,10 @@
  *   3. deny/category_not_approved        (policy.dl D4)
  *   4. deny/agent_uncleared_for_category (policy.dl D3)
  *   5. deny/daily_limit_exceeded         (policy.dl D5)
+ *   6. deny/attestation_invalid          (policy.dl D6)
  * Order affects only the reason list, never allow/deny (deny dominates regardless).
+ * D6 is appended last rather than placed beside its thematic sibling D1 (both are
+ * authenticity checks) solely to keep the pre-existing ordering byte-stable.
  */
 import type { Facts, Decision, RuleId, PolicyKernel } from "@ramp/shared";
 
@@ -32,9 +35,60 @@ interface FiredRule {
  * Mirrors `datalog/policy.dl`: the same predicates, the same arithmetic
  * (`<=` / `>` on integer whole currency units), the same deny triggers.
  */
+/**
+ * The numeric `Facts` fields. All must be finite, non-negative integers — the
+ * repo-wide "money is integer whole units" invariant, which exists so the
+ * kernel's arithmetic is exact.
+ */
+const NUMERIC_FACTS = [
+  "amount",
+  "daily_total_so_far",
+  "per_txn_cap",
+  "daily_limit",
+] as const satisfies ReadonlyArray<keyof Facts>;
+
+/**
+ * Names the numeric fields that are not finite, non-negative integers.
+ *
+ * WHY THIS EXISTS (a real fail-open, found by the property tests):
+ * Souffle's `number` is an INTEGER type, so `policy.dl` never has to consider
+ * NaN, Infinity, or floats — they cannot be written down. TypeScript's `number`
+ * is IEEE-754 and admits all three, and NaN is poison: EVERY comparison against
+ * it is false. So with `amount: NaN`, D2's `amount > per_txn_cap` was false and
+ * D5's `daily_total + amount > daily_limit` was false — neither deny fired, no
+ * other rule looks at amount, and the kernel returned
+ * `all_conditions_met: amount NaN within cap 500`. A NaN was payable.
+ *
+ * It was not reachable through the hook (`isSpendRequest` rejects a non-finite
+ * amount), so this is defence in depth rather than a live exploit. But the
+ * kernel is the authority: it must not depend on a caller remembering to check.
+ */
+function malformedNumerics(facts: Facts): string[] {
+  return NUMERIC_FACTS.filter((key) => {
+    const v = facts[key];
+    return typeof v !== "number" || !Number.isInteger(v) || v < 0;
+  });
+}
+
 export class ReferenceKernel implements PolicyKernel {
   evaluate(facts: Facts): Decision {
     const denies: FiredRule[] = [];
+
+    // ---- D0: malformed facts. Evaluated FIRST and returned ALONE ------------
+    // We do not reason about garbage. If a number is not a number, every
+    // downstream comparison is meaningless (and, with NaN, silently permissive),
+    // so there is nothing useful to say beyond "these facts are not evaluable."
+    const malformed = malformedNumerics(facts);
+    if (malformed.length > 0) {
+      return {
+        decision: "deny",
+        reasons: [
+          `malformed_facts: ${malformed.join(", ")} must be finite, non-negative ` +
+            `integers (money is whole units); refusing to evaluate`,
+        ],
+        firedRules: ["deny/malformed_facts"],
+      };
+    }
 
     // Derived helper (policy.dl `requesting_agent_uncleared_for_category`):
     // the agent is cleared iff the request's category is in its cleared set.
@@ -84,6 +138,19 @@ export class ReferenceKernel implements PolicyKernel {
       });
     }
 
+    // D6 (policy.dl): no VERIFIED attestation accompanies this request.
+    // `attestation_present` is the attestation layer's verdict, established out
+    // of band (@ramp/attestation). Missing, malformed, expired, forged, and
+    // unbound all collapse to the same `false` here — and false denies.
+    if (!facts.attestation_present) {
+      denies.push({
+        id: "deny/attestation_invalid",
+        reason:
+          `attestation_invalid: no verified attestation binds this invoice to vendor ` +
+          `"${facts.vendor}" — refusing to pay on an unattested document`,
+      });
+    }
+
     // ---- deny dominates -----------------------------------------------------
     if (denies.length > 0) {
       return {
@@ -95,14 +162,15 @@ export class ReferenceKernel implements PolicyKernel {
 
     // ---- ALLOW: every condition held (policy.dl `allow`) --------------------
     // (No deny fired => all of: amount<=cap, category approved, vendor verified,
-    //  agent cleared, and daily_total+amount<=daily_limit hold.)
+    //  agent cleared, daily_total+amount<=daily_limit, and attestation verified.)
     return {
       decision: "allow",
       reasons: [
         `all_conditions_met: amount ${facts.amount} within cap ${facts.per_txn_cap}, ` +
           `category "${facts.category}" approved and agent "${facts.requesting_agent}" cleared, ` +
           `vendor "${facts.vendor}" verified, ` +
-          `daily ${facts.daily_total_so_far} + ${facts.amount} <= ${facts.daily_limit}`,
+          `daily ${facts.daily_total_so_far} + ${facts.amount} <= ${facts.daily_limit}, ` +
+          `attestation verified`,
       ],
       firedRules: ["allow/all_conditions_met"],
     };

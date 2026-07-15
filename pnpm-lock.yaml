@@ -8,12 +8,21 @@ importers:
 
   .:
     dependencies:
+      '@ramp/attestation':
+        specifier: workspace:*
+        version: link:packages/attestation
       '@ramp/gate':
         specifier: workspace:*
         version: link:packages/gate
       '@ramp/ledger':
         specifier: workspace:*
         version: link:packages/ledger
+      '@ramp/provenance':
+        specifier: workspace:*
+        version: link:packages/provenance
+      '@ramp/quarantine':
+        specifier: workspace:*
+        version: link:packages/quarantine
       '@ramp/shared':
         specifier: workspace:*
         version: link:packages/shared
@@ -24,6 +33,12 @@ importers:
 
   apps/dashboard:
     dependencies:
+      '@ramp/gate':
+        specifier: workspace:*
+        version: link:../../packages/gate
+      '@ramp/provenance':
+        specifier: workspace:*
+        version: link:../../packages/provenance
       '@ramp/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -72,6 +87,19 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  packages/attestation:
+    dependencies:
+      '@ramp/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
   packages/gate:
     dependencies:
       '@ramp/shared':
@@ -86,6 +114,35 @@ importers:
         version: 5.9.3
 
   packages/ledger:
+    dependencies:
+      '@ramp/provenance':
+        specifier: workspace:*
+        version: link:../provenance
+      '@ramp/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  packages/provenance:
+    dependencies:
+      '@ramp/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  packages/quarantine:
     dependencies:
       '@ramp/shared':
         specifier: workspace:*
