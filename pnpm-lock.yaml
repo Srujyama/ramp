@@ -52,6 +52,9 @@ importers:
         specifier: ^7.1.1
         version: 7.18.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
     devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
       '@types/react':
         specifier: ^19.0.7
         version: 19.2.17
@@ -73,6 +76,15 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.29.0(zod@3.25.76)
+      '@ramp/attestation':
+        specifier: workspace:*
+        version: link:../../packages/attestation
+      '@ramp/gate':
+        specifier: workspace:*
+        version: link:../../packages/gate
+      '@ramp/ledger':
+        specifier: workspace:*
+        version: link:../../packages/ledger
       '@ramp/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -115,6 +127,9 @@ importers:
 
   packages/ledger:
     dependencies:
+      '@ramp/gate':
+        specifier: workspace:*
+        version: link:../gate
       '@ramp/provenance':
         specifier: workspace:*
         version: link:../provenance

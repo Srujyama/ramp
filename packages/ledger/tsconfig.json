@@ -5,7 +5,11 @@
     "rootDir": ".",
     "composite": true
   },
-  "references": [{ "path": "../shared" }, { "path": "../provenance" }],
+  "references": [
+    { "path": "../shared" },
+    { "path": "../provenance" },
+    { "path": "../gate" }
+  ],
   "include": ["src/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }

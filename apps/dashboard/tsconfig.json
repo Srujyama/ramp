@@ -16,5 +16,6 @@
     { "path": "../../packages/provenance" },
     { "path": "../../packages/gate" }
   ],
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["src/**/*.test.ts", "src/lib/testfixtures.ts", "dist-test"]
 }

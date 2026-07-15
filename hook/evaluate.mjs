@@ -20,27 +20,37 @@
 //      by the request's identity fields. Nothing is copied out of the request.
 //   4. KERNEL (@ramp/gate) — pure, deterministic, deny-dominates.
 //
-// ...and then PROVENANCE (@ramp/provenance) seals a bundle recording the
-// decision, the facts, and where each fact came from — so an auditor can
-// re-derive the verdict without trusting this process at all.
+// ...and then TWO complementary records are written, which is deliberate:
+//
+//   - @ramp/provenance seals a portable BUNDLE (decision + facts + where every
+//     fact came from). Its verifier re-runs the kernel on the recorded facts and
+//     checks the verdict falls out — SOUNDNESS. An auditor can check it with
+//     nothing but the file and a kernel of their own.
+//   - @ramp/ledger persists a decision row + a tamper-evident LedgerProof, which
+//     recomputes its own id from its content — INTEGRITY. This is the
+//     operational store the dashboard reads, and it is what makes an allow
+//     auditable after the fact.
+//
+// Integrity ("the record was not altered") and soundness ("the decision follows
+// from the facts") are different guarantees. We want both, so we keep both.
 //
 // FAIL-CLOSED INVARIANT (crux #1): ANY problem — malformed stdin, a tool_input
-// that is not a SpendRequest, an unreachable ledger, an unverifiable
-// attestation, a kernel that throws, a bad import — results in a DENY payload on
-// stdout AND process.exit(2). We NEVER exit 0 on an error path, and we never let
-// a spend through by accident. A command hook (not HTTP) is used precisely
-// because it fails closed even under --dangerously-skip-permissions.
+// that is not a SpendRequest, an unreachable ledger, a kernel that throws, a
+// failed audit write, a bad import — results in a DENY payload on stdout AND
+// process.exit(2). We NEVER exit 0 on an error path. A command hook (not HTTP)
+// is used precisely because it fails closed even under
+// --dangerously-skip-permissions.
 //
 // NOTE ON THE CLOCK: this file reads Date.now() and passes it in to the
 // attestation layer. That is deliberate and it is the ONLY clock read on the
-// path. The kernel never sees a clock — it sees `attestation_present`, a
-// boolean. Fact-gathering is allowed to read the world (a DB, a clock);
+// decision path. The kernel never sees a clock — it sees `attestation_present`,
+// a boolean. Fact-gathering is allowed to read the world (a DB, a clock);
 // deciding is not. That split is what keeps "same Facts -> same Decision" true.
 // ----------------------------------------------------------------------------
-
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 
 /**
  * Emit a PreToolUse deny decision and exit non-zero. This is the ONLY error
@@ -155,6 +165,7 @@ async function main() {
     db = ledger.openLedgerStrict();
     factSource = new ledger.LedgerFactSource(db);
   } catch (err) {
+    // Opening the ledger is what failed, so there is no db to audit into.
     closeQuietly(ledger, db);
     denyAndExit(
       "denied (fail-closed): authoritative fact source unavailable (" + errMsg(err) + ")",
@@ -183,13 +194,15 @@ async function main() {
         amount: req.amount,
         currency: req.currency,
       },
-      // The one clock read on the path. See the file header.
+      // The one clock read on the decision path. See the file header.
       now: Date.now(),
     });
-    const attestationPresent = attestationResult.verified === true;
 
     // ---- 6. AUTHORITATIVE facts + their provenance ---------------------
-    const ctx = { request: req, attestationPresent };
+    const ctx = {
+      request: req,
+      attestationPresent: attestationResult.verified === true,
+    };
     const { facts: authoritative, provenance: ledgerProvenance } =
       factSource.contextWithProvenance(ctx);
 
@@ -197,6 +210,8 @@ async function main() {
 
     // ---- 7. PILLAR 1: the deterministic kernel -------------------------
     const described = gate.getKernel();
+    const kernelId =
+      described && typeof described.kind === "string" ? described.kind : undefined;
     const kernel = described && described.kernel ? described.kernel : described;
     if (!kernel || typeof kernel.evaluate !== "function") {
       throw new Error("kernel has no evaluate()");
@@ -206,10 +221,10 @@ async function main() {
       throw new Error("kernel returned no decision");
     }
 
-    // ---- 8. PILLAR 2: seal a verifiable provenance bundle --------------
+    // ---- 8. PILLAR 2: seal a portable, re-derivable bundle -------------
     // Each producer records the facts IT sourced: the ledger recorded its six
-    // above (with the exact SQL it ran); the five identity keys and the
-    // attestation verdict are recorded here, by the code that produced them.
+    // (with the exact SQL it ran); the five identity keys and the attestation
+    // verdict are recorded here, by the code that produced them.
     const provenance = [
       {
         fact: "request_id",
@@ -234,13 +249,11 @@ async function main() {
         source: "attestation",
         derivation: {
           kind: "attestation",
-          notaryKeyId: attestationResult.verified
-            ? attestationResult.notaryKeyId
-            : "none",
+          notaryKeyId: attestationResult.verified ? attestationResult.notaryKeyId : "none",
           statementDigest: attestationResult.verified
             ? provenanceLib.digest(attestationResult.statement)
             : "0".repeat(64),
-          verified: attestationPresent,
+          verified: attestationResult.verified === true,
         },
       },
     ];
@@ -250,20 +263,76 @@ async function main() {
       facts,
       provenance,
       decision,
-      kernel: { kind: described?.kind ?? "reference" },
+      kernel: { kind: kernelId ?? "reference" },
       evaluatedAt: new Date().toISOString(),
     });
 
-    // Persist for the dashboard / auditor. Best-effort: a failure to WRITE THE
-    // RECORD must not change the DECISION. Losing an audit record is bad;
-    // letting a payment through because we couldn't write a file is worse, and
-    // denying a legitimate payment because a disk was full is also wrong. So the
-    // decision below stands either way, and the write failure is reported.
+    // Best-effort: failing to write the PORTABLE bundle must not move the
+    // decision. It is a convenience artifact for the auditor CLI; the ledger row
+    // below is the authoritative audit record, and THAT one fails closed.
     const bundleWrite = writeBundle(bundle);
+
+    // ---- 9. PERSIST the audit row (allow OR deny) BEFORE enforcing ------
+    //   The hook is the only holder of exact facts+decision, so it is the writer.
+    //   recordDecision stores facts + decision VERBATIM and derives status from
+    //   the decision — it never recomputes policy or fabricates a rule. The proof
+    //   is built and persisted ATOMICALLY with the decision.
+    //
+    //   FAIL-CLOSED: if the audit write throws, we DENY. An un-auditable allow is
+    //   not a provable allow. This is an infrastructure deny — the reason says so
+    //   and NO fired rule is fabricated, so it is never mislabeled as policy.
+    try {
+      if (typeof ledger.recordDecision === "function") {
+        const decisionId = randomUUID();
+        // Derive INDEPENDENT provenance from trusted execution context only (the
+        // structured request, the AUTHORITATIVE facts, the decision, the kernel
+        // id). The graph is DERIVED here — never accepted from the agent.
+        let ledgerProvGraph;
+        if (typeof ledger.buildDecisionProvenance === "function") {
+          ledgerProvGraph = ledger.buildDecisionProvenance({
+            request: req,
+            decision,
+            facts,
+            kernelId,
+          });
+        }
+        let proof;
+        if (typeof ledger.buildProof === "function") {
+          proof = ledger.buildProof({
+            decisionId,
+            request: req,
+            decision,
+            facts,
+            kernelId,
+            // PILLAR 4 CLOSES THIS HOLE. This was pinned at "present_unverified"
+            // with the honest note that "verified" would require a real
+            // verification result we did not have. We have one now:
+            // @ramp/attestation ran the signature and binding checks above, so we
+            // report its ACTUAL verdict.
+            attestation: attestationStatusOf(req, attestationResult),
+            provenance: ledgerProvGraph,
+          });
+        }
+        ledger.recordDecision(db, {
+          decisionId,
+          request: req,
+          facts,
+          decision,
+          kernelId,
+          proof,
+        });
+      }
+    } catch (err) {
+      closeQuietly(ledger, db);
+      denyAndExit(
+        "denied (fail-closed): could not persist audit record (" + errMsg(err) + ")",
+      );
+      return;
+    }
 
     closeQuietly(ledger, db);
 
-    // ---- 9. render the decision ----------------------------------------
+    // ---- 10. render the decision ---------------------------------------
     const firedRules = Array.isArray(decision.firedRules) ? decision.firedRules : [];
     const reasons = Array.isArray(decision.reasons) ? decision.reasons : [];
 
@@ -277,13 +346,15 @@ async function main() {
           `and ignored — the decision does not consult them`,
       );
     }
-    if (!attestationPresent && attestationResult.verified === false) {
+    if (attestationResult.verified === false) {
       notes.push(`[attestation] ${attestationResult.code}: ${attestationResult.reason}`);
     }
     if (bundleWrite.error) {
       notes.push(`[provenance] bundle not persisted: ${bundleWrite.error}`);
     } else {
-      notes.push(`[provenance] bundle ${bundle.bundleDigest.slice(0, 12)}… -> ${bundleWrite.path}`);
+      notes.push(
+        `[provenance] bundle ${bundle.bundleDigest.slice(0, 12)}… -> ${bundleWrite.path}`,
+      );
     }
 
     if (decision.decision === "allow") {
@@ -292,7 +363,9 @@ async function main() {
           hookEventName: "PreToolUse",
           permissionDecision: "allow",
           permissionDecisionReason:
-            (reasons.length > 0 ? reasons.join("; ") : "allow: every policy condition held") +
+            (reasons.length > 0
+              ? reasons.join("; ")
+              : "allow: every policy condition held") +
             (notes.length ? " | " + notes.join(" | ") : ""),
           firedRules,
         },
@@ -308,9 +381,50 @@ async function main() {
       firedRules,
     );
   } catch (err) {
+    // Infrastructure failure AFTER the ledger opened. Best-effort audit row so an
+    // operator can see the gate failed here: status "error", no decision, no
+    // fabricated rule — an honest infra row, NOT one of the policy denies. It can
+    // never mask the fail-closed deny below.
+    try {
+      if (db && typeof ledger.recordDecision === "function") {
+        ledger.recordDecision(db, {
+          decisionId: randomUUID(),
+          request: req,
+          status: "error",
+        });
+      }
+    } catch {
+      /* best-effort; the deny below still fails closed */
+    }
     closeQuietly(ledger, db);
     denyAndExit("denied (fail-closed): " + errMsg(err));
   }
+}
+
+/**
+ * Map @ramp/attestation's verdict onto the ledger proof's AttestationStatus.
+ *
+ * The four statuses are honest and distinct, and the distinction matters to
+ * whoever reads the audit trail:
+ *   - absent               — no attestation accompanied the request at all.
+ *   - verified             — signature AND binding checks passed.
+ *   - verification_failed  — one WAS presented and it did not verify. A different,
+ *                            louder fact than "absent": somebody tried.
+ *   - present_unverified   — an attestation exists but nothing checked it. We
+ *                            never emit this now that pillar 4 exists. It stays in
+ *                            the enum because proofs written BEFORE pillar 4
+ *                            legitimately carry it, and rewriting history to claim
+ *                            they were verified is exactly the lie this repo is
+ *                            about not telling.
+ */
+function attestationStatusOf(req, result) {
+  if (req.attestation === undefined || req.attestation === null) {
+    return { status: "absent" };
+  }
+  if (result && result.verified === true) {
+    return { status: "verified", provider: "tlsnotary-style" };
+  }
+  return { status: "verification_failed", provider: "tlsnotary-style" };
 }
 
 /** Provenance entry for a fact copied verbatim from a structured tool arg. */
@@ -324,8 +438,8 @@ function structuredArg(fact, value, field) {
 }
 
 /**
- * Persist a decision bundle as JSON. Never throws — see the call site for why a
- * write failure must not move the decision either way.
+ * Persist a portable decision bundle as JSON. Never throws — see the call site
+ * for why a write failure must not move the decision either way.
  */
 function writeBundle(bundle) {
   try {

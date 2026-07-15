@@ -18,8 +18,8 @@
   --surface: #ffffff;
   --surface-2: #f1f3f7;
   --ink: #131924;
-  --ink-muted: #566072;
-  --ink-faint: #8a93a5;
+  --ink-muted: #4a5464; /* darkened for AA on tinted near-white small text */
+  --ink-faint: #656d7c; /* darkened → clears 4.5:1 on tinted surfaces too */
   --border: #e3e7ee;
   --border-strong: #cdd4e0;
 
@@ -50,6 +50,15 @@
   --sidebar-w: 248px;
   --header-h: 60px;
 
+  /* --- spacing scale (4pt base) — intra-group tight, inter-section generous */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+
   color-scheme: light;
 }
 
@@ -61,7 +70,7 @@
     --surface-2: #1d2430;
     --ink: #eef2f8;
     --ink-muted: #a4afc0;
-    --ink-faint: #6b7688;
+    --ink-faint: #8a94a8;
     --border: #262d3a;
     --border-strong: #333c4c;
 
@@ -156,13 +165,24 @@ kbd,
   height: var(--header-h);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 28px;
+  padding: 0;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+/* Header content shares the same centered column as .app-content so the title
+   lines up with the page content instead of hugging the far edge. */
+.app-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding: 0 28px;
 }
 
 .app-header h1 {
@@ -180,8 +200,9 @@ kbd,
 .app-content {
   padding: 28px;
   flex: 1;
-  max-width: 1180px;
+  max-width: 1200px;
   width: 100%;
+  margin-inline: auto;
 }
 
 .page-head {
@@ -225,10 +246,12 @@ kbd,
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  background: linear-gradient(135deg, var(--accent), var(--info));
+  /* Solid infra-ink, NOT a green gradient: verification-green is reserved for a
+     proven ALLOW, never spent on brand ornament. */
+  background: var(--ink);
+  color: var(--surface);
   display: grid;
   place-items: center;
-  color: #fff;
   font-weight: 800;
   font-size: 15px;
   flex: none;
@@ -266,9 +289,14 @@ kbd,
 }
 
 .nav-link.active {
-  background: var(--accent-soft);
-  color: var(--accent);
+  /* AA-safe: ink text on a faint neutral, with the accent carried by the icon +
+     a weight bump — not low-contrast green-on-green text. */
+  background: var(--surface-2);
+  color: var(--ink);
   font-weight: 620;
+}
+.nav-link.active .ico {
+  color: var(--accent);
 }
 
 .nav-link .ico {
@@ -277,19 +305,11 @@ kbd,
   font-size: 15px;
 }
 
-.sidebar .foot {
-  margin-top: auto;
-  padding: 12px 12px 0;
-  border-top: 1px solid var(--border);
-  color: var(--ink-faint);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
 /* ---- cards / grid ------------------------------------------------------ */
 .grid {
   display: grid;
   gap: 16px;
+  align-items: start;
 }
 
 .grid.tiles {
@@ -304,12 +324,12 @@ kbd,
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: var(--space-xl);
   box-shadow: var(--shadow-sm);
 }
 
 .card h3 {
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-xs);
   font-size: 14px;
   font-weight: 640;
 }
@@ -317,7 +337,19 @@ kbd,
 .card .card-sub {
   color: var(--ink-faint);
   font-size: 12px;
-  margin: 0 0 14px;
+  margin: 0 0 var(--space-lg);
+}
+
+/* The one primary card on a page (e.g. the execution timeline) gets slightly
+   more presence than the supporting cards beneath it. */
+.card.card-primary {
+  padding: var(--space-2xl);
+}
+.card.card-primary h3 {
+  font-size: 15px;
+}
+.card.card-primary .card-sub {
+  max-width: 72ch;
 }
 
 /* ---- stat tile --------------------------------------------------------- */
@@ -457,12 +489,31 @@ kbd,
 .kbar > span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--info));
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(var(--fill, 0));
+  background: var(--info);
+  /* Animate transform (compositor-only), not width — no layout thrash. */
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.kbar > span.over {
+  background: var(--deny);
+}
+@media (prefers-reduced-motion: reduce) {
+  .kbar > span {
+    transition: none;
+  }
 }
 
 @media (max-width: 780px) {
   .app-shell {
     grid-template-columns: 1fr;
+  }
+  .app-content {
+    padding: 16px;
+  }
+  .app-header-inner {
+    padding: 0 16px;
   }
   .sidebar {
     position: static;
@@ -473,8 +524,633 @@ kbd,
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
-  .sidebar .foot {
-    display: none;
+}
+
+/* ============================================================================
+ * Connected-dashboard components (decisions, detail, provenance, states).
+ * Added when the shell was wired to the live ledger bridge. Preserves the
+ * token discipline above: verification-green stays reserved for proven success.
+ * ==========================================================================*/
+
+/* --- AA-safe text tones for status chips on their -soft backgrounds -------- */
+:root {
+  --accent-ink: #06754f;
+  --deny-ink: #b3282d;
+  --warn-ink: #8a5300;
+  --info-ink: #2a49b8;
+  --z-sticky: 10;
+  --z-toast: 60;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --accent-ink: #2fd6a5;
+    --deny-ink: #ff8a8f;
+    --warn-ink: #e79b2f;
+    --info-ink: #93a9ff;
+  }
+}
+:root[data-theme="dark"] {
+  --accent-ink: #2fd6a5;
+  --deny-ink: #ff8a8f;
+  --warn-ink: #e79b2f;
+  --info-ink: #93a9ff;
+}
+
+/* --- accessibility --------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.skip-link {
+  position: fixed;
+  left: 12px;
+  top: -60px;
+  z-index: var(--z-toast);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-md);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  transition: top 0.15s ease;
+}
+.skip-link:focus {
+  top: 12px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- status chips ---------------------------------------------------------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 640;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.chip .cdot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.chip.accent { background: var(--accent-soft); color: var(--accent-ink); }
+.chip.deny   { background: var(--deny-soft);   color: var(--deny-ink); }
+.chip.warn   { background: var(--warn-soft);   color: var(--warn-ink); }
+.chip.info   { background: var(--info-soft);   color: var(--info-ink); }
+.chip.neutral {
+  background: var(--surface-2);
+  color: var(--ink-muted);
+  border-color: var(--border);
+}
+
+/* --- workflow strip (the product's live path) ------------------------------ */
+.workflow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 6px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.workflow .wf-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 560;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  border-radius: 999px;
+}
+.workflow .wf-step .n {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.workflow .wf-arrow {
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+/* --- hero / value prop ----------------------------------------------------- */
+.hero {
+  margin: 0 0 22px;
+}
+.hero h2 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+  margin: 0 0 8px;
+  max-width: 22ch;
+  text-wrap: balance;
+}
+.hero .lede {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 15px;
+  max-width: 64ch;
+  line-height: 1.5;
+}
+.hero .lede strong {
+  color: var(--ink);
+  font-weight: 620;
+}
+
+/* --- KPI row (values only appear when the bridge answers) ------------------ */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+/* --- filter bar ------------------------------------------------------------ */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.filter-bar .field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.filter-bar label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.select,
+.text-input {
+  appearance: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 28px 6px 10px;
+  min-width: 140px;
+  cursor: pointer;
+}
+.select:hover,
+.text-input:hover { border-color: var(--ink-faint); }
+.text-input {
+  padding-right: 10px;
+  cursor: text;
+}
+.btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 560;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.btn:hover { background: var(--surface-2); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.primary {
+  background: var(--info);
+  border-color: var(--info);
+  color: #fff;
+}
+.btn.primary:hover { filter: brightness(1.06); background: var(--info); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.ghost:hover { background: var(--surface-2); }
+
+/* --- decisions table (2D grid; collapses to cards on narrow) --------------- */
+.table-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.dtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.dtable thead th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.dtable td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.dtable tbody tr {
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.dtable tbody tr:hover { background: var(--surface-2); }
+.dtable tbody tr:last-child td { border-bottom: none; }
+.dtable tbody tr.corrupt-row { background: var(--deny-soft); }
+.dtable tbody tr.corrupt-row:hover { filter: brightness(0.99); }
+.dtable .num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 560;
+}
+.dtable .mono-cell {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.cell-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.rule-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--ink-muted);
+}
+.corrupt-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--deny-ink);
+  font-size: 11.5px;
+  font-weight: 640;
+}
+
+/* Card layout for narrow viewports: relabel cells via data-label. */
+@media (max-width: 860px) {
+  .dtable, .dtable thead, .dtable tbody, .dtable th, .dtable td, .dtable tr {
+    display: block;
+  }
+  .dtable thead { position: absolute; left: -9999px; }
+  .dtable tbody tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin: 10px;
+    padding: 4px 0;
+  }
+  .dtable tbody tr:last-child td { border-bottom: 1px solid var(--border); }
+  .dtable td {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 14px;
+  }
+  .dtable td:last-child { border-bottom: none; }
+  .dtable td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--ink-faint);
+    text-align: left;
+  }
+  .cell-rules { justify-content: flex-end; }
+}
+
+/* --- pagination footer ----------------------------------------------------- */
+.list-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  color: var(--ink-muted);
+  font-size: 12.5px;
+}
+
+/* --- skeleton loading ------------------------------------------------------ */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--ink) 6%, transparent),
+    transparent
+  );
+  animation: sk-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes sk-shimmer {
+  100% { transform: translateX(100%); }
+}
+.sk-line { height: 12px; margin: 8px 0; }
+.sk-row { height: 44px; margin: 0; border-radius: 0; border-bottom: 1px solid var(--border); }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+}
+
+/* --- error / disconnected state ------------------------------------------- */
+.state-card {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 36px 24px;
+  text-align: center;
+  color: var(--ink-muted);
+}
+.state-card.bad {
+  border-color: var(--deny);
+  background: var(--deny-soft);
+}
+.state-card .s-icon { font-size: 24px; margin-bottom: 8px; }
+.state-card h4 { margin: 0 0 6px; color: var(--ink); font-size: 15px; font-weight: 640; }
+.state-card p { margin: 0 auto 14px; max-width: 52ch; font-size: 13px; }
+.state-card code {
+  font-size: 12px;
+  background: var(--surface-2);
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+}
+
+/* --- connection pill (header) ---------------------------------------------- */
+.conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 560;
+  color: var(--ink-muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.conn .cdot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.conn.live .cdot { background: var(--accent); }
+.conn.down .cdot { background: var(--deny); }
+.conn.wait .cdot { background: var(--warn); }
+
+/* --- decision detail ------------------------------------------------------- */
+.detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-muted);
+  margin-bottom: var(--space-md);
+}
+.detail-back:hover { color: var(--ink); }
+
+/* The four-part trust ladder: allowed · persisted · verified · executed. */
+.trust-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.trust-step {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 13px 15px;
+  box-shadow: var(--shadow-sm);
+}
+.trust-step .t-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.trust-step .t-mark {
+  width: 18px; height: 18px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 800; color: #fff; flex: none;
+}
+.trust-step.ok .t-mark { background: var(--accent); }
+.trust-step.bad .t-mark { background: var(--deny); }
+.trust-step.skip .t-mark { background: var(--border-strong); color: var(--ink-muted); }
+.trust-step .t-label { font-size: 12.5px; font-weight: 640; color: var(--ink); }
+.trust-step .t-sub { font-size: 11.5px; color: var(--ink-muted); }
+
+/* Key/value grid for request + facts. */
+.kv {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-sm) var(--space-lg);
+  font-size: 13px;
+}
+.kv dt { color: var(--ink-faint); font-weight: 550; }
+.kv dd { margin: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+.kv dd.mono { font-family: var(--font-mono); font-size: 12px; word-break: break-all; }
+
+/* Provenance flow: vertical stepped list, honest terminal step. */
+.flow { list-style: none; margin: 0; padding: 0; }
+.flow li {
+  position: relative;
+  padding: 0 0 18px 26px;
+}
+.flow li::before {
+  content: "";
+  position: absolute;
+  left: 6px; top: 3px; bottom: -3px;
+  width: 2px;
+  background: var(--border);
+}
+.flow li:last-child::before { display: none; }
+.flow .node {
+  position: absolute;
+  left: 0; top: 2px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  background: var(--border-strong);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+.flow .node.accent { background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.flow .node.deny   { background: var(--deny);   box-shadow: 0 0 0 1px var(--deny); }
+.flow .node.warn   { background: var(--warn);   box-shadow: 0 0 0 1px var(--warn); }
+.flow .node.info   { background: var(--info);   box-shadow: 0 0 0 1px var(--info); }
+.flow .f-title { font-size: 13px; font-weight: 620; color: var(--ink); }
+.flow .f-detail { font-size: 12px; color: var(--ink-muted); margin-top: 1px; }
+.flow .f-sources { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+
+/* Proof + receipt boxes. */
+.proof-box {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md) var(--space-lg);
+  font-size: 12.5px;
+}
+.proof-box .pid {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  word-break: break-all;
+}
+.id-copy {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.id-copy:hover { color: var(--ink); }
+
+
+/* --- decision-row explanation (deterministic human summary above the rules) - */
+.explain-cell { max-width: 42ch; }
+.row-explain {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.row-explain + .cell-rules { margin-top: 2px; }
+
+/* --- policy simulator result (hypothetical — distinct, but not a warning) ---- */
+.sim-result {
+  margin-top: 16px;
+  padding: 16px 18px;
+  background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 28%, var(--border));
+  border-radius: 10px;
+}
+.sim-result > :first-child { margin-top: 0; }
+
+/* --- decision detail cards: aligned 3-up grid. Cards in a row share a top
+   edge and stretch to equal height; the page reorders cards so rows carry
+   similar content volume instead of relying on masonry packing --- */
+.detail-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-xl);
+  margin-top: var(--space-2xl);
+}
+.detail-cards > .card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.detail-cards > .card > :last-child {
+  margin-bottom: 0;
+}
+/* A lone empty-state sentence in an equal-height card: let it float into the
+   leftover space so it reads as intentional rather than stranded at the top. */
+.detail-cards > .card > .card-empty {
+  margin: auto 0;
+}
+@media (max-width: 1000px) {
+  .detail-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .detail-cards { grid-template-columns: 1fr; }
+}
+
+/* --- decision detail header (title / badges / timestamp / labeled ids) ------ */
+.detail-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-md);
+  margin-bottom: var(--space-3xl);
+}
+.detail-head h2 { margin: 0; }
+.detail-badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.detail-ts {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+.detail-ids {
+  display: grid;
+  gap: var(--space-sm);
+  width: 100%;
+  margin: 2px 0 0;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.detail-id-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 4px 16px;
+  align-items: baseline;
+}
+.detail-id-row dt {
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--ink-faint);
+}
+.detail-id-row dd {
+  margin: 0;
+  min-width: 0;
+}
+.detail-id-row dd .id-copy {
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+@media (max-width: 560px) {
+  .detail-id-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 }
 
@@ -583,4 +1259,62 @@ kbd,
 
 .prov-params {
   color: var(--accent);
+}
+
+/* ---- re-derivation panel (soundness, computed in the browser) ----------- */
+/* Deliberately the loudest affirmative surface in the console: it is the only
+   place that proves the decision is CORRECT rather than merely UNALTERED. */
+
+.rederive {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+}
+.rederive.match {
+  border-color: var(--accent-ink);
+}
+.rederive.mismatch {
+  border-color: var(--deny-ink);
+  background: color-mix(in srgb, var(--deny-ink) 8%, var(--surface-2));
+}
+.rederive.unavailable {
+  border-style: dashed;
+}
+
+.rd-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.rd-kernel {
+  font-size: 11px;
+}
+
+.rd-note {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-muted, var(--muted));
+}
+
+.rd-foot {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.rule-inline {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.rule-tag.sm {
+  font-size: 11px;
+  padding: 1px 6px;
 }

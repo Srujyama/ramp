@@ -1,0 +1,13 @@
+diff --git a/README.md b/README.md
+index c73fafd..a9a62e4 100644
+--- a/README.md
++++ b/README.md
+@@ -63,7 +63,7 @@ implementation-agnostic; a parity test cross-checks the two.
+ | --------------------- | ---------------------- | ----------------- | -------------------------------------------------------------------- |
+ | **`@ramp/shared`**    | `packages/shared/`     | —                 | The **frozen contract**: `Facts`, `Decision`, `RuleId`, `PolicyKernel`, `SpendRequest`, fact translation. Zero runtime deps; imported by everyone. |
+ | **`@ramp/gate`**      | `packages/gate/`       | `@ramp/shared`    | The **policy kernel** (hero). `policy.dl` (Souffle) is the source of truth; the TS reference kernel mirrors it line-for-line; optional WASM build. |
+-| **`@ramp/ledger`**    | `packages/ledger/`     | `@ramp/shared`    | The **authoritative fact source** (SQLite) + vendor registry. Pure DB reads — never model narration. |
++| **`@ramp/ledger`**    | `packages/ledger/`     | `@ramp/shared`, `@ramp/gate` | The **authoritative fact source** (SQLite) + vendor registry + append-only audit trail. Pure DB reads — never model narration. Also serves a read-only policy **simulator** (`GET /simulate`, reuses the real kernel, persists nothing) and stamps every proof with a stable policy **digest**. |
+ | **`@ramp/payments-mcp`** | `apps/payments-mcp/`| `@ramp/shared`    | Stub MCP server exposing `mcp__payments__pay_vendor`. An honest non-enforcing stub — enforcement lives in the hook. |
+ | **`@ramp/dashboard`** | `apps/dashboard/`      | `@ramp/shared`    | Vite + React shell to view decisions and "prove this to an auditor". |
+ | The hook              | `.claude/`             | gate + ledger + shared | The fail-closed `PreToolUse` enforcement point — the ONLY place policy is enforced. |

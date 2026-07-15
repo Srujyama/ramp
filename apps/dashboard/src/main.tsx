@@ -9,7 +9,7 @@ import "./theme.css";
  *
  * Mounts the React shell inside a data router. The dashboard is a SHELL in
  * Phase 0: real routing + design tokens, honest "no data yet" panels. No
- * security-critical logic lives here — the gate is the hook, not the UI.
+ * security-critical logic lives here — enforcement is the policy gate, not the UI.
  */
 const router = createBrowserRouter([{ path: "/*", element: <App /> }]);
 
