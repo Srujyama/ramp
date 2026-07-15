@@ -16,7 +16,7 @@ are true.
 decision.*
 
 ```bash
-pnpm install && pnpm db:reset && pnpm build && pnpm test   # 387 tests
+pnpm install && pnpm db:reset && pnpm build && pnpm test   # 405 tests
 pnpm demo     # drive every pitch beat through the REAL hook; assert exit codes
 pnpm proof    # independently re-verify the bundles the gate sealed
 ```
@@ -133,7 +133,7 @@ corepack enable
 pnpm install         # install the whole workspace
 pnpm db:reset        # build the demo ledger from schema.sql + seed.sql
 pnpm build           # tsc build every package
-pnpm test            # run every workspace's node:test suite (387 tests)
+pnpm test            # run every workspace's node:test suite (405 tests)
 
 pnpm demo            # drive EVERY pitch beat through the real hook, assert exit codes
 pnpm proof           # independently re-verify the bundles the gate just sealed

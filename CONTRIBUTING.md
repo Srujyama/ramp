@@ -32,6 +32,7 @@ pnpm install            # installs the whole workspace
 | `pnpm db:reset`         | Rebuild the ledger SQLite DB from `schema.sql` + `seed.sql`.        |
 | `pnpm demo`             | **Drive every PITCH.md beat through the real hook; assert exit codes.** |
 | `pnpm proof`            | **Independently re-verify the provenance bundles the gate sealed.** |
+| `pnpm approve`          | **The HUMAN channel** — list held payments; approve/reject one. Never an MCP tool. |
 | `pnpm notary`           | Mint a demo attestation (`--spoof` / `--stale` for the deny beats). |
 | `pnpm dev`              | Start the dashboard shell (Vite dev server).                       |
 | `pnpm mcp`              | Start the stub payments MCP server over stdio.                     |
@@ -121,6 +122,16 @@ Things that look like bugs but are not — read before "fixing":
   Without `PRAGMA foreign_keys = OFF` before the swap, the DROP erases every proof. There is a
   mutation-tested guard (`THE FOOTGUN: migrating does NOT cascade-delete proofs`); removing the
   pragma makes 8 tests fail. Keep it that way.
+
+- **NO MCP tool may reach `resolveEscalation`.** If the agent can approve its own escalation, the
+  feature is theatre that manufactures evidence of a control that doesn't exist. The agent's tools
+  are read-only by construction; approving is `pnpm approve`, a human channel. There's an
+  architecture test (`THE CONTROL: no MCP source imports or calls resolveEscalation`) that fails CI
+  if you add one — it strips comments first, so the file can explain the rule without tripping it.
+  Mutation-tested.
+- **An approval binds to `content_digest`.** Never accept an approval verdict from a caller, and
+  never look one up by agent or vendor — only by decision id, with the digest checked. Otherwise a
+  $1 approval can be presented against a $50,000 payment.
 
 ## Optional: the Souffle → WASM kernel
 

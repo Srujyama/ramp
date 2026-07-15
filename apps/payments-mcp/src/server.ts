@@ -52,6 +52,16 @@ import { getKernel } from "@ramp/gate";
 import type { PolicyKernel } from "@ramp/shared";
 import { isSpendRequest, type SpendRequest } from "@ramp/shared";
 import { makeSandboxExecutor } from "./executor.js";
+import {
+  handleCheckBudget,
+  handlePreviewPayment,
+  handleCheckApproval,
+  handleListDecisions,
+  checkBudgetShape,
+  previewPaymentShape,
+  checkApprovalShape,
+  listDecisionsShape,
+} from "./agent-tools.js";
 
 /**
  * Zod shape for the tool input. The first six fields are field-for-field identical
@@ -418,6 +428,74 @@ export function createServer(deps: PayVendorDeps = {}): McpServer {
       inputSchema: payVendorInputShape,
     },
     async (args) => handlePayVendor(args as PayVendorArgs, deps),
+  );
+
+  // ---- the agent's READ-ONLY tools ---------------------------------------
+  //
+  // Every one of these is a pure read. There is deliberately no tool that
+  // approves an escalation: the agent that wanted the money would grant itself
+  // permission and the audit trail would show a human-in-the-loop that never had
+  // a human in it. Approving is `pnpm approve` — a person at a terminal. The
+  // separation IS the control; see agent-tools.ts.
+  const withDb = <A,>(fn: (a: A, db: LedgerDb) => unknown) => async (args: unknown) => {
+    const db = (deps.openDb ?? DEFAULT_DEPS.openDb)();
+    try {
+      return fn(args as A, db) as never;
+    } finally {
+      closeLedger(db);
+    }
+  };
+
+  server.registerTool(
+    "check_budget",
+    {
+      title: "Check Budget",
+      description:
+        "How much can this agent still spend today? Reports spend so far, the daily " +
+        "limit, the per-transaction cap, the human-approval threshold, and the largest " +
+        "amount that would settle UNATTENDED right now. Read-only: nothing is spent " +
+        "and no decision is recorded.",
+      inputSchema: checkBudgetShape,
+    },
+    withDb(handleCheckBudget),
+  );
+
+  server.registerTool(
+    "preview_payment",
+    {
+      title: "Preview Payment",
+      description:
+        "What WOULD policy decide for this spend? Runs the real policy engine against " +
+        "real authoritative facts and returns allow / escalate / deny with the rules " +
+        "that fired. Read-only: nothing is spent, no decision recorded, no proof. " +
+        "Assumes a valid attestation (a preview has no invoice) and says so.",
+      inputSchema: previewPaymentShape,
+    },
+    withDb(handlePreviewPayment),
+  );
+
+  server.registerTool(
+    "check_approval",
+    {
+      title: "Check Approval",
+      description:
+        "Has a human resolved this held payment yet? Returns the verdict if one exists. " +
+        "READ-ONLY — you cannot approve your own escalation. A person must run " +
+        "`pnpm approve`. You can wait for an answer; you cannot make one.",
+      inputSchema: checkApprovalShape,
+    },
+    withDb(handleCheckApproval),
+  );
+
+  server.registerTool(
+    "list_decisions",
+    {
+      title: "List Decisions",
+      description:
+        "Recent decisions from the append-only audit log. Read-only.",
+      inputSchema: listDecisionsShape,
+    },
+    withDb(handleListDecisions),
   );
 
   return server;

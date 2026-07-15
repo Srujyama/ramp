@@ -198,3 +198,30 @@ CREATE TABLE IF NOT EXISTS decision_executions (
   executed_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_execution_receipt ON decision_executions (receipt_id);
+
+-- ============================================================================
+-- Human resolution of an escalated decision. APPEND-ONLY.
+-- ============================================================================
+-- Written ONLY by the human channel (`pnpm approve`). There is deliberately no
+-- MCP tool that reaches it: an escalation the requesting agent can grant is not
+-- human review, it is a speed bump with a paper trail that lies about having had
+-- a human in it. See src/approval.ts.
+CREATE TABLE IF NOT EXISTS decision_approvals (
+  -- PRIMARY KEY, so a decision can be resolved exactly once. A changed mind is a
+  -- new decision, not a rewritten approval.
+  decision_id     TEXT PRIMARY KEY REFERENCES decisions(decision_id) ON DELETE CASCADE,
+  verdict         TEXT NOT NULL CHECK (verdict IN ('approved', 'rejected')),
+  -- RECORDED, not authenticated. In the demo this is whoever ran the CLI; a real
+  -- deployment puts an authenticated identity here. Naming it honestly matters —
+  -- an approval trail that looks authoritative and is actually "whoever ran the
+  -- command" is exactly what gets mistaken for a control.
+  approved_by     TEXT NOT NULL,
+  -- The decisions.content_digest this approval was granted against. THE BINDING:
+  -- an approval is valid for THESE facts and no others. Without it, a $1 approval
+  -- could be presented against a $50,000 payment.
+  facts_digest    TEXT NOT NULL,
+  note            TEXT,
+  resolved_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  approval_digest TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_approvals_verdict ON decision_approvals (verdict);
