@@ -33,4 +33,19 @@ export type {
   BundleFailure,
 } from "./bundle.js";
 
+// Gate signatures — authenticity ("the gate produced this"), which re-derivation
+// cannot give you: a forger can write a NEW, internally perfect bundle. Node-only
+// (node:crypto), so deliberately NOT re-exported from ./core.
+export {
+  signBundleDigest,
+  verifyBundleSignature,
+  bundleSigningBytes,
+  demoGateKeyring,
+  demoGatePublicKey,
+  demoGatePrivateKey,
+  BUNDLE_SIGNING_DOMAIN,
+  DEMO_GATE_KEY_ID,
+} from "./sign.js";
+export type { GateSignature, SignatureVerification, SignatureFailure } from "./sign.js";
+
 export { renderBundle, summarizeBundle, describeDerivation } from "./render.js";

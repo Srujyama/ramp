@@ -113,6 +113,24 @@ function heroBundle(facts: Facts = HERO_FACTS): DecisionBundle {
 // The happy path: an honest bundle verifies.
 // ---------------------------------------------------------------------------
 
+test("REGRESSION: a SIGNED bundle still verifies (the signature is not in the digest)", () => {
+  // Turning on signing broke every bundle at once: `gateSignature` is computed
+  // OVER `bundleDigest` and attached afterwards, so a verifier that recomputes
+  // the digest with the signature included gets a mismatch and reports a
+  // perfectly good bundle as TAMPERED. The signature cannot be inside the thing
+  // it signs. Caught by running the demo; pinned here so it can't come back.
+  const bundle = heroBundle();
+  const signed = {
+    ...bundle,
+    gateSignature: { gateKeyId: "gate_demo_ed25519_1", signature: "c2lnbmF0dXJl" },
+  };
+  const v = verifyBundle(signed, kernel);
+  assert.deepEqual(v.defects, [], "a signed bundle must not read as tampered");
+  assert.equal(v.valid, true);
+  // ...and the digest is identical with or without it.
+  assert.equal(signed.bundleDigest, bundle.bundleDigest);
+});
+
 test("an honest bundle verifies — the auditor re-derives ALLOW themselves", () => {
   const bundle = heroBundle();
   const v = verifyBundle(bundle, kernel);
