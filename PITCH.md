@@ -84,12 +84,23 @@ or is compromised — and writes "allow" for facts that plainly deny, the hash s
 tampered with the answer. The answer was simply wrong when it was written. Integrity tells you the
 record wasn't altered; it tells you nothing about whether it was *right*.
 
-So we prove both, with two records per decision:
+So we prove **three** different things, because they are three different guarantees:
 
 | | Question it answers | Fails when |
 | --- | --- | --- |
-| **Ledger proof** (`@ramp/ledger`) | **Integrity** — "has this record been altered since it was written?" | Someone edits the stored bytes |
-| **Provenance bundle** (`@ramp/provenance`) | **Soundness** — "does this decision *follow from* these facts?" | The decision was wrong when made |
+| **Ledger proof** | **Integrity** — "has this record been altered?" | Someone edits the stored bytes |
+| **Hash chain** | **Chain integrity** — "is any decision *missing*?" | A decision is deleted, reordered, or inserted |
+| **Provenance bundle** | **Soundness** — "does this decision *follow from* these facts?" | The decision was wrong when made |
+
+**The middle one is the gap everyone else has.** Every proof-per-record scheme treats each record as
+an island, so `DELETE FROM decisions WHERE id = '<the one that embarrasses me>'` leaves an audit
+trail where **every remaining proof still verifies perfectly**. We demonstrated exactly that against
+our own ledger before fixing it. Now each decision commits to the one before it, so a deletion breaks
+the chain from that point to the head — and publishing the head somewhere the operator can't rewrite
+closes the last hole (the same trick as certificate transparency, for the cost of one string).
+
+We can't *stop* someone with write access from deleting a row. Nothing can. The achievable goal is
+that they can't do it **quietly**.
 
 Soundness is only checkable because the kernel is **pure and deterministic**. Determinism makes a
 decision reproducible; reproducibility is what makes it *provable*. That is the whole reason we
@@ -204,7 +215,7 @@ workspaces: `@ramp/shared` (frozen contract), `@ramp/gate` (kernel + real Souffl
 **`@ramp/quarantine`**, **`@ramp/attestation`**, **`@ramp/provenance`**, `@ramp/payments-mcp`
 (self-enforcing tool), `@ramp/dashboard` (the audit console). CI, branch protection, 4 collaborators.
 
-**345 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
+**361 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 

@@ -27,6 +27,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { verifyBundle, renderBundle, summarizeBundle } from "@ramp/provenance";
 import { referenceKernel } from "@ramp/gate";
+import { openLedger, closeLedger, verifyChain, chainHead } from "@ramp/ledger";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BUNDLE_DIR = process.env.RAMP_BUNDLE_DIR ?? join(HERE, "..", ".ramp", "bundles");
@@ -83,6 +84,33 @@ for (const file of files) {
     console.log(renderBundle(bundle, verification));
     console.log("\n" + "-".repeat(72) + "\n");
   }
+}
+
+// ---- the chain: tamper-evidence ACROSS decisions -------------------------
+// The bundles above each prove ONE decision is sound. They cannot notice that a
+// decision is MISSING — every bundle is a separate file, so deleting one leaves
+// the rest verifying perfectly. The chain is what makes the SET auditable.
+console.log("=".repeat(72));
+try {
+  const db = openLedger(process.env.RAMP_DB_PATH, { provisionIfEmpty: false });
+  const { head, length } = chainHead(db);
+  const chain = verifyChain(db, process.env.RAMP_EXPECTED_HEAD);
+  console.log(`\nDECISION CHAIN — ${length} decision(s), head ${head.slice(0, 16)}…`);
+  if (chain.valid) {
+    console.log("  INTACT — no decision was deleted, reordered, or inserted.");
+    if (!process.env.RAMP_EXPECTED_HEAD) {
+      console.log("  NOTE: set $RAMP_EXPECTED_HEAD to a head you published earlier to also");
+      console.log("        catch a full-suffix rewrite. Without it, a forged-but-consistent");
+      console.log("        chain passes — see packages/ledger/src/chain.ts.");
+    }
+  } else {
+    invalid++;
+    console.log(`  TAMPERED — ${chain.defects.length} defect(s):`);
+    for (const d of chain.defects) console.log(`    [${d.kind}] seq ${d.seq}: ${d.detail}`);
+  }
+  closeLedger(db);
+} catch (err) {
+  console.log(`\nDECISION CHAIN — could not read the ledger: ${err.message}`);
 }
 
 console.log("=".repeat(72));

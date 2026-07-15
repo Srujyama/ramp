@@ -147,9 +147,72 @@ export function isProvisioned(db: LedgerDb): boolean {
   }
 }
 
-/** Apply the schema DDL (idempotent — every statement is `IF NOT EXISTS`). */
+/**
+ * Additive COLUMN migrations, keyed by table.
+ *
+ * `CREATE TABLE IF NOT EXISTS` heals a missing TABLE on a pre-existing DB, which
+ * is what `applySchema` relies on — but it does nothing for a missing COLUMN on
+ * a table that already exists. So a ledger created before the hash chain landed
+ * would keep working right up until the first `SELECT chain_hash`, then fail with
+ * "no such column" at read time, i.e. in the dashboard, in front of someone.
+ *
+ * Every entry here must be genuinely additive and nullable. A column added with a
+ * non-null default would silently fabricate history for rows written before the
+ * column existed — and for the chain columns specifically, inventing a plausible
+ * link is exactly the lie the chain is meant to detect. Old rows get NULL,
+ * `verifyChain` skips them, and the audit output says so.
+ */
+const ADDITIVE_COLUMNS: ReadonlyArray<{
+  table: string;
+  column: string;
+  ddl: string;
+}> = [
+  { table: "decisions", column: "seq", ddl: "ALTER TABLE decisions ADD COLUMN seq INTEGER" },
+  {
+    table: "decisions",
+    column: "prev_chain_hash",
+    ddl: "ALTER TABLE decisions ADD COLUMN prev_chain_hash TEXT",
+  },
+  {
+    table: "decisions",
+    column: "chain_hash",
+    ddl: "ALTER TABLE decisions ADD COLUMN chain_hash TEXT",
+  },
+];
+
+/** True iff `table` exists and has `column`. Never throws. */
+function hasColumn(db: LedgerDb, table: string, column: string): boolean {
+  try {
+    const rows = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    return rows.some((r) => r.name === column);
+  } catch {
+    return false;
+  }
+}
+
+/** Add any missing additive columns. Idempotent; safe on a fresh DB. */
+export function healColumns(db: LedgerDb): void {
+  for (const { table, column, ddl } of ADDITIVE_COLUMNS) {
+    // The table itself may not exist yet on a truly fresh DB — applySchema's
+    // CREATE TABLE covers that, and this loop then finds the column present.
+    const tableExists = (
+      db
+        .prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name=?")
+        .get(table) as { n: number }
+    ).n > 0;
+    if (!tableExists) continue;
+    if (hasColumn(db, table, column)) continue;
+    db.exec(ddl);
+  }
+}
+
+/**
+ * Apply the schema DDL (idempotent — every statement is `IF NOT EXISTS`), then
+ * heal any additive columns the DDL cannot add to an existing table.
+ */
 export function applySchema(db: LedgerDb): void {
   db.exec(readSchemaSql());
+  healColumns(db);
 }
 
 /** Apply the demo seed. Assumes a fresh schema (inserts are not idempotent). */

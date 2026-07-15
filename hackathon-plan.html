@@ -524,7 +524,7 @@
         <span class="idx">2</span>
         <div class="body">
           <h3>Provenance graph</h3>
-          <p>Every fact traced to the exact query, notary, or declassifier it produced it. An auditor RE-RUNS the kernel on the recorded facts and checks the verdict falls out. <b>Integrity is not soundness:</b> an immutable log proves nobody edited the record; it cannot tell you the record was right. We prove both.</p>
+          <p>Every fact traced to the exact query, notary, or declassifier it produced it. An auditor RE-RUNS the kernel on the recorded facts and checks the verdict falls out. <b>Three guarantees, not one:</b> <i>integrity</i> (nobody edited this record), <i>chain integrity</i> (no decision is missing — every proof-per-record scheme is islands, so deleting a row leaves the rest verifying perfectly; we demonstrated that against our own ledger before fixing it), and <i>soundness</i> (the decision follows from the facts). An intact record of a wrong decision passes the first two and fails the third.</p>
         </div>
         <span class="stamp verify">Prove</span>
       </div>
