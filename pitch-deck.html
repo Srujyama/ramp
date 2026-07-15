@@ -972,7 +972,7 @@
           <div class="flow-node prove">
             <div>
               <div class="fn-title">Provenance Graph</div>
-              <div class="fn-desc">Fingerprints where every request and every fact came from. Proves the decision at enforce time, not in a log after.</div>
+              <div class="fn-desc">Every fact traced to the exact query, notary, or declassifier it came from. An auditor RE-RUNS the kernel on the recorded facts — proof, not a log.</div>
             </div>
             <div class="stamp-cell"><span class="stamp">Prove</span></div>
           </div>
@@ -982,7 +982,7 @@
           <div class="flow-node isolate">
             <div>
               <div class="fn-title">CaMeL Quarantine</div>
-              <div class="fn-desc">Untrusted content the agent reads is walled off. It can pass through the kernel as data — never trigger an authorization.</div>
+              <div class="fn-desc">Untrusted content REFUSES to become a string. It escapes only through a total declassifier into a codomain of size <b>n</b> that we chose in advance.</div>
             </div>
             <div class="stamp-cell"><span class="stamp amber">Isolate</span></div>
           </div>
@@ -992,7 +992,7 @@
           <div class="flow-node verify">
             <div>
               <div class="fn-title">TLSNotary Attestation</div>
-              <div class="fn-desc">Cryptographic proof the invoice bytes came from the real vendor's TLS session. Not the agent's summary.</div>
+              <div class="fn-desc">Real Ed25519 over a canonical, domain-separated statement, bound to the vendor's REGISTERED domain. Verification half — not the MPC. We say so first.</div>
             </div>
             <div class="stamp-cell"><span class="stamp green">Verify</span></div>
           </div>
@@ -1141,21 +1141,23 @@
   <section class="slide" data-note="A fake invoice with no attestation fails because vendor-verified is false — no receipt, no payment. And the provenance view traces any decision back through its facts to each authoritative source. This is what you hand an auditor.">
     <div class="stage">
       <p class="eyebrow">Live demo — 4 &amp; 5</p>
-      <h1 class="headline">A spoof has no receipt. And every decision traces to its source.</h1>
+      <h1 class="headline">A spoof survives a 3-way match. It does not survive this.</h1>
       <div class="cols">
         <div class="card">
-          <span class="stamp red">The spoof</span>
-          <p style="font-size:clamp(14px,1.4vw,17px);color:var(--ink-2);margin:16px 0 0;line-height:1.5;">Fake invoice claims to be <span class="mono">Acme</span> · no TLSNotary attestation</p>
-          <p class="mono" style="font-size:clamp(13px,1.3vw,16px);margin:14px 0 0;color:var(--muted);">→ vendor_verified = <span class="tag-red">false</span> → <span class="tag-red">✗ DENY</span></p>
-          <p style="font-size:14px;color:var(--muted);margin:12px 0 0;">No cryptographic proof, no payment.</p>
+          <span class="stamp red">The spoof — a 3-way match PASSES this</span>
+          <p style="font-size:clamp(14px,1.4vw,17px);color:var(--ink-2);margin:16px 0 0;line-height:1.5;"><span class="mono">acme-corp-billing.example</span> serves a byte-perfect invoice over <b>real TLS</b>, with a <b>real notary signature</b>. Every document agrees with every other.</p>
+          <p class="mono" style="font-size:clamp(13px,1.3vw,16px);margin:14px 0 0;color:var(--muted);">→ registered domain = <span class="tag-green">acme.example.com</span> → <span class="tag-red">✗ DENY</span></p>
+          <p style="font-size:14px;color:var(--muted);margin:12px 0 0;"><b>deny/attestation_invalid</b> · domain_mismatch. Consistency isn't authenticity.</p>
         </div>
         <div class="card" style="border-color:var(--green-dim);">
-          <span class="stamp green">The proof — provenance view</span>
+          <span class="stamp green">The proof — re-derived in YOUR browser</span>
           <div class="mono" style="font-size:clamp(12px,1.2vw,14.5px);margin:16px 0 0;line-height:1.9;color:var(--ink-2);">
             <div>decision <span style="color:var(--faint);">→</span> facts <span style="color:var(--faint);">→</span> source</div>
-            <div style="margin-top:8px;"><span class="tag-red">deny/vendor_not_verified</span></div>
-            <div style="padding-left:14px;">└ vendor_verified=<span class="tag-red">false</span></div>
-            <div style="padding-left:28px;">└ <span class="tag-green">[vendor registry row]</span></div>
+            <div style="margin-top:8px;"><span class="tag-red">deny/attestation_invalid</span></div>
+            <div style="padding-left:14px;">└ attestation_present=<span class="tag-red">false</span></div>
+            <div style="padding-left:28px;">└ <span class="tag-green">[notary verdict: domain_mismatch]</span></div>
+            <div style="margin-top:10px;"><span class="tag-green">✓ Proof valid</span> <span style="color:var(--faint);">(unaltered)</span></div>
+            <div><span class="tag-green">✓ Re-derived</span> <span style="color:var(--faint);">(correct — your machine, real kernel)</span></div>
           </div>
         </div>
       </div>
@@ -1196,14 +1198,14 @@
       <div class="rebuttal">
         <div class="reb">
           <div class="claim">"Ramp already does 3-way match."</div>
-          <div class="ans"><span class="arrow">→</span> <b>MATCH ≠ AUTHENTICATE.</b> Three documents checked against each other. Spoof all three together and the match passes. <span class="hi">TLSNotary proves the invoice bytes came from the vendor's real TLS session</span> — a different guarantee.</div>
+          <div class="ans"><span class="arrow">→</span> <b>MATCH ≠ AUTHENTICATE.</b> Three documents checked against each other. Spoof all three together and the match passes. <span class="hi">Attestation binds the invoice bytes to a TLS session with a NAMED server</span>, checked against the registry. <b>Beat 4 is exactly this:</b> a lookalike domain, a byte-perfect invoice, a real signature — every document agrees, a 3-way match passes, and we deny.</div>
         </div>
         <div class="reb">
           <div class="claim">"Ramp already has audit trails."</div>
-          <div class="ans"><span class="arrow">→</span> Their log records what the agent <b>DID</b>, after the fact (for SOX). <span class="hi">Our provenance PROVES the decision was computed correctly from authenticated inputs</span> — BEFORE the money moves.</div>
+          <div class="ans"><span class="arrow">→</span> <b>THEIR LOG PROVES INTEGRITY. WE PROVE SOUNDNESS TOO.</b> An immutable log proves nobody <i>edited</i> the record. <span class="hi">A perfectly intact record of a WRONG decision passes every hash check ever devised.</span> We re-run the kernel on the recorded facts and check the verdict falls out — in your browser, while you watch.</div>
         </div>
       </div>
-      <p class="footnote">Enforce-time, not after-the-fact. Authentic, not merely consistent.</p>
+      <p class="footnote">Enforce-time, not after-the-fact. Authentic, not merely consistent. <b>You cannot reseal your way out of arithmetic.</b></p>
     </div>
   </section>
 
@@ -1241,15 +1243,18 @@
   <section class="slide" data-note="This is not a slide-deck idea — the backbone is built and green. Five workspaces, CI, branch protection, twenty-five tests passing, the gate allows and denies live today. Everyone else scopes the card. We prove the decision — and here's the receipt.">
     <div class="stage">
       <p class="eyebrow green">Status — not vaporware</p>
-      <h1 class="headline">The backbone is built. The gate runs today. It's green.</h1>
+      <h1 class="headline">All four pillars are built. The gate runs today. It's green.</h1>
       <div class="statusboard">
+        <div class="status-row"><span class="ws">@ramp/gate</span><span class="desc">PILLAR 1 — kernel + real policy.dl (Soufflé) + TS golden oracle</span><span class="ck">✓</span></div>
+        <div class="status-row"><span class="ws">@ramp/provenance</span><span class="desc">PILLAR 2 — re-derivable decision bundles (soundness)</span><span class="ck">✓</span></div>
+        <div class="status-row"><span class="ws">@ramp/quarantine</span><span class="desc">PILLAR 3 — CaMeL wrapper + bounded declassifiers</span><span class="ck">✓</span></div>
+        <div class="status-row"><span class="ws">@ramp/attestation</span><span class="desc">PILLAR 4 — real Ed25519 notary + binding checks</span><span class="ck">✓</span></div>
+        <div class="status-row"><span class="ws">@ramp/ledger</span><span class="desc">authoritative facts + decision log + proofs + read-only bridge</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/shared</span><span class="desc">frozen contract — Facts, Decision, RuleId, PolicyKernel</span><span class="ck">✓</span></div>
-        <div class="status-row"><span class="ws">@ramp/gate</span><span class="desc">kernel + real policy.dl (Soufflé) + TS golden oracle</span><span class="ck">✓</span></div>
-        <div class="status-row"><span class="ws">@ramp/ledger</span><span class="desc">authoritative facts (SQLite) + vendor registry</span><span class="ck">✓</span></div>
-        <div class="status-row"><span class="ws">@ramp/payments-mcp</span><span class="desc">honest non-enforcing stub</span><span class="ck">✓</span></div>
-        <div class="status-row"><span class="ws">@ramp/dashboard</span><span class="desc">the "prove this to an auditor" shell</span><span class="ck">✓</span></div>
+        <div class="status-row"><span class="ws">@ramp/payments-mcp</span><span class="desc">self-enforcing tool — the 2nd independent gate</span><span class="ck">✓</span></div>
+        <div class="status-row"><span class="ws">@ramp/dashboard</span><span class="desc">the audit console — re-derives decisions in your browser</span><span class="ck">✓</span></div>
       </div>
-      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">5 workspaces</span> · CI · branch protection · 3 collaborators · <span class="tag-green">25 tests PASS</span><br>two kernels behind one interface, cross-checked by a parity test.</p>
+      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">8 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">345 tests PASS</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
       <p class="heroline">Everyone else scopes the card. <span class="tag-green">We prove the decision</span> — and here's the receipt.</p>
     </div>
   </section>

@@ -52,7 +52,7 @@ still need propagation — never silently leave them inconsistent.
 ## The monorepo (all four pillars built & green)
 
 pnpm + TypeScript, Node 24. `pnpm install && pnpm db:reset && pnpm build && pnpm test` → all green
-(**121 tests**; 1 wasm-parity skip is expected without Soufflé/wasm-pack). Then `pnpm demo` drives
+(**345 tests**; 1 wasm-parity skip is expected without Soufflé/wasm-pack). Then `pnpm demo` drives
 every PITCH beat through the real hook and `pnpm proof` re-verifies the sealed bundles.
 
 | Workspace | Pillar | What it is |
@@ -62,12 +62,13 @@ every PITCH beat through the real hook and `pnpm proof` re-verifies the sealed b
 | `@ramp/provenance` | **2** | Content-addressed decision bundles + the independent `verifyBundle`. |
 | `@ramp/quarantine` | **3** | CaMeL wrapper + total declassifiers into bounded codomains. |
 | `@ramp/attestation` | **4** | Ed25519 notary attestation + binding checks. |
-| `@ramp/ledger` | — | Authoritative facts via `node:sqlite` (+ records its own provenance). |
-| `@ramp/payments-mcp` | — | Stub MCP server (honest, non-enforcing). |
-| `@ramp/dashboard` | — | Vite+React; the Audit page re-verifies bundles **in the browser**. |
+| `@ramp/ledger` | — | Authoritative facts via `node:sqlite` (+ records its own provenance), the append-only **decision log**, tamper-evident **proofs**, the read-only **HTTP bridge**, the **policy simulator**, and the shared **purchase lifecycle**. |
+| `@ramp/payments-mcp` | — | **Self-enforcing** MCP tool — drives the purchase lifecycle itself, so it is safe to call with no hook present. The 2nd independent gate over the same kernel. |
+| `@ramp/dashboard` | — | Vite+React **audit console**: Overview / Decisions / Decision detail / Policy + simulator. Decision detail **re-derives the decision in your browser** with the real kernel. |
 
 Scripts: `pnpm demo` (drive the beats), `pnpm proof` (independent audit), `pnpm notary` (mint an
-attestation). Full contributor guide: [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+attestation), `pnpm dev` (console), `pnpm --filter @ramp/ledger bridge` (the read-only bridge the
+console reads — start both for the dashboard). Full contributor guide: [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ### Frozen invariants — do not drift (see `CONTRIBUTING.md` for the full list)
 - **Facts field names** map 1:1 to `policy.dl` input relations; adding a fact means editing
@@ -78,6 +79,12 @@ attestation). Full contributor guide: [`CONTRIBUTING.md`](./CONTRIBUTING.md).
   `deny/malformed_facts`.
 - Facts come from the **ledger/registry/structured args**, never model narration (the anti-injection
   seam). The hook **fails closed** (any error → deny).
+
+### Two proof systems, on purpose — do not "de-duplicate" them
+`@ramp/ledger`'s `LedgerProof` proves **integrity** ("this record was not altered"). `@ramp/provenance`'s
+bundle proves **soundness** ("this decision follows from these facts", by re-running the kernel). They
+look redundant and are not: a perfectly intact record of a WRONG decision passes the first and fails
+the second. Both are written per decision. Deleting either loses a real guarantee.
 
 ### Three things that look like bugs but are load-bearing — read before "fixing"
 - **`deny/malformed_facts` has no rule in `policy.dl`.** Not drift. Soufflé's `number` is an INTEGER
