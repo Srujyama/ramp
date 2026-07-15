@@ -70,7 +70,7 @@ test("paymentChip never claims a settlement it can't prove", () => {
   const settled = paymentChip(
     mkView({ execution: { receiptId: "rcpt_1", executionId: "exec_1", status: "settled", provider: "sandbox", executedAt: "2026-07-14 10:00:00" } }),
   );
-  assert.equal(settled.label, "Settled");
+  assert.equal(settled.label, "Settled (sandbox)");
   assert.equal(settled.tone, "accent");
 
   const failed = paymentChip(
@@ -92,7 +92,7 @@ test("explainDecision narrates an allow that settled", () => {
       execution: { receiptId: "rcpt_1", executionId: "exec_1", status: "settled", provider: "sandbox", executedAt: "2026-07-14 10:00:00" },
     }),
   );
-  assert.match(out, /^Approved because the vendor is verified/);
+  assert.match(out, /^Allowed because the vendor is verified/);
   assert.match(out, /The sandbox payment settled\.$/);
 });
 
@@ -108,7 +108,7 @@ test("explainDecision narrates an allow whose executor failed", () => {
 
 test("explainDecision narrates an allow that was never executed", () => {
   const out = explainDecision(mkView({ outcome: "allow", execution: null }));
-  assert.equal(out, "Approved by policy — every condition held. No sandbox payment was executed for this record.");
+  assert.equal(out, "Allowed by policy — every condition held. No sandbox payment was executed for this record.");
 });
 
 test("explainDecision narrates a deny with its fired reasons joined", () => {

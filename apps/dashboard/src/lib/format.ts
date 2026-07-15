@@ -61,7 +61,7 @@ export function formatRelative(ts: string, now: Date): string {
 export const RULE_META: Record<RuleId, { title: string; blurb: string }> = {
   "allow/all_conditions_met": {
     title: "All conditions met",
-    blurb: "Every policy condition held — a proven allow.",
+    blurb: "Every policy condition held — an allow backed by a verifiable proof.",
   },
   "deny/vendor_not_verified": {
     title: "Vendor not verified",
@@ -135,7 +135,7 @@ export function verificationChip(reason: ProofVerificationReason): StatusChip {
 export function paymentChip(v: DecisionView): StatusChip {
   if (v.execution) {
     if (v.execution.status === "settled") {
-      return { label: "Settled", tone: "accent", title: `Sandbox payment settled (${v.execution.provider}) — receipt ${v.execution.receiptId}. No real money moves.` };
+      return { label: "Settled (sandbox)", tone: "accent", title: `Sandbox payment settled (${v.execution.provider}) — receipt ${v.execution.receiptId}. No real money moves.` };
     }
     return { label: "Payment failed", tone: "deny", title: `The sandbox executor returned a failed receipt (${v.execution.provider}). No settlement occurred.` };
   }
@@ -219,12 +219,12 @@ export function explainDecision(v: DecisionView): string {
   // 5. Policy allowed the spend — narrate by what execution actually recorded.
   if (v.outcome === "allow") {
     if (v.execution?.status === "settled") {
-      return "Approved because the vendor is verified, the category is allowed, and the amount is within policy limits. The sandbox payment settled.";
+      return "Allowed because the vendor is verified, the category is allowed, and the amount is within policy limits. The sandbox payment settled.";
     }
     if (v.execution?.status === "failed") {
       return "Policy allowed the purchase, but the payment executor failed. No settlement occurred.";
     }
-    return "Approved by policy — every condition held. No sandbox payment was executed for this record.";
+    return "Allowed by policy — every condition held. No sandbox payment was executed for this record.";
   }
   // Fallback: no outcome and not covered above — should not occur for real rows.
   return "No policy decision was recorded for this request.";

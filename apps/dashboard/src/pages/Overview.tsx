@@ -279,10 +279,10 @@ export function Overview(props: { onHealth?: () => void }): JSX.Element {
       <RecentActivity />
 
       <div className="card">
-        <h3>How a purchase is proven</h3>
+        <h3>How a purchase is evaluated and proven</h3>
         <p className="card-sub">
           Authoritative facts about the agent, vendor, and request are gathered
-          first. A deterministic policy kernel — not a prompt — decides allow or
+          first. A deterministic policy engine — not a prompt — decides allow or
           deny. Before any money moves, a tamper-evident proof of that decision
           is persisted. An independent verifier recomputes the proof to confirm
           nothing was altered, and only then does the sandbox settle the payment.

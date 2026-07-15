@@ -192,9 +192,9 @@ export function Decisions(): JSX.Element {
             }
           >
             <option value="">All</option>
-            <option value="allowed">allowed</option>
-            <option value="denied">denied</option>
-            <option value="error">error</option>
+            <option value="allowed">Allowed</option>
+            <option value="denied">Denied</option>
+            <option value="error">Error</option>
           </select>
         </div>
 
@@ -256,7 +256,7 @@ export function Decisions(): JSX.Element {
       ) : rows.length === 0 ? (
         <StateCard icon="⚖" title="No decisions yet">
           Trigger a payment through the MCP <code>pay_vendor</code> tool — the
-          gate evaluates it and decisions stream in here with full provenance.
+          policy engine evaluates it and decisions stream in here with full provenance.
         </StateCard>
       ) : (
         <>

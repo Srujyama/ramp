@@ -71,7 +71,7 @@ export function decisionFlow(v: DecisionView): FlowStep[] {
     {
       key: "policy",
       title: "Policy evaluated",
-      detail: v.kernelId ? `deterministic kernel · ${v.kernelId}` : "deterministic policy kernel",
+      detail: v.kernelId ? `deterministic engine · ${v.kernelId}` : "deterministic policy engine",
       tone: "info",
     },
     {
