@@ -9,6 +9,7 @@
  *
  * These are pure DB reads; they NEVER trust the model's narration.
  */
+export { migrateDecisionsChecks } from "./migrate.js";
 export {
   openLedger,
   openLedgerStrict,

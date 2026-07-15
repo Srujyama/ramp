@@ -42,7 +42,9 @@ export const LEDGER_QUERIES = {
     "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE agent_id = ? AND date(ts) = date('now')",
   vendorVerified: "SELECT verified FROM vendors WHERE vendor_id = ?",
   vendorDomain: "SELECT registry_domain FROM vendors WHERE vendor_id = ?",
-  limits: "SELECT per_txn_cap, daily_limit, currency FROM policy_limits WHERE id = 1",
+  limits:
+    "SELECT per_txn_cap, daily_limit, escalation_threshold, currency FROM policy_limits WHERE id = 1",
+  vendorRiskTier: "SELECT risk_tier FROM vendors WHERE vendor_id = ?",
   approvedCategories:
     "SELECT category_id FROM categories WHERE approved = 1 ORDER BY category_id",
   agentClearances:
@@ -53,6 +55,8 @@ export const LEDGER_QUERIES = {
 export interface Limits {
   readonly perTxnCap: number;
   readonly dailyLimit: number;
+  /** Amount above which a human must approve, even within the hard caps. */
+  readonly escalationThreshold: number;
   readonly currency: string;
 }
 
@@ -131,6 +135,20 @@ export class LedgerFactSource implements AuthoritativeFactSource {
     return !!row && row.verified === 1;
   }
 
+  /**
+   * The vendor's registry risk tier. An unregistered vendor is `"unknown"` —
+   * NOT `"trusted"`. A vendor we have never heard of is the least familiar thing
+   * there is, and defaulting an unknown to the most permissive tier is the exact
+   * shape of a fail-open. (It denies on `vendor_not_verified` first anyway, but
+   * the default should be right on its own.)
+   */
+  getVendorRiskTier(vendorId: string): string {
+    const row = this.#db.prepare(LEDGER_QUERIES.vendorRiskTier).get(vendorId) as
+      | { risk_tier: string | null }
+      | undefined;
+    return row?.risk_tier ?? "unknown";
+  }
+
   /** The vendor's registered domain, or null if absent/unregistered. */
   getVendorDomain(vendorId: string): string | null {
     const row = this.#db.prepare(LEDGER_QUERIES.vendorDomain).get(vendorId) as
@@ -142,7 +160,12 @@ export class LedgerFactSource implements AuthoritativeFactSource {
   /** Org policy limits (per-txn cap + daily limit). Throws if unprovisioned. */
   getLimits(): Limits {
     const row = this.#db.prepare(LEDGER_QUERIES.limits).get() as
-      | { per_txn_cap: number; daily_limit: number; currency: string }
+      | {
+          per_txn_cap: number;
+          daily_limit: number;
+          escalation_threshold: number;
+          currency: string;
+        }
       | undefined;
     if (!row) {
       throw new Error(
@@ -152,6 +175,7 @@ export class LedgerFactSource implements AuthoritativeFactSource {
     return {
       perTxnCap: Number(row.per_txn_cap),
       dailyLimit: Number(row.daily_limit),
+      escalationThreshold: Number(row.escalation_threshold),
       currency: row.currency,
     };
   }
@@ -192,6 +216,8 @@ export class LedgerFactSource implements AuthoritativeFactSource {
       approvedCategories: this.getApprovedCategories(),
       agentClearedCategories: this.getAgentClearances(req.requestingAgent),
       attestationPresent: ctx.attestationPresent ?? false,
+      escalationThreshold: limits.escalationThreshold,
+      vendorRiskTier: this.getVendorRiskTier(req.vendorId),
     };
   }
 
@@ -263,6 +289,28 @@ export class LedgerFactSource implements AuthoritativeFactSource {
           table: "categories",
           query: LEDGER_QUERIES.approvedCategories,
           params: [],
+        },
+      },
+      {
+        fact: "escalation_threshold",
+        value: facts.escalationThreshold,
+        source: "policy_config",
+        derivation: {
+          kind: "sql",
+          table: "policy_limits",
+          query: LEDGER_QUERIES.limits,
+          params: [],
+        },
+      },
+      {
+        fact: "vendor_risk_tier",
+        value: facts.vendorRiskTier,
+        source: "vendor_registry",
+        derivation: {
+          kind: "sql",
+          table: "vendors",
+          query: LEDGER_QUERIES.vendorRiskTier,
+          params: [req.vendorId],
         },
       },
       {

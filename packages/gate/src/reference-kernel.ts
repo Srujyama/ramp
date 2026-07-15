@@ -17,7 +17,14 @@
  *   4. deny/agent_uncleared_for_category (policy.dl D3)
  *   5. deny/daily_limit_exceeded         (policy.dl D5)
  *   6. deny/attestation_invalid          (policy.dl D6)
- * Order affects only the reason list, never allow/deny (deny dominates regardless).
+ * ...then, only if NO deny fired:
+ *   7. escalate/over_escalation_threshold (policy.dl E1)
+ *   8. escalate/elevated_risk_vendor      (policy.dl E2)
+ *
+ * The lattice is **deny > escalate > allow**. Order within a tier affects only
+ * the reason list; the tiers themselves are the semantics. Deny dominates
+ * escalate deliberately: an escalation must never hand a human a request that
+ * policy already rejected, or every deny rule becomes a suggestion.
  * D6 is appended last rather than placed beside its thematic sibling D1 (both are
  * authenticity checks) solely to keep the pre-existing ordering byte-stable.
  */
@@ -151,7 +158,40 @@ export class ReferenceKernel implements PolicyKernel {
       });
     }
 
-    // ---- deny dominates -----------------------------------------------------
+    // ---- ESCALATE triggers (policy.dl E1, E2) -------------------------------
+    // Collected BEFORE the deny check returns, but consulted only AFTER it — see
+    // the ordering note below. Gathering them here keeps the rule list readable
+    // in evaluation order.
+    const escalations: FiredRule[] = [];
+
+    // E1: within every hard cap, but big enough that a person should look.
+    if (facts.amount > facts.escalation_threshold) {
+      escalations.push({
+        id: "escalate/over_escalation_threshold",
+        reason:
+          `over_escalation_threshold: amount ${facts.amount} > escalation_threshold ` +
+          `${facts.escalation_threshold} (within the ${facts.per_txn_cap} cap, but a human must approve)`,
+      });
+    }
+
+    // E2: verified, registered — and new enough to be worth a glance.
+    if (facts.vendor_risk_tier === "elevated") {
+      escalations.push({
+        id: "escalate/elevated_risk_vendor",
+        reason:
+          `elevated_risk_vendor: vendor "${facts.vendor}" is verified but carries risk tier ` +
+          `"${facts.vendor_risk_tier}" — a human must approve`,
+      });
+    }
+
+    // ---- DENY DOMINATES — including over escalate ---------------------------
+    // The ordering is deny > escalate > allow, and the deny check comes first for
+    // a reason worth stating: if an escalation could outrank a deny, a human
+    // would be handed a request that POLICY ALREADY REJECTED and asked to
+    // approve it. That converts every deny rule into a suggestion, and the whole
+    // point of a deterministic kernel is that its denials are not negotiable.
+    //
+    // A denied request is denied. Nobody gets asked.
     if (denies.length > 0) {
       return {
         decision: "deny",
@@ -160,9 +200,23 @@ export class ReferenceKernel implements PolicyKernel {
       };
     }
 
-    // ---- ALLOW: every condition held (policy.dl `allow`) --------------------
-    // (No deny fired => all of: amount<=cap, category approved, vendor verified,
-    //  agent cleared, daily_total+amount<=daily_limit, and attestation verified.)
+    // ---- ESCALATE: no deny fired, but this needs a person -------------------
+    // Note what is NOT here: the escalation reasons do not include the allow
+    // reason. An escalated request is not "allowed pending review" — it is not
+    // allowed at all yet. Saying otherwise in the audit trail would be the
+    // beginning of treating a held payment as a made one.
+    if (escalations.length > 0) {
+      return {
+        decision: "escalate",
+        reasons: escalations.map((e) => e.reason),
+        firedRules: escalations.map((e) => e.id),
+      };
+    }
+
+    // ---- ALLOW: every condition held AND nothing needs a human --------------
+    // (No deny fired => amount<=cap, category approved, vendor verified, agent
+    //  cleared, daily_total+amount<=daily_limit, attestation verified. No
+    //  escalation fired => within the escalation threshold, vendor not elevated.)
     return {
       decision: "allow",
       reasons: [

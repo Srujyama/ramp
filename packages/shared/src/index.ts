@@ -13,7 +13,7 @@ export { FACT_SOURCES } from "./facts.js";
 
 // Decision — the kernel's output shape + rule identifiers + narrow helpers.
 export type { Decision, DecisionOutcome, RuleId } from "./decision.js";
-export { isAllowed, isDenied } from "./decision.js";
+export { isAllowed, isDenied, isEscalated, permitsPayment } from "./decision.js";
 
 // PolicyKernel — the single seam between facts and allow/deny.
 export type { PolicyKernel, KernelKind, DescribedKernel } from "./kernel.js";

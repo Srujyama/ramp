@@ -19,10 +19,14 @@ INSERT INTO agents (agent_id, display_name) VALUES
   ('agent_12', 'Ops Agent 12');
 
 -- Vendor registry: one verified vendor + two unverified (for the spoof/deny beats).
-INSERT INTO vendors (vendor_id, display_name, verified, registry_domain, registry_verified_at, registry_method) VALUES
-  ('acme_corp',    'Acme Corp',    1, 'acme.example.com', '2026-07-01T00:00:00Z', 'tlsnotary'),
-  ('sketchy_llc',  'Sketchy LLC',  0, NULL, NULL, NULL),
-  ('unknown_labs', 'Unknown Labs', 0, NULL, NULL, NULL);
+INSERT INTO vendors (vendor_id, display_name, verified, registry_domain, registry_verified_at, registry_method, risk_tier) VALUES
+  ('acme_corp',    'Acme Corp',    1, 'acme.example.com', '2026-07-01T00:00:00Z', 'tlsnotary', 'trusted'),
+  -- Verified, real domain, real attestation — and onboarded yesterday. Exactly
+  -- the shape of a supplier-impersonation setup, and the escalate beat: every
+  -- check is green and a human still gets asked.
+  ('newco_ltd',    'NewCo Ltd',    1, 'newco.example.com', '2026-07-15T00:00:00Z', 'tlsnotary', 'elevated'),
+  ('sketchy_llc',  'Sketchy LLC',  0, NULL, NULL, NULL, 'standard'),
+  ('unknown_labs', 'Unknown Labs', 0, NULL, NULL, NULL, 'standard');
 
 -- Approved category list (+ one explicitly-unapproved, "crypto", to demo the deny).
 INSERT INTO categories (category_id, display_name, approved) VALUES
@@ -44,5 +48,7 @@ INSERT INTO ledger_entries (agent_id, vendor_id, category_id, amount, currency, 
   ('agent_47', 'acme_corp', 'software',        540, 'USD', 'req_seed_02', datetime('now'));
 
 -- Org policy limits.
-INSERT INTO policy_limits (id, per_txn_cap, daily_limit, currency) VALUES
-  (1, 500, 1500, 'USD');
+-- escalation_threshold 400 sits between the hero 340 (ALLOW, unattended) and the
+-- 500 hard cap: 340 allows, 450 escalates to a human, 600 denies outright.
+INSERT INTO policy_limits (id, per_txn_cap, daily_limit, escalation_threshold, currency) VALUES
+  (1, 500, 1500, 400, 'USD');

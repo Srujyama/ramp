@@ -89,6 +89,18 @@ export const RULE_META: Record<RuleId, { title: string; blurb: string }> = {
       "No verified attestation ties this invoice to the vendor's registered domain. " +
       "Missing, expired, forged, and “signed by the wrong domain” all land here.",
   },
+  "escalate/over_escalation_threshold": {
+    title: "Needs human approval",
+    blurb:
+      "Within every hard cap, but above the amount the org wants a person to see. " +
+      "Held — not denied, and not paid.",
+  },
+  "escalate/elevated_risk_vendor": {
+    title: "Elevated-risk vendor",
+    blurb:
+      "The vendor is verified and registered, but recently onboarded. Verified " +
+      "isn't the same as familiar, so a human approves this one.",
+  },
   "deny/malformed_facts": {
     title: "Malformed facts",
     blurb:
@@ -121,6 +133,18 @@ export function outcomeChip(v: DecisionView): StatusChip {
   }
   if (v.outcome === "allow") {
     return { label: "Allowed", tone: "accent", title: "Policy allowed this spend — every condition held." };
+  }
+  // Escalate is NOT a deny, and showing it as one would be a lie a human acts on:
+  // "Denied" says the matter is closed, when in fact a person still owes an
+  // answer and the payment is sitting there held. Different event, different chip.
+  if (v.outcome === "escalate") {
+    return {
+      label: "Needs approval",
+      tone: "warn",
+      title:
+        "Policy could not settle this: a human must approve it. The payment is HELD — " +
+        "not denied, and not paid.",
+    };
   }
   return { label: "Denied", tone: "deny", title: "Policy denied this spend." };
 }
@@ -182,6 +206,9 @@ const RULE_PHRASE: Record<RuleId, string> = {
   "deny/attestation_invalid":
     "no verified attestation ties this invoice to the vendor's registered domain",
   "deny/malformed_facts": "the request's numbers were not usable, so it was not evaluated",
+  "escalate/over_escalation_threshold":
+    "it is within the caps but large enough that a person should approve it",
+  "escalate/elevated_risk_vendor": "the vendor is verified but was onboarded recently",
 };
 
 /** Oxford-comma join: [] → "", [a] → "a", [a,b] → "a and b", [a,b,c] → "a, b, and c". */

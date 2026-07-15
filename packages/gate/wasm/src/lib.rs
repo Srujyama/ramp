@@ -4,9 +4,9 @@
 //! point the TS `WasmKernel` calls across the WASM boundary (structured data is
 //! passed as JSON strings so the boundary stays simple and stable).
 //!
-//! The allow/deny logic here mirrors `datalog/policy.dl` EXACTLY — deny dominates,
-//! and the deny-evaluation order is fixed (vendor, per_txn_cap, category, agent,
-//! daily) so `reasons`/`fired_rules` are byte-stable and pass the parity test
+//! The allow/escalate/deny logic here mirrors `datalog/policy.dl` EXACTLY — the
+//! lattice is deny > escalate > allow, and the deny-evaluation order is fixed
+//! (vendor, per_txn_cap, category, agent, daily, attestation) so `reasons`/`fired_rules` are byte-stable and pass the parity test
 //! against the TS reference oracle. In a full build, `scripts/build-wasm.sh` runs
 //! `souffle -g` to generate the C++ engine; this shell can either link that engine
 //! or, as documented below, evaluate the rules directly in Rust with identical
@@ -31,6 +31,8 @@ struct Facts {
     agent_cleared_categories: Vec<String>,
     #[serde(default)]
     attestation_present: bool,
+    escalation_threshold: i64,
+    vendor_risk_tier: String,
 }
 
 /// Mirror of the frozen `Decision` contract in `@ramp/shared`.
@@ -129,11 +131,45 @@ fn evaluate_facts(f: &Facts) -> Decision {
         ));
     }
 
+    // ESCALATE triggers (policy.dl E1, E2). Collected here, consulted after the
+    // deny check below — deny > escalate > allow.
+    let mut esc_reasons: Vec<String> = Vec::new();
+    let mut esc_fired: Vec<String> = Vec::new();
+
+    // E1: within every hard cap, but big enough that a person should look.
+    if f.amount > f.escalation_threshold {
+        esc_fired.push("escalate/over_escalation_threshold".to_string());
+        esc_reasons.push(format!(
+            "over_escalation_threshold: amount {} > escalation_threshold {} (within the {} cap, but a human must approve)",
+            f.amount, f.escalation_threshold, f.per_txn_cap
+        ));
+    }
+    // E2: verified and registered, but recently onboarded.
+    if f.vendor_risk_tier == "elevated" {
+        esc_fired.push("escalate/elevated_risk_vendor".to_string());
+        esc_reasons.push(format!(
+            "elevated_risk_vendor: vendor \"{}\" is verified but carries risk tier \"{}\" — a human must approve",
+            f.vendor, f.vendor_risk_tier
+        ));
+    }
+
+    // DENY DOMINATES — including over escalate. An escalation must never hand a
+    // human a request policy already rejected, or every deny rule is a suggestion.
     if !fired.is_empty() {
         return Decision {
             decision: "deny".to_string(),
             reasons,
             fired_rules: fired,
+        };
+    }
+
+    // ESCALATE: no deny fired, but this needs a person. NOT "allowed pending
+    // review" — not allowed at all yet.
+    if !esc_fired.is_empty() {
+        return Decision {
+            decision: "escalate".to_string(),
+            reasons: esc_reasons,
+            fired_rules: esc_fired,
         };
     }
 

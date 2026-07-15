@@ -63,6 +63,37 @@ A spend request flows **down** through all four before a dollar moves. Enforceme
    real TLSNotary. See `packages/attestation/README.md` — a pitch about provability doesn't get to
    hand-wave its own proofs.
 
+## Three outcomes, not two — and "ask a human" is non-bypassable too
+
+Real policy has three answers, not two. A gate with only allow/deny forces every
+borderline case into the wrong box, and both choices rot: deny everything unusual
+and the gate is unusable, so someone raises the caps until they mean nothing; allow
+everything not explicitly forbidden and the gate is a formality.
+
+So the kernel has a third verdict: **`escalate`** — *the rulebook cannot settle
+this; a human must.* The payment is **HELD**: nothing executes, nothing is recorded
+as allowed, and the ledger row says `escalated`.
+
+**The lattice is `deny > escalate > allow`.** Deny still dominates everything: an
+escalation can never rescue a request a deny rule rejected, or every deny becomes a
+suggestion. Nobody gets asked to approve something policy already refused.
+
+| Verdict | Example | What happens |
+| --- | --- | --- |
+| **allow** | $340, under the $400 threshold | Pays, unattended |
+| **escalate** | $450 — within the $500 cap, over the threshold | **Held.** A human is asked |
+| **escalate** | verified vendor, onboarded yesterday | **Held.** Verified ≠ familiar |
+| **deny** | $600 — over the cap | Refused. Nobody is asked |
+
+This is what lets `per_txn_cap` mean *one* thing again. It used to be both "the most
+an agent may spend unattended" and "the most an agent may spend" — two different
+numbers wearing one name, which is how caps get argued upward until they're decor.
+
+**And the escalation is as non-bypassable as the deny.** It maps to the hook's
+`permissionDecision: "ask"`, which **still prompts under
+`--dangerously-skip-permissions`**. The model can't talk past it and a flag can't
+skip it. Human-in-the-loop is a control here, not a convention.
+
 ## The hero: hook, not tool (non-bypassable, fail-closed)
 
 Enforcement is a Claude Code **`PreToolUse` hook**, matcher `mcp__payments__.*`.
@@ -145,6 +176,10 @@ asserts the **exit code** on every beat. It runs in CI, so these are not claims:
    its facts → each fact's authoritative source, **without trusting the gate**. The dashboard runs
    the real kernel **in your browser**. *"This is what you show an auditor."*
 
+6. **Escalate** — `$450` (within the `$500` cap, over the `$400` threshold) → **ask**, exit 0,
+   held. And a **verified vendor onboarded yesterday** → **ask**. And `deny > escalate` demoed:
+   over-threshold *and* unverified → **deny**, nobody is asked.
+
 Plus **fail-closed**, demoed: an unreachable ledger → deny, exit 2 (see below).
 
 ### The audit console (`pnpm dev` + `pnpm --filter @ramp/ledger bridge`)
@@ -215,7 +250,7 @@ workspaces: `@ramp/shared` (frozen contract), `@ramp/gate` (kernel + real Souffl
 **`@ramp/quarantine`**, **`@ramp/attestation`**, **`@ramp/provenance`**, `@ramp/payments-mcp`
 (self-enforcing tool), `@ramp/dashboard` (the audit console). CI, branch protection, 4 collaborators.
 
-**361 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
+**387 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 

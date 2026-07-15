@@ -56,6 +56,8 @@ function authFacts(over: Partial<AuthoritativeFacts> = {}): AuthoritativeFacts {
     approvedCategories: ["office_supplies", "software", "travel"],
     agentClearedCategories: ["office_supplies", "software"],
     attestationPresent: false,
+    escalationThreshold: 400,
+    vendorRiskTier: "standard",
     ...over,
   };
 }

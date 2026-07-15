@@ -80,6 +80,8 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     approved_categories: ["office_supplies", "software", "travel"],
     agent_cleared_categories: ["office_supplies", "software"],
     attestation_present: true,
+    escalation_threshold: 400,
+    vendor_risk_tier: "standard",
     ...overrides,
   };
 }
@@ -169,6 +171,8 @@ test("PARITY: the two agree across 5000 randomized fact sets", () => {
       approved_categories: CATEGORIES.filter(() => rng() > 0.5),
       agent_cleared_categories: CATEGORIES.filter(() => rng() > 0.5),
       attestation_present: rng() > 0.5,
+    escalation_threshold: pick([Math.floor(rng() * 1000), 400]) as number,
+    vendor_risk_tier: pick(["standard", "elevated", "trusted", "unknown"]),
     };
 
     const ref = referenceKernel.evaluate(facts);

@@ -4,7 +4,27 @@
  * The result of running one `Facts` object through the policy kernel.
  * `deny` dominates: if the kernel derived any deny, `decision` is `"deny"`.
  */
-export type DecisionOutcome = "allow" | "deny";
+/**
+ * The three things policy can say.
+ *
+ * `escalate` is not "deny politely" and it is not "allow with a warning" — it is
+ * a distinct verdict meaning *the rulebook cannot settle this; a human must.*
+ * The payment is HELD: nothing executes, and nothing is recorded as allowed.
+ *
+ * It exists because the honest answer to some requests is neither yes nor no.
+ * Without it, every borderline case has to be crammed into one of two boxes, and
+ * both choices are bad: deny everything unusual and the gate is unusable, so
+ * someone raises the caps until it is useless; allow everything not explicitly
+ * forbidden and the gate is a formality. A third outcome lets policy be strict
+ * AND practical, because "ask a person" stops being a policy failure and becomes
+ * a policy *result*.
+ *
+ * ORDERING (see the kernel): **deny > escalate > allow**. Deny still dominates
+ * everything — an escalation can never rescue a request that a deny rule
+ * rejected, because that would let a human approve something policy forbids.
+ * Escalate only outranks allow.
+ */
+export type DecisionOutcome = "allow" | "deny" | "escalate";
 
 /**
  * Stable identifiers for every rule in the kernel. These strings are part of the
@@ -51,7 +71,28 @@ export type RuleId =
    * purely to preserve the existing byte-stable ordering of `reasons`/
    * `firedRules`. Order affects only the reason list, never allow/deny.
    */
-  | "deny/attestation_invalid";
+  | "deny/attestation_invalid"
+  /**
+   * The amount is within every hard cap but above the org's escalation
+   * threshold — large enough that a person should look at it.
+   *
+   * This is the rule that makes the caps honest. Before it, `per_txn_cap` had to
+   * be simultaneously "the most an agent may ever spend unattended" and "the
+   * most an agent may ever spend", which are not the same number and pretending
+   * they were is how caps drift upward until they mean nothing.
+   */
+  | "escalate/over_escalation_threshold"
+  /**
+   * The vendor is verified and registered, but carries an elevated risk tier
+   * (e.g. recently onboarded).
+   *
+   * Verified is not the same as familiar. A vendor can be genuinely who they
+   * claim — real domain, real attestation, every check green — and still be one
+   * we started paying yesterday. That is exactly the shape of a supplier-
+   * impersonation setup, and exactly the case where a human glance is cheap and
+   * a mistake is not.
+   */
+  | "escalate/elevated_risk_vendor";
 
 export interface Decision {
   /** Final outcome. `"deny"` if any deny rule fired, else `"allow"`. */
@@ -73,4 +114,25 @@ export function isAllowed(d: Decision): boolean {
 /** Narrow helper: did this decision deny the spend? (deny dominates) */
 export function isDenied(d: Decision): boolean {
   return d.decision === "deny";
+}
+
+/** Narrow helper: does this decision need a human? (the payment is HELD) */
+export function isEscalated(d: Decision): boolean {
+  return d.decision === "escalate";
+}
+
+/**
+ * True iff money may move on this decision.
+ *
+ * Use this rather than `!isDenied(d)`. When `escalate` was added, every
+ * `!isDenied` in the codebase silently started meaning "allow OR escalate" —
+ * i.e. it would have PAID OUT every request that policy said a human must review
+ * first. That is the single most dangerous shape a third outcome introduces:
+ * two-valued logic quietly mis-classifying the new third value, in the
+ * permissive direction, with no error anywhere.
+ *
+ * `allow` is the only verdict that moves money. Say so explicitly.
+ */
+export function permitsPayment(d: Decision): boolean {
+  return d.decision === "allow";
 }

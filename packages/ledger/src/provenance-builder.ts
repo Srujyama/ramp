@@ -50,6 +50,7 @@ const ID = {
   DECISION_PRODUCED: "decision_produced",
   ACTION_ALLOWED: "action_allowed",
   ACTION_DENIED: "action_denied",
+  ACTION_ESCALATED: "action_escalated",
 } as const;
 
 /** Build a small scalar metadata bag, dropping undefined values (stable key order). */
@@ -95,8 +96,22 @@ export function buildDecisionProvenance(input: DecisionProvenanceInput): Provena
   const edges: ProvEdge[] = [];
 
   const hasFacts = facts !== undefined;
-  const actionId = decision.decision === "allow" ? ID.ACTION_ALLOWED : ID.ACTION_DENIED;
-  const actionLabel = decision.decision === "allow" ? "action allowed" : "action denied";
+  // Exhaustive on the three outcomes. A ternary here labelled an ESCALATED
+  // decision "action denied" in the provenance graph — a held payment described
+  // to an auditor as a refused one. Different events; the graph must not blur them.
+  const escalated = decision.decision === "escalate";
+  const actionId =
+    decision.decision === "allow"
+      ? ID.ACTION_ALLOWED
+      : escalated
+        ? ID.ACTION_ESCALATED
+        : ID.ACTION_DENIED;
+  const actionLabel =
+    decision.decision === "allow"
+      ? "action allowed"
+      : escalated
+        ? "action held for human approval"
+        : "action denied";
 
   // --- 1. request_received (always) ---
   // request_id / agent come from AUTHORITATIVE facts when present; request fields

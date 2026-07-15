@@ -62,16 +62,20 @@ function beat(n, title, toolInput, expect, expectRule) {
   const reason = output?.hookSpecificOutput?.permissionDecisionReason ?? raw ?? stderr;
   const rules = output?.hookSpecificOutput?.firedRules ?? [];
 
-  const wantExit = expect === "allow" ? 0 : 2;
+  // escalate is delivered as permissionDecision "ask" at exit 0 — NOT exit 2.
+  // Exit 2 is the blocking-deny channel; using it would turn "a human must
+  // approve" into "denied" and the third outcome would never reach anybody.
+  const wantDecision = expect === "escalate" ? "ask" : expect;
+  const wantExit = expect === "deny" ? 2 : 0;
   const ok =
-    decision === expect &&
+    decision === wantDecision &&
     exitCode === wantExit &&
     (!expectRule || rules.includes(expectRule));
 
   if (!ok) failures++;
 
   console.log(`${ok ? "  PASS" : "! FAIL"}  Beat ${n}: ${title}`);
-  console.log(`         -> ${decision} (exit ${exitCode}, expected ${expect} / exit ${wantExit})`);
+  console.log(`         -> ${decision} (exit ${exitCode}, expected ${wantDecision} / exit ${wantExit})`);
   if (expectRule) {
     console.log(`         -> rules: [${rules.join(", ")}]${expectRule ? ` (want ${expectRule})` : ""}`);
   }
@@ -217,6 +221,96 @@ beat(
   },
   "deny",
   "deny/attestation_invalid",
+);
+
+// -- Beat 6: ESCALATE — the rulebook can't settle it, so a human must --------
+// $450 is within every hard cap (<= 500) and within agent_12's daily limit, but
+// over the org's 400 escalation threshold. Not allowed, not denied: HELD.
+//
+// agent_12 rather than agent_47 for a real reason: agent_47 has already spent
+// 1140 of its 1500 today, so ANY amount over the 400 threshold also busts the
+// daily limit and denies first (deny > escalate). There is literally no amount
+// that can escalate for agent_47 today — which is the lattice working, not a
+// bug, but it makes for a confusing demo.
+const escalateInvoice = "ACME CORP\nInvoice inv_2026_07_0055\nErgonomic chairs\nTotal: USD 450\n";
+beat(
+  6,
+  "ESCALATE — $450 is within every cap, but over the human-approval threshold",
+  {
+    vendorId: "acme_corp",
+    amount: 450,
+    currency: "USD",
+    category: "office_supplies",
+    invoiceRef: "inv_2026_07_0055",
+    requestingAgent: "agent_12",
+    invoiceDocument: escalateInvoice,
+    attestation: mintAttestation({
+      invoiceDocument: escalateInvoice,
+      serverDomain: "acme.example.com",
+      amount: 450,
+      currency: "USD",
+      invoiceRef: "inv_2026_07_0055",
+    }),
+  },
+  "escalate",
+  "escalate/over_escalation_threshold",
+);
+
+// -- Beat 6b: ESCALATE — verified, and still not familiar --------------------
+// Every check is green: real domain, real attestation, verified in the registry,
+// well under every limit. And we onboarded them yesterday. That is the shape of
+// a supplier-impersonation setup, and it is exactly where a human glance is
+// cheap and a mistake is not.
+const newcoInvoice = "NEWCO LTD\nInvoice inv_newco_001\nConsulting\nTotal: USD 100\n";
+beat(
+  "6b",
+  "ESCALATE — verified vendor, every check green, onboarded yesterday",
+  {
+    vendorId: "newco_ltd",
+    amount: 100,
+    currency: "USD",
+    category: "office_supplies",
+    invoiceRef: "inv_newco_001",
+    requestingAgent: "agent_47",
+    invoiceDocument: newcoInvoice,
+    attestation: mintAttestation({
+      invoiceDocument: newcoInvoice,
+      serverDomain: "newco.example.com",
+      amount: 100,
+      currency: "USD",
+      invoiceRef: "inv_newco_001",
+    }),
+  },
+  "escalate",
+  "escalate/elevated_risk_vendor",
+);
+
+// -- Beat 6c: DENY BEATS ESCALATE -------------------------------------------
+// The ordering, demonstrated. This request both escalates (over threshold) and
+// denies (unverified vendor). It must DENY: an escalation can never hand a human
+// a request that policy already rejected, or every deny rule is a suggestion.
+const bothInvoice = "SKETCHY LLC\nInvoice inv_both\nTotal: USD 450\n";
+beat(
+  "6c",
+  "DENY BEATS ESCALATE — over threshold AND unverified vendor",
+  {
+    vendorId: "sketchy_llc",
+    amount: 450,
+    currency: "USD",
+    category: "office_supplies",
+    invoiceRef: "inv_both",
+    requestingAgent: "agent_12",
+    invoiceDocument: bothInvoice,
+    attestation: mintAttestation({
+      invoiceDocument: bothInvoice,
+      serverDomain: "sketchy.example",
+      amount: 450,
+      currency: "USD",
+      invoiceRef: "inv_both",
+    }),
+  },
+  "deny",
+  "deny/vendor_not_verified",
 );
 
 // -- Fail-closed: the ledger is gone ----------------------------------------
