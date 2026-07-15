@@ -97,7 +97,7 @@ function PolicyBody({ p }: { p: PolicyModel }): JSX.Element {
 
         <div className="card">
           <h3>Approved categories</h3>
-          <p className="card-sub">The org-approved spend categories the kernel checks against.</p>
+          <p className="card-sub">The org-approved spend categories the policy engine checks against.</p>
           {p.approvedCategories.length > 0 ? (
             <div className="cell-rules">
               {p.approvedCategories.map((c) => (
@@ -224,9 +224,9 @@ function PolicySimulator(): JSX.Element {
     <div className="card" style={{ marginTop: 16 }}>
       <h3>Policy simulator</h3>
       <p className="card-sub">
-        Test a <strong>hypothetical</strong> purchase against the exact policy the kernel
-        enforces. This is read-only — no decision is recorded, no proof produced, and no
-        payment executed.
+        Test a <strong>hypothetical</strong> purchase against the exact policy that is
+        enforced. Simulation is side-effect free — no decision is recorded, no proof
+        produced, and no payment executed.
       </p>
 
       <div className="cell-rules" style={{ margin: "10px 0 14px" }}>
@@ -261,7 +261,7 @@ function PolicySimulator(): JSX.Element {
             autoComplete="off"
             aria-invalid={errors.agent ? true : undefined}
           />
-          {errors.agent ? <span role="alert" style={{ fontSize: 11.5, color: "var(--deny)" }}>{errors.agent}</span> : null}
+          {errors.agent ? <span role="alert" style={{ fontSize: 11.5, color: "var(--deny-ink)" }}>{errors.agent}</span> : null}
         </div>
 
         <div className="field">
@@ -276,7 +276,7 @@ function PolicySimulator(): JSX.Element {
             autoComplete="off"
             aria-invalid={errors.vendor ? true : undefined}
           />
-          {errors.vendor ? <span role="alert" style={{ fontSize: 11.5, color: "var(--deny)" }}>{errors.vendor}</span> : null}
+          {errors.vendor ? <span role="alert" style={{ fontSize: 11.5, color: "var(--deny-ink)" }}>{errors.vendor}</span> : null}
         </div>
 
         <div className="field">
@@ -293,7 +293,7 @@ function PolicySimulator(): JSX.Element {
             placeholder="340"
             aria-invalid={errors.amount ? true : undefined}
           />
-          {errors.amount ? <span role="alert" style={{ fontSize: 11.5, color: "var(--deny)" }}>{errors.amount}</span> : null}
+          {errors.amount ? <span role="alert" style={{ fontSize: 11.5, color: "var(--deny-ink)" }}>{errors.amount}</span> : null}
         </div>
 
         <div className="field">
@@ -308,7 +308,7 @@ function PolicySimulator(): JSX.Element {
             autoComplete="off"
             aria-invalid={errors.category ? true : undefined}
           />
-          {errors.category ? <span role="alert" style={{ fontSize: 11.5, color: "var(--deny)" }}>{errors.category}</span> : null}
+          {errors.category ? <span role="alert" style={{ fontSize: 11.5, color: "var(--deny-ink)" }}>{errors.category}</span> : null}
         </div>
 
         <div className="field">
@@ -370,13 +370,7 @@ function SimOutput({ run, onRetry }: { run: SimRun; onRetry: () => void }): JSX.
   const checks = policyChecks(result.facts, result.currency);
 
   return (
-    <div
-      style={{
-        marginTop: 16,
-        paddingTop: 16,
-        borderTop: "1px solid var(--border)",
-      }}
-    >
+    <div className="sim-result">
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <Chip chip={chip} />
         <span className="chip neutral" title="This tool only simulates — it never records a decision, produces a proof, or executes a payment.">
@@ -460,7 +454,7 @@ export function Policy(): JSX.Element {
       <div className="page-head">
         <h2>Policy</h2>
         <p>
-          The caps and clearances the deterministic kernel enforces — derived from the
+          The caps and clearances the deterministic policy engine enforces — derived from the
           authoritative facts on recorded decisions, so it mirrors exactly what was evaluated.
         </p>
       </div>

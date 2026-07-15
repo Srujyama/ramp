@@ -58,12 +58,12 @@ function nodeTone(s: StageState): string {
 
 /** Small uppercase state pill shown next to each stage title. */
 const PILL: Record<StageState, { label: string; color: string }> = {
-  done: { label: "Done", color: "var(--accent)" },
-  blocked: { label: "Blocked", color: "var(--warn)" },
-  failed: { label: "Failed", color: "var(--deny)" },
-  corrupt: { label: "Corrupt", color: "var(--deny)" },
+  done: { label: "Done", color: "var(--accent-ink)" },
+  blocked: { label: "Blocked", color: "var(--warn-ink)" },
+  failed: { label: "Failed", color: "var(--deny-ink)" },
+  corrupt: { label: "Corrupt", color: "var(--deny-ink)" },
   skipped: { label: "Skipped", color: "var(--ink-faint)" },
-  pending: { label: "Pending", color: "var(--info)" },
+  pending: { label: "Pending", color: "var(--info-ink)" },
 };
 
 function StatePill({ state }: { state: StageState }): JSX.Element {
@@ -164,27 +164,33 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
         ← All decisions
       </Link>
 
-      <div className="page-head" style={{ marginBottom: 16 }}>
-        <h2 style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          Decision
-          <span className="mono" style={{ fontSize: 13, color: "var(--ink-muted)", fontWeight: 500 }}>
-            <CopyId id={v.decisionId} />
-          </span>
-        </h2>
-        <p style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="page-head detail-head">
+        <h2>Decision</h2>
+
+        <div className="detail-badges">
           <Chip chip={outcomeChip(v)} />
           <Chip chip={verificationChip(v.proofVerification.reason)} />
           <Chip chip={paymentChip(v)} />
-          <span style={{ color: "var(--ink-faint)" }}>· {formatTimestamp(v.ts)}</span>
-        </p>
-        {policyDigest ? (
-          <p style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap", marginTop: 4 }}>
-            <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Policy digest</span>
-            <span className="pid" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
-              <CopyId id={policyDigest} />
-            </span>
-          </p>
-        ) : null}
+        </div>
+
+        <p className="detail-ts">{formatTimestamp(v.ts)}</p>
+
+        <dl className="detail-ids">
+          <div className="detail-id-row">
+            <dt>Decision ID</dt>
+            <dd>
+              <CopyId id={v.decisionId} />
+            </dd>
+          </div>
+          {policyDigest ? (
+            <div className="detail-id-row">
+              <dt>Policy digest</dt>
+              <dd>
+                <CopyId id={policyDigest} />
+              </dd>
+            </div>
+          ) : null}
+        </dl>
       </div>
 
       {v.corrupt ? (
@@ -217,10 +223,10 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
           </dl>
         </Section>
 
-        <Section title="Fired rules" sub="Every policy rule the deterministic kernel fired — stored verbatim, with its meaning.">
+        <Section title="Fired rules" sub="Every policy rule the deterministic policy engine fired — stored verbatim, with its meaning.">
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
             <Chip chip={outcomeChip(v)} />
-            {v.kernelId ? <span className="rule-tag">kernel · {v.kernelId}</span> : null}
+            {v.kernelId ? <span className="rule-tag">engine · {v.kernelId}</span> : null}
           </div>
           {v.firedRules.length > 0 ? (
             <div className="cell-rules" style={{ marginBottom: 10 }}>
@@ -246,7 +252,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
           <ProvenanceFlow view={v} />
         </Section>
 
-        <Section title="Trusted facts" sub="The authoritative facts the kernel evaluated — from the ledger + registry, not model narration.">
+        <Section title="Trusted facts" sub="The authoritative facts the policy engine evaluated — from the ledger + registry, not model narration.">
           {facts ? (
             <dl className="kv">
               <Row k="Vendor verified">{facts.vendor_verified ? "yes" : "no"}</Row>
@@ -281,7 +287,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
                 {v.proof?.factsDigest ? <span className="pid"><CopyId id={v.proof.factsDigest} /></span> : "—"}
               </Row>
               <Row k="Attestation">{v.proof?.attestationStatus ?? "—"}</Row>
-              <Row k="Kernel">{v.proof?.kernelId ?? v.kernelId ?? "—"}</Row>
+              <Row k="Policy engine">{v.proof?.kernelId ?? v.kernelId ?? "—"}</Row>
             </dl>
           </div>
         </Section>
