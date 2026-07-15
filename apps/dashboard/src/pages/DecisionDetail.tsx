@@ -204,7 +204,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
       </div>
 
       {v.corrupt ? (
-        <div className="state-card bad" role="alert" style={{ marginBottom: 20, textAlign: "left", padding: "14px 16px" }}>
+        <div className="state-card bad" role="alert" style={{ marginBottom: 24, textAlign: "left", padding: "14px 16px" }}>
           <strong>Corrupt record.</strong> At least one stored blob for this decision failed
           to parse or validate. The bridge surfaces it honestly rather than hiding it — treat
           any parsed field below as suspect.
@@ -345,8 +345,10 @@ export function DecisionDetail(): JSX.Element {
     return (
       <>
         <Skeleton className="sk-line" style={{ width: 120 }} />
-        <Skeleton style={{ height: 90, margin: "16px 0" }} />
-        <div className="grid two">
+        <Skeleton style={{ height: 140, margin: "16px 0 32px" }} />
+        <Skeleton style={{ height: 260 }} />
+        <div className="detail-cards">
+          <Skeleton style={{ height: 180 }} />
           <Skeleton style={{ height: 180 }} />
           <Skeleton style={{ height: 180 }} />
         </div>
