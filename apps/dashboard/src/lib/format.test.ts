@@ -16,8 +16,11 @@ import {
   outcomeChip,
   verificationChip,
   paymentChip,
+  explainDecision,
+  explainSimulation,
 } from "./format.js";
 import { mkView } from "./testfixtures.js";
+import type { RuleId } from "./types.js";
 
 test("formatMoney renders whole units without cents", () => {
   assert.match(formatMoney(340, "USD"), /340/);
@@ -54,7 +57,7 @@ test("outcomeChip maps allow/deny/error honestly", () => {
 });
 
 test("verificationChip covers all four proof states", () => {
-  assert.equal(verificationChip("ok").label, "Verified");
+  assert.equal(verificationChip("ok").label, "Proof valid");
   assert.equal(verificationChip("ok").tone, "accent");
   assert.equal(verificationChip("mismatch").label, "Tampered");
   assert.equal(verificationChip("mismatch").tone, "deny");
@@ -78,6 +81,117 @@ test("paymentChip never claims a settlement it can't prove", () => {
 
   // Deny → blocked, executor never called.
   assert.equal(paymentChip(mkView({ outcome: "deny", status: "denied", execution: null })).label, "Blocked");
-  // Allow but no recorded execution (gate-only hook row) → not executed, never "settled".
+  // Allow but no recorded execution (gate-only policy row) → not executed, never "settled".
   assert.equal(paymentChip(mkView({ outcome: "allow", execution: null })).label, "Not executed");
+});
+
+test("explainDecision narrates an allow that settled", () => {
+  const out = explainDecision(
+    mkView({
+      outcome: "allow",
+      execution: { receiptId: "rcpt_1", executionId: "exec_1", status: "settled", provider: "sandbox", executedAt: "2026-07-14 10:00:00" },
+    }),
+  );
+  assert.match(out, /^Approved because the vendor is verified/);
+  assert.match(out, /The sandbox payment settled\.$/);
+});
+
+test("explainDecision narrates an allow whose executor failed", () => {
+  const out = explainDecision(
+    mkView({
+      outcome: "allow",
+      execution: { receiptId: "rcpt_2", executionId: "exec_2", status: "failed", provider: "sandbox", executedAt: "2026-07-14 10:00:00" },
+    }),
+  );
+  assert.equal(out, "Policy allowed the purchase, but the payment executor failed. No settlement occurred.");
+});
+
+test("explainDecision narrates an allow that was never executed", () => {
+  const out = explainDecision(mkView({ outcome: "allow", execution: null }));
+  assert.equal(out, "Approved by policy — every condition held. No sandbox payment was executed for this record.");
+});
+
+test("explainDecision narrates a deny with its fired reasons joined", () => {
+  const out = explainDecision(
+    mkView({
+      outcome: "deny",
+      status: "denied",
+      execution: null,
+      firedRules: ["deny/vendor_not_verified", "deny/over_per_txn_cap"],
+    }),
+  );
+  assert.equal(
+    out,
+    "Denied because the vendor is not in the approved registry and the amount exceeds the per-transaction cap. No payment was executed.",
+  );
+});
+
+test("explainDecision surfaces a proof mismatch above the outcome", () => {
+  // Even an allow reads as compromised when the proof no longer matches.
+  const out = explainDecision(
+    mkView({
+      outcome: "allow",
+      proofVerification: { proofPresent: true, proofVerified: false, expectedProofId: "proof_x", actualProofId: "proof_y", reason: "mismatch" },
+    }),
+  );
+  assert.equal(out, "The stored proof no longer matches the recorded decision. No payment was executed.");
+});
+
+test("explainDecision surfaces a corrupt proof above the outcome", () => {
+  const out = explainDecision(
+    mkView({
+      outcome: "allow",
+      proofVerification: { proofPresent: true, proofVerified: false, expectedProofId: null, actualProofId: null, reason: "corrupt" },
+    }),
+  );
+  assert.equal(out, "The stored proof is malformed and could not be verified. Treat this record as compromised.");
+});
+
+test("explainDecision narrates a pre-decision error", () => {
+  const out = explainDecision(
+    mkView({
+      status: "error",
+      outcome: null,
+      firedRules: [],
+      proofVerification: { proofPresent: false, proofVerified: false, expectedProofId: null, actualProofId: null, reason: "absent" },
+    }),
+  );
+  assert.equal(out, "An error occurred before a policy decision was reached. No payment was executed.");
+});
+
+test("explainSimulation narrates an allow", () => {
+  const out = explainSimulation("allow", ["allow/all_conditions_met"]);
+  assert.match(out, /^Allowed — every policy condition held/);
+  assert.match(out, /within the per-transaction cap and daily limit\.$/);
+});
+
+test("explainSimulation narrates a deny with joined reasons", () => {
+  const out = explainSimulation("deny", ["deny/category_not_approved", "deny/daily_limit_exceeded"]);
+  assert.equal(
+    out,
+    "Denied because the category is not on the approved list and it would exceed the daily limit. No payment would be executed.",
+  );
+});
+
+test("explainSimulation produces a distinct phrase for every deny rule id", () => {
+  const denyRules: RuleId[] = [
+    "deny/vendor_not_verified",
+    "deny/over_per_txn_cap",
+    "deny/agent_uncleared_for_category",
+    "deny/category_not_approved",
+    "deny/daily_limit_exceeded",
+  ];
+  const phrases = denyRules.map((r) => {
+    const out = explainSimulation("deny", [r]);
+    const m = out.match(/^Denied because (.*)\. No payment would be executed\.$/);
+    assert.ok(m, `unexpected shape for ${r}: ${out}`);
+    return m[1] as string;
+  });
+  // Every rule yields a non-empty, generic-fallback-free phrase.
+  for (const p of phrases) {
+    assert.ok(p.length > 0);
+    assert.notEqual(p, "the policy conditions were not met");
+  }
+  // And every phrase is unique — no two deny rules collapse to the same wording.
+  assert.equal(new Set(phrases).size, denyRules.length);
 });

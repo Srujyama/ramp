@@ -12,6 +12,8 @@ import {
   ruleTitle,
   ruleBlurb,
 } from "../lib/format.js";
+import type { StatusChip } from "../lib/format.js";
+import { buildTimeline, type StageState } from "../lib/timeline.js";
 import type { DecisionView } from "../lib/types.js";
 import {
   Chip,
@@ -26,58 +28,110 @@ import {
  * @ramp/dashboard — DecisionDetail
  *
  * "Prove this decision to an auditor." One evaluated spend request, expanded
- * into the full record: the purchase request, the policy outcome + fired rules,
- * the trusted facts, the provenance flow, the tamper-evident proof + its
- * INDEPENDENT verification, and the sandbox payment receipt. The trust ladder up
- * top makes the four claims explicit and separable: the decision was allowed,
- * the audit was persisted, the proof re-verified, the payment executed — each
- * shown honestly (a deny or an unexecuted allow is not dressed up as success).
+ * into the full record — organized around the EXECUTION TIMELINE: the six-stage
+ * lifecycle from the agent's request through trusted facts, policy evaluation,
+ * the recorded decision, the independently re-verified proof, and the sandbox
+ * payment. The timeline is the primary visualization; the trust ladder (outcome
+ * / verification / payment) is folded INTO the relevant stages rather than shown
+ * as separate status cards, so each claim is stated honestly and in place (a
+ * deny reads as blocked, a proof mismatch as tampered, an unexecuted allow as
+ * skipped). Below the timeline, the detailed record remains: facts, fired rules,
+ * the full proof (ids + digests), provenance, and the execution receipt.
  */
 
-type TrustState = "ok" | "bad" | "skip";
-interface TrustStep {
-  label: string;
-  sub: string;
-  state: TrustState;
+/** Node colour class (reuses the existing .flow .node tones). */
+function nodeTone(s: StageState): string {
+  switch (s) {
+    case "done":
+      return "accent";
+    case "blocked":
+      return "warn";
+    case "failed":
+    case "corrupt":
+      return "deny";
+    case "pending":
+      return "info";
+    case "skipped":
+      return "";
+  }
 }
 
-const MARK: Record<TrustState, string> = { ok: "✓", bad: "✕", skip: "–" };
+/** Small uppercase state pill shown next to each stage title. */
+const PILL: Record<StageState, { label: string; color: string }> = {
+  done: { label: "Done", color: "var(--accent)" },
+  blocked: { label: "Blocked", color: "var(--warn)" },
+  failed: { label: "Failed", color: "var(--deny)" },
+  corrupt: { label: "Corrupt", color: "var(--deny)" },
+  skipped: { label: "Skipped", color: "var(--ink-faint)" },
+  pending: { label: "Pending", color: "var(--info)" },
+};
 
-function trustLadder(v: DecisionView): TrustStep[] {
-  // 1. Decision allowed
-  const decisionStep: TrustStep =
-    v.outcome === "allow"
-      ? { label: "Decision allowed", sub: "policy allowed the spend", state: "ok" }
-      : v.outcome === "deny"
-        ? { label: "Decision denied", sub: "blocked by policy", state: "skip" }
-        : { label: "No decision", sub: "infrastructure error row", state: "bad" };
+function StatePill({ state }: { state: StageState }): JSX.Element {
+  const p = PILL[state];
+  return (
+    <span
+      style={{
+        border: `1px solid ${p.color}`,
+        color: p.color,
+        borderRadius: 999,
+        padding: "0px 8px",
+        fontSize: 10.5,
+        fontWeight: 700,
+        textTransform: "uppercase",
+        letterSpacing: "0.03em",
+        lineHeight: 1.7,
+      }}
+    >
+      {p.label}
+    </span>
+  );
+}
 
-  // 2. Audit persisted
-  const auditStep: TrustStep = v.corrupt
-    ? { label: "Audit corrupt", sub: "a stored record failed to parse", state: "bad" }
-    : { label: "Audit persisted", sub: "recorded in the append-only ledger", state: "ok" };
+/** Label prefix for the id/digest surfaced on each stage. */
+const META_LABEL: Record<string, string> = {
+  request: "request",
+  policy: "policy digest",
+  decision: "decision",
+  proof: "proof",
+  payment: "receipt",
+};
 
-  // 3. Proof verified (independent recompute)
-  const reason = v.proofVerification.reason;
-  const proofStep: TrustStep =
-    reason === "ok"
-      ? { label: "Proof verified", sub: "recomputed, matches — untampered", state: "ok" }
-      : reason === "mismatch"
-        ? { label: "Proof tampered", sub: "recomputes to a different id", state: "bad" }
-        : reason === "corrupt"
-          ? { label: "Proof corrupt", sub: "stored proof is malformed", state: "bad" }
-          : { label: "No proof", sub: "none stored for this row", state: "skip" };
+/** The trust-ladder chip folded into the relevant stage (no separate cards). */
+function stageChip(v: DecisionView, key: string): StatusChip | null {
+  if (key === "policy") return outcomeChip(v);
+  if (key === "proof") return verificationChip(v.proofVerification.reason);
+  if (key === "payment") return paymentChip(v);
+  return null;
+}
 
-  // 4. Payment executed
-  const paymentStep: TrustStep = v.execution
-    ? v.execution.status === "settled"
-      ? { label: "Payment executed", sub: `sandbox settled · ${v.execution.provider}`, state: "ok" }
-      : { label: "Payment failed", sub: "executor returned a failed receipt", state: "bad" }
-    : v.outcome === "deny"
-      ? { label: "Payment blocked", sub: "executor never called", state: "skip" }
-      : { label: "Not executed", sub: "no sandbox execution recorded", state: "skip" };
-
-  return [decisionStep, auditStep, proofStep, paymentStep];
+function Timeline({ v }: { v: DecisionView }): JSX.Element {
+  const stages = buildTimeline(v);
+  return (
+    <ol className="flow">
+      {stages.map((s) => {
+        const chip = stageChip(v, s.key);
+        return (
+          <li key={s.key}>
+            <span className={`node ${nodeTone(s.state)}`} aria-hidden="true" />
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span className="f-title">{s.title}</span>
+              <StatePill state={s.state} />
+              {chip ? <Chip chip={chip} /> : null}
+            </div>
+            <div className="f-detail">{s.detail}</div>
+            {s.meta ? (
+              <div style={{ marginTop: 6, display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{META_LABEL[s.key] ?? "id"}</span>
+                <span className="pid" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+                  <CopyId id={s.meta} />
+                </span>
+              </div>
+            ) : null}
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 function Section({ title, sub, children }: { title: string; sub?: string; children: ReactNode }): JSX.Element {
@@ -101,8 +155,8 @@ function Row({ k, children }: { k: string; children: ReactNode }): JSX.Element {
 
 function DetailBody({ v }: { v: DecisionView }): JSX.Element {
   const currency = v.request?.currency ?? "USD";
-  const ladder = trustLadder(v);
   const facts = v.facts;
+  const policyDigest = v.proof?.policyDigest ?? null;
 
   return (
     <>
@@ -123,6 +177,14 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
           <Chip chip={paymentChip(v)} />
           <span style={{ color: "var(--ink-faint)" }}>· {formatTimestamp(v.ts)}</span>
         </p>
+        {policyDigest ? (
+          <p style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap", marginTop: 4 }}>
+            <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Policy digest</span>
+            <span className="pid" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+              <CopyId id={policyDigest} />
+            </span>
+          </p>
+        ) : null}
       </div>
 
       {v.corrupt ? (
@@ -133,20 +195,13 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
         </div>
       ) : null}
 
-      {/* The four separable trust claims. */}
-      <div className="trust-strip">
-        {ladder.map((s) => (
-          <div key={s.label} className={`trust-step ${s.state}`}>
-            <div className="t-top">
-              <span className="t-mark" aria-hidden="true">
-                {MARK[s.state]}
-              </span>
-              <span className="t-label">{s.label}</span>
-            </div>
-            <div className="t-sub">{s.sub}</div>
-          </div>
-        ))}
-      </div>
+      {/* PRIMARY: the six-stage execution timeline, trust ladder folded in. */}
+      <Section
+        title="Execution timeline"
+        sub="The full lifecycle of this spend, top to bottom — every stage's state derived only from what the audit trail records. Each id/digest is copyable."
+      >
+        <Timeline v={v} />
+      </Section>
 
       <div className="grid two">
         <Section title="Purchase request" sub="The structured spend request the agent submitted (untrusted input).">
@@ -162,7 +217,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
           </dl>
         </Section>
 
-        <Section title="Policy outcome" sub="The deterministic kernel's verdict and every rule that fired — stored verbatim.">
+        <Section title="Fired rules" sub="Every policy rule the deterministic kernel fired — stored verbatim, with its meaning.">
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
             <Chip chip={outcomeChip(v)} />
             {v.kernelId ? <span className="rule-tag">kernel · {v.kernelId}</span> : null}
@@ -210,11 +265,20 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
         <Section title="Proof" sub="Tamper-evident proof, independently recomputed on every read — never trusted from stored bytes.">
           <div className="proof-box">
             <dl className="kv">
+              <Row k="Verification">
+                <Chip chip={verificationChip(v.proofVerification.reason)} />
+              </Row>
               <Row k="Proof id">
                 {v.proof ? <span className="pid"><CopyId id={v.proof.proofId} /></span> : "—"}
               </Row>
-              <Row k="Verification">
-                <Chip chip={verificationChip(v.proofVerification.reason)} />
+              <Row k="Policy digest">
+                {v.proof?.policyDigest ? <span className="pid"><CopyId id={v.proof.policyDigest} /></span> : "—"}
+              </Row>
+              <Row k="Request digest">
+                {v.proof?.requestDigest ? <span className="pid"><CopyId id={v.proof.requestDigest} /></span> : "—"}
+              </Row>
+              <Row k="Facts digest">
+                {v.proof?.factsDigest ? <span className="pid"><CopyId id={v.proof.factsDigest} /></span> : "—"}
               </Row>
               <Row k="Attestation">{v.proof?.attestationStatus ?? "—"}</Row>
               <Row k="Kernel">{v.proof?.kernelId ?? v.kernelId ?? "—"}</Row>
@@ -243,7 +307,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
             <p className="card-sub" style={{ margin: 0 }}>
               {v.outcome === "deny"
                 ? "No payment — the request was blocked by policy, so the executor was never called."
-                : "No sandbox execution was recorded for this row (e.g. a gate-only hook check)."}
+                : "No sandbox execution was recorded for this row (e.g. a gate-only policy check)."}
             </p>
           )}
         </Section>

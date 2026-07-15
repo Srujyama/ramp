@@ -14,7 +14,13 @@
     "src/lib/format.ts",
     "src/lib/provenance.ts",
     "src/lib/types.ts",
+    "src/lib/activity.ts",
+    "src/lib/timeline.ts",
+    "src/lib/simulator.ts",
     "src/lib/format.test.ts",
-    "src/lib/provenance.test.ts"
+    "src/lib/provenance.test.ts",
+    "src/lib/activity.test.ts",
+    "src/lib/timeline.test.ts",
+    "src/lib/simulator.test.ts"
   ]
 }

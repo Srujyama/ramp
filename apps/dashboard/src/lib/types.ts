@@ -122,6 +122,36 @@ export interface DecisionListResponse {
   nextCursor?: string;
 }
 
+// --- policy simulator --------------------------------------------------------
+// Mirrors the `@ramp/ledger` `SimulationInput`/`SimulationResult` served by the
+// read-only `GET /simulate` bridge route. Deliberately duplicated (not imported)
+// for the same reason as the decision types above — the browser bundle must not
+// pull in the Node ledger package. Keep in lockstep with `ledger/src/simulate.ts`.
+
+export interface SimulationInput {
+  agent: string;
+  vendor: string;
+  amount: number;
+  category: string;
+  currency?: string;
+}
+
+/**
+ * The result of a hypothetical evaluation. It is produced by the REAL policy
+ * kernel over authoritative facts, but is completely side-effect free: no
+ * decision, proof, or execution is ever persisted. `simulationOnly` is always
+ * `true` — a wire-level marker that this row touched nothing.
+ */
+export interface SimulationResult {
+  outcome: DecisionOutcome;
+  firedRules: RuleId[];
+  reasons: string[];
+  facts: Facts;
+  policyDigest: string;
+  currency: string;
+  simulationOnly: true;
+}
+
 /** Filters accepted by `GET /decisions`. */
 export interface DecisionsQuery {
   agentId?: string;

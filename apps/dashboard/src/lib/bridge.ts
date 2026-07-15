@@ -11,7 +11,13 @@
  *   - `not_found`   — a specific decision id doesn't exist (404).
  *   - `http`        — some other non-2xx status.
  */
-import type { DecisionListResponse, DecisionView, DecisionsQuery } from "./types.js";
+import type {
+  DecisionListResponse,
+  DecisionView,
+  DecisionsQuery,
+  SimulationInput,
+  SimulationResult,
+} from "./types.js";
 
 /** Bridge base URL. Override per-deploy with VITE_BRIDGE_URL. */
 export const BRIDGE_URL: string =
@@ -106,6 +112,42 @@ export async function fetchDecisions(
     throw new BridgeError("malformed", "Bridge list contained a decision of the wrong shape.");
   }
   return list;
+}
+
+/** Minimal structural guard for a simulation result. */
+function looksLikeSimulation(v: unknown): v is SimulationResult {
+  if (typeof v !== "object" || v === null) return false;
+  const s = v as Record<string, unknown>;
+  return (
+    (s.outcome === "allow" || s.outcome === "deny") &&
+    Array.isArray(s.firedRules) &&
+    typeof s.policyDigest === "string" &&
+    s.simulationOnly === true
+  );
+}
+
+/**
+ * Run a HYPOTHETICAL purchase through the real policy kernel via the read-only
+ * `GET /simulate` route. Side-effect free by construction — the bridge never
+ * persists a decision, proof, or execution for a simulation. Throws a typed
+ * {@link BridgeError} on any failure, exactly like the other client calls.
+ */
+export async function simulatePolicy(
+  input: SimulationInput,
+  signal?: AbortSignal,
+): Promise<SimulationResult> {
+  const params = new URLSearchParams({
+    agent: input.agent,
+    vendor: input.vendor,
+    amount: String(input.amount),
+    category: input.category,
+  });
+  if (input.currency) params.set("currency", input.currency);
+  const body = await getJson(`/simulate?${params.toString()}`, signal);
+  if (!looksLikeSimulation(body)) {
+    throw new BridgeError("malformed", "Bridge simulate response had the wrong shape.");
+  }
+  return body;
 }
 
 /** Fetch one decision by id. Throws `BridgeError("not_found")` on a 404. */

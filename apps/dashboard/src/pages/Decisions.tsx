@@ -11,6 +11,7 @@ import type {
 } from "../lib/types.js";
 import {
   RULE_META,
+  explainDecision,
   formatMoney,
   formatRelative,
   formatTimestamp,
@@ -270,7 +271,7 @@ export function Decisions(): JSX.Element {
                   <th>Outcome</th>
                   <th>Proof</th>
                   <th>Payment</th>
-                  <th>Rules</th>
+                  <th>Explanation</th>
                 </tr>
               </thead>
               <tbody>
@@ -312,7 +313,19 @@ export function Decisions(): JSX.Element {
                       <td data-label="Payment">
                         <Chip chip={paymentChip(v)} />
                       </td>
-                      <td data-label="Rules">
+                      <td data-label="Explanation" className="explain-cell">
+                        <p
+                          className="row-explain"
+                          style={{
+                            margin: "0 0 6px",
+                            maxWidth: 360,
+                            fontSize: "0.85em",
+                            lineHeight: 1.4,
+                            opacity: 0.85,
+                          }}
+                        >
+                          {explainDecision(v)}
+                        </p>
                         {v.firedRules.length > 0 ? (
                           <div className="cell-rules">
                             {v.firedRules.map((r) => (

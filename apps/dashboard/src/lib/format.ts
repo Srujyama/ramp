@@ -7,6 +7,7 @@
  * never executed reads as "not executed", not "settled".
  */
 import type {
+  DecisionOutcome,
   DecisionView,
   ProofVerificationReason,
   RuleId,
@@ -115,7 +116,7 @@ export function outcomeChip(v: DecisionView): StatusChip {
 export function verificationChip(reason: ProofVerificationReason): StatusChip {
   switch (reason) {
     case "ok":
-      return { label: "Verified", tone: "accent", title: "The proof was independently recomputed and matches — the record is untampered." };
+      return { label: "Proof valid", tone: "accent", title: "The stored proof was independently recomputed and matches the recorded decision — the record is untampered." };
     case "mismatch":
       return { label: "Tampered", tone: "deny", title: "The proof recomputes to a different id — the record was altered." };
     case "corrupt":
@@ -128,7 +129,7 @@ export function verificationChip(reason: ProofVerificationReason): StatusChip {
 /**
  * The payment chip, derived ONLY from recorded facts. A settled receipt reads as
  * settled; a failed receipt as failed; a deny as blocked; an allow with no
- * recorded execution (e.g. a gate-only hook check) as "not executed" — never as
+ * recorded execution (e.g. a gate-only policy check) as "not executed" — never as
  * a settlement it can't prove.
  */
 export function paymentChip(v: DecisionView): StatusChip {
@@ -142,7 +143,103 @@ export function paymentChip(v: DecisionView): StatusChip {
     return { label: "Blocked", tone: "neutral", title: "Denied by policy — the executor was never called, so no payment was attempted." };
   }
   if (v.outcome === "allow") {
-    return { label: "Not executed", tone: "neutral", title: "Allowed by policy, but no sandbox execution was recorded for this row (e.g. a gate-only hook check)." };
+    return { label: "Not executed", tone: "neutral", title: "Allowed by policy, but no sandbox execution was recorded for this row (e.g. a gate-only policy check)." };
   }
   return { label: "—", tone: "neutral", title: "No payment applies to this row." };
+}
+
+// --- deterministic human-readable explanations -------------------------------
+//
+// Pure functions derived ONLY from decision state — no LLM, no I/O. The same
+// deny-reason phrase map + join back both explainDecision and explainSimulation
+// so the two narratives stay consistent.
+
+/**
+ * One plain-language phrase per rule id. Deny phrases slot into
+ * "Denied because <phrase>"; the allow phrase narrates a clean pass. Exhaustive
+ * over RuleId so every fired rule can always be put into words.
+ */
+const RULE_PHRASE: Record<RuleId, string> = {
+  "allow/all_conditions_met": "every policy condition held",
+  "deny/vendor_not_verified": "the vendor is not in the approved registry",
+  "deny/over_per_txn_cap": "the amount exceeds the per-transaction cap",
+  "deny/agent_uncleared_for_category": "the agent is not cleared for this category",
+  "deny/category_not_approved": "the category is not on the approved list",
+  "deny/daily_limit_exceeded": "it would exceed the daily limit",
+};
+
+/** Oxford-comma join: [] → "", [a] → "a", [a,b] → "a and b", [a,b,c] → "a, b, and c". */
+function humanJoin(parts: string[]): string {
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0] as string;
+  if (parts.length === 2) return `${parts[0]} and ${parts[1]}`;
+  return `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
+}
+
+/**
+ * The deterministic "because …" clause for the fired deny rules, in
+ * rule-evaluation order. Non-deny rules are ignored; if no deny rule is present
+ * we still return an honest, generic clause rather than an empty string.
+ */
+function denyReasonClause(firedRules: RuleId[]): string {
+  const phrases = firedRules
+    .filter((r) => r.startsWith("deny/"))
+    .map((r) => RULE_PHRASE[r]);
+  if (phrases.length === 0) return "the policy conditions were not met";
+  return humanJoin(phrases);
+}
+
+/**
+ * A concise, plain-English account of a recorded decision, derived purely from
+ * its state. Precedence (first match wins): proof-integrity failure dominates
+ * because a broken proof means the record itself can't be trusted, then
+ * record-level corruption, then a pre-decision error, then deny, then allow
+ * (narrated by what execution actually recorded).
+ */
+export function explainDecision(v: DecisionView): string {
+  // 1. Proof integrity problem first — overrides the outcome narrative.
+  if (v.proofVerification.reason === "mismatch") {
+    return "The stored proof no longer matches the recorded decision. No payment was executed.";
+  }
+  if (v.proofVerification.reason === "corrupt") {
+    return "The stored proof is malformed and could not be verified. Treat this record as compromised.";
+  }
+  // 2. Record-level corruption (if not already surfaced via the proof).
+  if (v.corrupt === true) {
+    return "This record is corrupt and cannot be trusted.";
+  }
+  // 3. An error was recorded before any policy decision was reached.
+  if (v.status === "error") {
+    return "An error occurred before a policy decision was reached. No payment was executed.";
+  }
+  // 4. Policy denied the spend.
+  if (v.outcome === "deny") {
+    return `Denied because ${denyReasonClause(v.firedRules)}. No payment was executed.`;
+  }
+  // 5. Policy allowed the spend — narrate by what execution actually recorded.
+  if (v.outcome === "allow") {
+    if (v.execution?.status === "settled") {
+      return "Approved because the vendor is verified, the category is allowed, and the amount is within policy limits. The sandbox payment settled.";
+    }
+    if (v.execution?.status === "failed") {
+      return "Policy allowed the purchase, but the payment executor failed. No settlement occurred.";
+    }
+    return "Approved by policy — every condition held. No sandbox payment was executed for this record.";
+  }
+  // Fallback: no outcome and not covered above — should not occur for real rows.
+  return "No policy decision was recorded for this request.";
+}
+
+/**
+ * The plain-English account of a hypothetical (simulated) evaluation. Shares the
+ * deny-reason clause with explainDecision so simulation and history read alike.
+ */
+export function explainSimulation(
+  outcome: DecisionOutcome,
+  firedRules: RuleId[],
+): string {
+  if (outcome === "allow") {
+    return "Allowed — every policy condition held: the vendor is verified, the category is approved and the agent is cleared, and the amount is within the per-transaction cap and daily limit.";
+  }
+  return `Denied because ${denyReasonClause(firedRules)}. No payment would be executed.`;
 }

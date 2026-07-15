@@ -1,11 +1,22 @@
 import type { CSSProperties, JSX } from "react";
-import { useEffect } from "react";
-import { fetchDecisions } from "../lib/bridge.js";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchDecisions, simulatePolicy } from "../lib/bridge.js";
 import { useAsync } from "../lib/useAsync.js";
-import { formatMoney } from "../lib/format.js";
-import type { DecisionView, Facts } from "../lib/types.js";
+import { formatMoney, ruleTitle, explainSimulation } from "../lib/format.js";
+import type { StatusChip } from "../lib/format.js";
+import type { DecisionView, Facts, SimulationResult } from "../lib/types.js";
+import {
+  EMPTY_SIM_FORM,
+  SCENARIOS,
+  policyChecks,
+  scenarioToForm,
+  truncateDigest,
+  validateSimForm,
+  type SimField,
+  type SimFormValues,
+} from "../lib/simulator.js";
 import StatTile from "../components/StatTile.js";
-import { BridgeErrorState, StateCard, Skeleton } from "../components/ui.js";
+import { BridgeErrorState, Chip, CopyId, StateCard, Skeleton } from "../components/ui.js";
 
 /**
  * @ramp/dashboard — Policy
@@ -143,6 +154,300 @@ function PolicyBody({ p }: { p: PolicyModel }): JSX.Element {
   );
 }
 
+// --- Policy Simulator (read-only, hypothetical) ------------------------------
+
+type SimRun =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "error"; error: unknown }
+  | { status: "success"; result: SimulationResult };
+
+/**
+ * Read-only "what would the kernel decide?" tool. It tests HYPOTHETICAL spend
+ * requests via an idempotent GET (`simulatePolicy`) and renders the verdict —
+ * it NEVER edits policy, persists a decision, produces a proof, or executes a
+ * payment. There is no mutating call reachable from this component; the only
+ * network access is the read-only simulate endpoint.
+ */
+function PolicySimulator(): JSX.Element {
+  const [form, setForm] = useState<SimFormValues>(EMPTY_SIM_FORM);
+  const [errors, setErrors] = useState<Partial<Record<SimField, string>>>({});
+  const [run, setRun] = useState<SimRun>({ status: "idle" });
+  const acRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => acRef.current?.abort(), []);
+
+  const setField = (field: SimField) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setForm((f) => ({ ...f, [field]: value }));
+  };
+
+  const execute = useCallback(() => {
+    const v = validateSimForm(form);
+    setErrors(v.errors);
+    if (!v.valid) return;
+
+    acRef.current?.abort();
+    const ac = new AbortController();
+    acRef.current = ac;
+    setRun({ status: "loading" });
+
+    simulatePolicy(
+      {
+        agent: form.agent.trim(),
+        vendor: form.vendor.trim(),
+        amount: v.amount,
+        category: form.category.trim(),
+        currency: form.currency.trim() || undefined,
+      },
+      ac.signal,
+    ).then(
+      (result) => {
+        if (!ac.signal.aborted) setRun({ status: "success", result });
+      },
+      (error) => {
+        if (ac.signal.aborted) return;
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setRun({ status: "error", error });
+      },
+    );
+  }, [form]);
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    execute();
+  };
+
+  const loading = run.status === "loading";
+
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <h3>Policy simulator</h3>
+      <p className="card-sub">
+        Test a <strong>hypothetical</strong> purchase against the exact policy the kernel
+        enforces. This is read-only — no decision is recorded, no proof produced, and no
+        payment executed.
+      </p>
+
+      <div className="cell-rules" style={{ margin: "10px 0 14px" }}>
+        {SCENARIOS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            className="btn ghost"
+            style={{ fontSize: 12 }}
+            title={`${s.note} (prefills the form — does not run)`}
+            onClick={() => {
+              setForm(scenarioToForm(s));
+              setErrors({});
+            }}
+          >
+            {s.expect === "allow" ? "✓ " : "✗ "}
+            {s.title}
+          </button>
+        ))}
+      </div>
+
+      <form className="filter-bar" style={{ alignItems: "flex-start" }} onSubmit={onSubmit} noValidate>
+        <div className="field">
+          <label htmlFor="sim-agent">Agent</label>
+          <input
+            id="sim-agent"
+            className="text-input"
+            type="text"
+            value={form.agent}
+            onChange={setField("agent")}
+            placeholder="agent_47"
+            autoComplete="off"
+            aria-invalid={errors.agent ? true : undefined}
+          />
+          {errors.agent ? <span role="alert" style={{ fontSize: 11.5, color: "var(--deny)" }}>{errors.agent}</span> : null}
+        </div>
+
+        <div className="field">
+          <label htmlFor="sim-vendor">Vendor</label>
+          <input
+            id="sim-vendor"
+            className="text-input"
+            type="text"
+            value={form.vendor}
+            onChange={setField("vendor")}
+            placeholder="acme_corp"
+            autoComplete="off"
+            aria-invalid={errors.vendor ? true : undefined}
+          />
+          {errors.vendor ? <span role="alert" style={{ fontSize: 11.5, color: "var(--deny)" }}>{errors.vendor}</span> : null}
+        </div>
+
+        <div className="field">
+          <label htmlFor="sim-amount">Amount</label>
+          <input
+            id="sim-amount"
+            className="text-input"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step={1}
+            value={form.amount}
+            onChange={setField("amount")}
+            placeholder="340"
+            aria-invalid={errors.amount ? true : undefined}
+          />
+          {errors.amount ? <span role="alert" style={{ fontSize: 11.5, color: "var(--deny)" }}>{errors.amount}</span> : null}
+        </div>
+
+        <div className="field">
+          <label htmlFor="sim-category">Category</label>
+          <input
+            id="sim-category"
+            className="text-input"
+            type="text"
+            value={form.category}
+            onChange={setField("category")}
+            placeholder="office_supplies"
+            autoComplete="off"
+            aria-invalid={errors.category ? true : undefined}
+          />
+          {errors.category ? <span role="alert" style={{ fontSize: 11.5, color: "var(--deny)" }}>{errors.category}</span> : null}
+        </div>
+
+        <div className="field">
+          <label htmlFor="sim-currency">Currency</label>
+          <input
+            id="sim-currency"
+            className="text-input"
+            type="text"
+            value={form.currency}
+            onChange={setField("currency")}
+            placeholder="USD"
+            maxLength={3}
+            autoComplete="off"
+            style={{ minWidth: 90, textTransform: "uppercase" }}
+          />
+        </div>
+
+        <div className="field">
+          <label aria-hidden="true" style={{ visibility: "hidden" }}>Run</label>
+          <button type="submit" className="btn primary" disabled={loading}>
+            {loading ? "Simulating…" : "Simulate"}
+          </button>
+        </div>
+      </form>
+
+      <SimOutput run={run} onRetry={execute} />
+    </div>
+  );
+}
+
+/** The result panel: idle hint, error, or the read-only verdict. */
+function SimOutput({ run, onRetry }: { run: SimRun; onRetry: () => void }): JSX.Element {
+  if (run.status === "idle") {
+    return (
+      <p className="card-sub" style={{ margin: "14px 0 0" }}>
+        Fill the form (or pick a scenario above) and run a simulation to see the verdict,
+        the checks the policy examined, and the policy digest it was evaluated against.
+      </p>
+    );
+  }
+
+  if (run.status === "loading") {
+    return <Skeleton style={{ height: 120, marginTop: 14 }} />;
+  }
+
+  if (run.status === "error") {
+    return (
+      <div style={{ marginTop: 14 }}>
+        <BridgeErrorState error={run.error} onRetry={onRetry} />
+      </div>
+    );
+  }
+
+  const { result } = run;
+  const allowed = result.outcome === "allow";
+  const chip: StatusChip = allowed
+    ? { label: "Allowed", tone: "accent", title: "The policy would allow this hypothetical spend — every condition held." }
+    : { label: "Denied", tone: "deny", title: "The policy would deny this hypothetical spend." };
+  const checks = policyChecks(result.facts, result.currency);
+
+  return (
+    <div
+      style={{
+        marginTop: 16,
+        paddingTop: 16,
+        borderTop: "1px solid var(--border)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <Chip chip={chip} />
+        <span className="chip neutral" title="This tool only simulates — it never records a decision, produces a proof, or executes a payment.">
+          Simulation only — no payment executed
+        </span>
+      </div>
+
+      <p style={{ margin: "12px 0 0", fontSize: 14, color: "var(--ink)" }}>
+        {explainSimulation(result.outcome, result.firedRules)}
+      </p>
+
+      <div className="grid two" style={{ marginTop: 16 }}>
+        <div>
+          <h4 style={{ margin: "0 0 8px", fontSize: 13 }}>Rules that fired</h4>
+          {result.firedRules.length > 0 ? (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+              {result.firedRules.map((id) => (
+                <li key={id}>
+                  <div style={{ fontSize: 13, fontWeight: 560, color: "var(--ink)" }}>
+                    {ruleTitle(id)}
+                  </div>
+                  <span className="rule-tag">{id}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="card-sub" style={{ margin: 0 }}>No rules fired.</p>
+          )}
+        </div>
+
+        <div>
+          <h4 style={{ margin: "0 0 8px", fontSize: 13 }}>Policy checks evaluated</h4>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+            {checks.map((c) => (
+              <li key={c.key} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    color: c.pass ? "var(--accent)" : "var(--deny)",
+                    fontWeight: 700,
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {c.pass ? "✓" : "✗"}
+                </span>
+                <div>
+                  <div style={{ fontSize: 13, color: "var(--ink)" }}>
+                    {c.label}
+                    <span className="visually-hidden">{c.pass ? " — passed" : " — failed"}</span>
+                  </div>
+                  <div className="card-sub" style={{ margin: 0 }}>{c.detail}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <CopyId
+          id={result.policyDigest}
+          label={`Policy digest: ${truncateDigest(result.policyDigest)}`}
+        />
+        <span className="card-sub" style={{ margin: 0 }}>
+          ties this simulation to the exact policy identity
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function Policy(): JSX.Element {
   const state = useAsync((signal) => fetchDecisions({ limit: 100 }, signal), []);
 
@@ -183,6 +488,8 @@ export function Policy(): JSX.Element {
           );
         })()
       )}
+
+      <PolicySimulator />
     </>
   );
 }
