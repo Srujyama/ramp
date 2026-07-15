@@ -8,6 +8,12 @@
 > **Published artifact URLs (republish to these; don't mint new ones):**
 > - Plan: https://claude.ai/code/artifact/30f5b98e-903f-4f8d-80f6-aaab5d80a2de
 > - Deck: https://claude.ai/code/artifact/bd909a82-812b-4658-b976-7519a6209420
+>
+> **Presenting the deck:** for keyboard nav (← →, Space, Home/End) and `#n` deep-linking,
+> **open `pitch-deck.html` directly in a browser** (e.g. `open pitch-deck.html`). The claude.ai
+> artifact view sandboxes the iframe, so arrow keys and the URL hash don't reach the deck there —
+> only the on-screen ‹ › buttons work in that view. Press `N` for presenter notes, `?` for the
+> shortcut list. Verified 2026-07-14: slide 1 and the injection crescendo (slide 10) render as designed.
 
 ## The one-liner
 
