@@ -2,12 +2,16 @@
   "name": "@ramp/gate",
   "version": "0.0.0",
   "private": true,
-  "description": "Provable Agent Spend — the deterministic policy kernel (TS reference oracle + optional Souffle/WASM impl behind one PolicyKernel interface).",
+  "description": "Provable Agent Spend \u2014 the deterministic policy kernel (TS reference oracle + optional Souffle/WASM impl behind one PolicyKernel interface).",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./reference": {
+      "types": "./dist/reference-kernel.d.ts",
+      "default": "./dist/reference-kernel.js"
     }
   },
   "types": "./dist/index.d.ts",

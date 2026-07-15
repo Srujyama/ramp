@@ -135,11 +135,26 @@ export function translateToFacts(
 
 /**
  * The context an `AuthoritativeFactSource` needs to look up facts: the untrusted
- * request whose identity keys drive the DB/registry reads.
+ * request whose identity keys drive the DB/registry reads, plus any facts that
+ * were established OUT OF BAND by a layer above the ledger.
+ *
+ * This is a wrapper object rather than a bare `SpendRequest` so the seam can
+ * grow (as it just did, with `attestationPresent`) without every implementation
+ * changing signature.
  */
 export interface AuthoritativeContext {
   /** The untrusted request under evaluation (keys only are trusted). */
   readonly request: SpendRequest;
+  /**
+   * True iff a cryptographic attestation for this request was VERIFIED by the
+   * attestation layer (@ramp/attestation) before this call. Supplied by the
+   * caller because signature verification is not the ledger's job.
+   *
+   * Note this is the *verified verdict*, not a claim off the request. The
+   * request may carry an attestation blob; whether that blob is genuine is
+   * decided by the attestation layer, and only the verdict reaches here.
+   */
+  readonly attestationPresent?: boolean;
 }
 
 /**
@@ -161,19 +176,24 @@ export interface AuthoritativeFactSource {
 }
 
 /**
- * Convenience: pull the authoritative facts from `source` for `request`, then
- * translate to `Facts` in one call. Awaits the source (which may be sync or
+ * Convenience: pull the authoritative facts from `source` for `ctx.request`,
+ * then translate to `Facts` in one call. Awaits the source (which may be sync or
  * async). Pure aside from the source's DB read.
  *
- * @param request the untrusted tool_input (validate with `isSpendRequest` first)
+ * Takes the full `AuthoritativeContext` (not a bare request) so it speaks
+ * exactly the same language as the `AuthoritativeFactSource` port it calls —
+ * these two disagreed once, and the resulting runtime error was the only thing
+ * standing between a silent mismatch and a wrong fact reaching the kernel.
+ *
+ * @param ctx     the untrusted request (+ any out-of-band verified verdicts)
  * @param source  the ledger/registry-backed authoritative fact source
  * @param options optional `request_id` override
  */
 export async function factsFromContext(
-  request: SpendRequest,
+  ctx: AuthoritativeContext,
   source: AuthoritativeFactSource,
   options: TranslateOptions = {},
 ): Promise<Facts> {
-  const authoritative = await source.contextFor({ request });
-  return translateToFacts(request, authoritative, options);
+  const authoritative = await source.contextFor(ctx);
+  return translateToFacts(ctx.request, authoritative, options);
 }

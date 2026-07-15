@@ -2,9 +2,27 @@
  * @ramp/shared — SpendRequest
  *
  * The RAW shape emitted by the MCP tool `mcp__payments__pay_vendor` (its
- * `tool_input`), BEFORE fact translation. This is untrusted transport: the hook
- * uses `requestingAgent`, `vendorId`, `amount`, `category`, `invoiceRef` only as
- * KEYS to look up authoritative facts — their values are never trusted as facts.
+ * `tool_input`), BEFORE fact translation.
+ *
+ * ============================================================================
+ * THIS IS UNTRUSTED TRANSPORT. ALL OF IT. INCLUDING THE CRYPTO.
+ * ============================================================================
+ * Every field here is supplied by, or influenced by, a model that can be
+ * prompt-injected. The hook uses `requestingAgent`, `vendorId`, `amount`,
+ * `category`, `invoiceRef` only as KEYS to look up authoritative facts.
+ *
+ * `invoiceDocument` and `attestation` are the two that look like exceptions and
+ * are not:
+ *   - `invoiceDocument` is attacker-authored prose. It is quarantined at the
+ *     boundary (@ramp/quarantine) and never read as instructions. Its only role
+ *     is to be DIGESTED, so the digest can be compared against the attestation.
+ *   - `attestation` is a signed blob riding in on an untrusted channel. Arriving
+ *     here grants it nothing. @ramp/attestation decides whether it is genuine
+ *     and whether it BINDS to this payment; only the resulting boolean becomes
+ *     the `attestation_present` fact. A request cannot assert that it is
+ *     attested — it can only present bytes and be judged.
+ *
+ * The rule is uniform: this type carries claims, never facts.
  */
 export interface SpendRequest {
   /** Vendor id the agent wants to pay, e.g. "acme_corp". Used as a registry key. */
@@ -19,9 +37,29 @@ export interface SpendRequest {
   readonly invoiceRef?: string;
   /** Agent id making the request, e.g. "agent_47". Used as a ledger key. */
   readonly requestingAgent: string;
+  /**
+   * The invoice document as served by the vendor. UNTRUSTED PROSE — quarantined
+   * on arrival and never interpreted. Its bytes exist to be hashed and checked
+   * against the attestation's `invoiceDigest`, nothing more.
+   */
+  readonly invoiceDocument?: string;
+  /**
+   * A TLSNotary-style attestation over `invoiceDocument`. Opaque here on purpose
+   * (`unknown`): this package is the contract and has zero runtime deps, so it
+   * does not know the attestation's shape. @ramp/attestation validates and
+   * verifies it. Typed as `unknown` rather than `Attestation` so no caller can
+   * mistake "it type-checked" for "it verified".
+   */
+  readonly attestation?: unknown;
 }
 
-/** Minimal runtime guard the MCP server / hook uses to reject malformed tool_input. */
+/**
+ * Minimal runtime guard the MCP server / hook uses to reject malformed tool_input.
+ *
+ * Note it does NOT validate `attestation` beyond "present or not" — validating
+ * an attestation is @ramp/attestation's job, and a shape check here would be a
+ * second, weaker verifier that a reader might mistake for the real one.
+ */
 export function isSpendRequest(value: unknown): value is SpendRequest {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
@@ -32,6 +70,7 @@ export function isSpendRequest(value: unknown): value is SpendRequest {
     typeof v.currency === "string" &&
     typeof v.category === "string" &&
     typeof v.requestingAgent === "string" &&
-    (v.invoiceRef === undefined || typeof v.invoiceRef === "string")
+    (v.invoiceRef === undefined || typeof v.invoiceRef === "string") &&
+    (v.invoiceDocument === undefined || typeof v.invoiceDocument === "string")
   );
 }

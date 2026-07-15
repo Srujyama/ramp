@@ -1,0 +1,32 @@
+{
+  "name": "@ramp/quarantine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Provable Agent Spend — CaMeL-style quarantine. Untrusted content (invoices, emails, web) is held in opaque, non-coercible wrappers that can only be trusted by passing a total declassifier into a closed domain.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "pretest": "tsc",
+    "test": "node --test \"dist/**/*.test.js\""
+  },
+  "dependencies": {
+    "@ramp/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.7.3"
+  }
+}

@@ -19,3 +19,6 @@ target/
 
 # OS / editor cruft
 .DS_Store
+
+# Provenance bundles written by the gate at enforce time (regenerate by running the demo)
+.ramp/

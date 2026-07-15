@@ -27,7 +27,9 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     daily_limit: 1500,
     approved_categories: ["office_supplies", "software", "travel"],
     agent_cleared_categories: ["office_supplies", "software"],
-    attestation_present: false,
+    // True since pillar 4: D6 denies without a verified attestation, so the
+    // baseline (an ALLOW case) must carry one.
+    attestation_present: true,
   };
   return { ...base, ...overrides };
 }
@@ -38,6 +40,15 @@ const CASES: readonly Facts[] = [
   baseFacts({ amount: 361 }), // daily over
   baseFacts({ vendor: "sketchy_llc", vendor_verified: false }), // unverified
   baseFacts({ category: "crypto" }), // unapproved + uncleared
+  baseFacts({ attestation_present: false }), // D6: unattested
+  // Every deny at once — pins the full fixed ordering across both kernels.
+  baseFacts({
+    vendor: "sketchy_llc",
+    vendor_verified: false,
+    amount: 999,
+    category: "crypto",
+    attestation_present: false,
+  }),
   baseFacts({ category: "travel" }), // approved but uncleared
   baseFacts({ amount: 500, daily_total_so_far: 1000 }), // cap boundary
   baseFacts({ daily_total_so_far: 1160 }), // daily boundary

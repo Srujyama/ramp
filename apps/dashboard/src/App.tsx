@@ -4,6 +4,7 @@ import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import type { RuleId } from "@ramp/shared";
 import Sidebar from "./components/Sidebar.js";
 import StatTile from "./components/StatTile.js";
+import ProofView from "./components/ProofView.js";
 
 /**
  * @ramp/dashboard — App
@@ -26,6 +27,10 @@ const RULE_CATALOG: readonly { id: RuleId; blurb: string }[] = [
   {
     id: "deny/daily_limit_exceeded",
     blurb: "This spend would push the daily total over the limit.",
+  },
+  {
+    id: "deny/attestation_invalid",
+    blurb: "No verified attestation binds this invoice to the vendor's registered domain.",
   },
 ];
 
@@ -198,32 +203,9 @@ function Audit(): JSX.Element {
     <>
       <PageHead
         title="Audit"
-        sub="Prove a decision to an auditor: the exact facts, their sources, and the deterministic rules that produced the outcome — reproducible from the record alone."
+        sub="Prove a decision to an auditor: the exact facts, their sources, and the deterministic rules that produced the outcome — re-derived in your browser from the record alone."
       />
-      <div className="grid two">
-        <div className="card">
-          <h3>Reproducible record</h3>
-          <p className="card-sub">
-            Same facts → same answer. Re-run any past decision and get the same
-            result, byte-for-byte.
-          </p>
-          <EmptyState icon="❖" title="Nothing to prove yet">
-            Select a decision to expand its facts, fact sources, and fired
-            rules into an auditor-ready trace.
-          </EmptyState>
-        </div>
-        <div className="card">
-          <h3>Fact provenance</h3>
-          <p className="card-sub">Where each fact came from.</p>
-          <div className="pill-row">
-            <span className="badge info">tool_args</span>
-            <span className="badge info">vendor_registry</span>
-            <span className="badge info">ledger_db</span>
-            <span className="badge info">policy_config</span>
-            <span className="badge info">attestation</span>
-          </div>
-        </div>
-      </div>
+      <ProofView />
     </>
   );
 }

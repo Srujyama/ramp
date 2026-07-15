@@ -43,6 +43,24 @@ const payVendorInputShape = {
   requestingAgent: z
     .string()
     .describe('Agent id making the request, e.g. "agent_47". Ledger key.'),
+  invoiceDocument: z
+    .string()
+    .optional()
+    .describe(
+      "The invoice document exactly as the vendor served it. Untrusted prose: it " +
+        "is quarantined on arrival and never interpreted — its bytes exist only to " +
+        "be hashed and checked against the attestation's invoiceDigest.",
+    ),
+  attestation: z
+    .unknown()
+    .optional()
+    .describe(
+      "A TLSNotary-style attestation over invoiceDocument, as minted by the notary. " +
+        "Presenting one grants nothing: the PreToolUse hook verifies the signature " +
+        "against a trusted keyring and checks it binds to THIS payment (invoice " +
+        "digest, the vendor's registered domain, amount, currency, freshness). " +
+        "Without a VERIFIED attestation the gate denies (deny/attestation_invalid).",
+    ),
 } as const;
 
 /**

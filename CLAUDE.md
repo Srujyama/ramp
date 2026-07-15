@@ -49,27 +49,52 @@ still need propagation — never silently leave them inconsistent.
 - **Single-instance-service caution** does NOT apply here (this is a normal web repo, no Studio/MCP
   bridge). Ignore the global note about competing servers for this project.
 
-## The monorepo (already built & green)
+## The monorepo (all four pillars built & green)
 
 pnpm + TypeScript, Node 24. `pnpm install && pnpm db:reset && pnpm build && pnpm test` → all green
-(25 tests pass; 1 wasm-parity skip is expected without Soufflé/wasm-pack). Workspaces:
-`@ramp/shared` (frozen contract: `Facts`/`Decision`/`RuleId`/`PolicyKernel`/`translateToFacts`),
-`@ramp/gate` (kernel: real `policy.dl` + TS reference oracle + optional WASM), `@ramp/ledger`
-(authoritative facts via `node:sqlite`), `@ramp/payments-mcp` (stub MCP server), `@ramp/dashboard`
-(Vite+React shell). Full contributor guide: [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+(**121 tests**; 1 wasm-parity skip is expected without Soufflé/wasm-pack). Then `pnpm demo` drives
+every PITCH beat through the real hook and `pnpm proof` re-verifies the sealed bundles.
+
+| Workspace | Pillar | What it is |
+| --- | --- | --- |
+| `@ramp/shared` | — | Frozen contract: `Facts`/`Decision`/`RuleId`/`PolicyKernel`/`translateToFacts`/`canonicalJson`. |
+| `@ramp/gate` | **1** | Kernel: real `policy.dl` + TS reference oracle + optional WASM. |
+| `@ramp/provenance` | **2** | Content-addressed decision bundles + the independent `verifyBundle`. |
+| `@ramp/quarantine` | **3** | CaMeL wrapper + total declassifiers into bounded codomains. |
+| `@ramp/attestation` | **4** | Ed25519 notary attestation + binding checks. |
+| `@ramp/ledger` | — | Authoritative facts via `node:sqlite` (+ records its own provenance). |
+| `@ramp/payments-mcp` | — | Stub MCP server (honest, non-enforcing). |
+| `@ramp/dashboard` | — | Vite+React; the Audit page re-verifies bundles **in the browser**. |
+
+Scripts: `pnpm demo` (drive the beats), `pnpm proof` (independent audit), `pnpm notary` (mint an
+attestation). Full contributor guide: [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ### Frozen invariants — do not drift (see `CONTRIBUTING.md` for the full list)
 - **Facts field names** map 1:1 to `policy.dl` input relations; adding a fact means editing
   facts.ts **and** policy.dl **and** the ledger fact-source **and** the reference kernel.
 - **Seed prior daily total is `1140`, NOT `1200`** — deliberately, so the hero happy path allows
   (`1140 + 340 ≤ 1500`). Do not "fix" it.
-- Money is **integer whole units** everywhere (exact kernel arithmetic).
+- Money is **integer whole units** everywhere (exact kernel arithmetic), enforced by
+  `deny/malformed_facts`.
 - Facts come from the **ledger/registry/structured args**, never model narration (the anti-injection
   seam). The hook **fails closed** (any error → deny).
+
+### Three things that look like bugs but are load-bearing — read before "fixing"
+- **`deny/malformed_facts` has no rule in `policy.dl`.** Not drift. Soufflé's `number` is an INTEGER
+  type, so NaN/floats are unrepresentable there; TypeScript's is IEEE-754 and every comparison
+  against NaN is false — which made a `NaN` amount **payable**. The TS/Rust mirrors enforce at
+  runtime what Soufflé enforces in its type system.
+- **`DEFAULT_DB_PATH` is absolute, and the hook uses `openLedgerStrict`.** A relative path resolved
+  per-caller, so the hook and `pnpm db:reset` read different files; auto-provisioning then turned the
+  wrong path into a fresh zero-spend ledger that **allowed**. Never make it cwd-relative, and never
+  let the enforcement path auto-provision.
+- **`packages/quarantine/src/encode.ts` avoids `JSON.stringify`.** It throws on BigInt/circular
+  input, which made `quarantine()` — the boundary wrapper — throw on attacker-chosen input.
 
 ## Verify before claiming done
 
 The whole thesis is provability — hold the repo to the same bar. After a change to the gate/ledger/
-hook, actually **drive the allow/deny/injection beats** (pipe a sample `tool_input` into
-`hook/evaluate.mjs`) and confirm exit codes, not just that tests pass. See `PITCH.md` → "The live
-demo" for the exact scenarios.
+hook, run **`pnpm demo`**: it spawns `hook/evaluate.mjs` as a real subprocess (exactly how Claude
+Code invokes it) for every PITCH beat and asserts the **exit codes**, not just that tests pass. Then
+**`pnpm proof`** to confirm the sealed bundles still verify. Both run in CI. A green `pnpm test` with
+a broken hook is a broken product — that is precisely how the $400 fail-open survived.

@@ -2,8 +2,8 @@
 # Every PR touching a path below requests a review from its owner.
 # Owners: @Srujyama (owner), @neilporw, @JonKach.
 #
-# Split of the 5 workspaces:
-#   @Srujyama  — the gate (hero) + the shared contract + repo wiring
+# Split of the 8 workspaces:
+#   @Srujyama  — the gate (hero) + the three security pillars + the shared contract + repo wiring
 #   @neilporw  — the ledger/registry fact source + the payments MCP stub
 #   @JonKach   — the dashboard shell
 # Later, more specific rules win, so the fallback comes first.
@@ -15,6 +15,18 @@
 /packages/shared/           @Srujyama
 /packages/gate/             @Srujyama
 /.claude/                   @Srujyama
+/hook/                      @Srujyama
+
+# --- The security pillars (owner) ------------------------------------------
+# Pillar 2 (provenance), 3 (quarantine), 4 (attestation). Grouped with the gate
+# because they ARE the enforcement path: a change here changes what gets paid.
+/packages/provenance/       @Srujyama
+/packages/quarantine/       @Srujyama
+/packages/attestation/      @Srujyama
+
+# --- The demo/audit drivers (owner) ----------------------------------------
+# scripts/demo.mjs is executable documentation of PITCH.md and runs in CI.
+/scripts/                   @Srujyama
 
 # --- Authoritative facts + the spend seam (neil) ---------------------------
 /packages/ledger/           @neilporw
