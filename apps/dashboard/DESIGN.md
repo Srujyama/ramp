@@ -69,11 +69,25 @@ choice to `localStorage`. `color-scheme` is set so native controls match.
 - **Responsive decision table** (`.dtable`) — a real 2D grid that collapses to
   stacked cards at ≤860px, relabeling each cell from its `data-label`. Corrupt
   rows get a `.corrupt-row` tint and a flag.
-- **Trust ladder** (`.trust-strip` / `.trust-step`) — the four separable rungs;
-  each step is `ok` (accent ✓), `bad` (deny ✕), or `skip` (neutral).
+- **Execution timeline** (`.flow`-based stepper) — the primary decision-detail
+  visualization: six stages (Agent request → Trusted facts loaded → Policy
+  evaluated → Decision recorded → Proof validated → Payment executed/blocked/
+  failed), each with its own state pill, a deterministic explanation, and a
+  copyable id. The four separable trust claims are folded in as stages here
+  rather than a separate `.trust-strip`, so the failure modes (denied / payment
+  failed / tampered / corrupt / not executed) never blur together.
 - **Provenance flow** (`.flow`) — a vertical stepped list with a connecting spine
   and per-node tone; the terminal step stays honest (executed vs. blocked vs. not
   executed).
+- **Recent activity feed** (Overview) — the five newest decisions as linked rows
+  with outcome/proof/payment chips, a deterministic explanation, and an honest
+  relative "Updated Xs ago".
+- **Policy simulator** (Policy page) — a labeled form + seeded scenario buttons,
+  an ALLOWED/DENIED verdict chip, the deterministic explanation, fired rules
+  (title + raw id), a facts-derived checks checklist, the policy digest, and a
+  "Simulation only" label.
+- **Explanation cell** (`.row-explain`) — the deterministic plain-English summary
+  that leads each decision row/entry, with the raw rule tags kept beneath it.
 - **KPI stat tiles** (`.stat-tile`) — labeled figure with a tone dot; render a
   mono `—` placeholder when there is no value, never a fake number.
 - **Skeletons** (`.skeleton`) — transform-based shimmer (compositor-only), used
@@ -81,8 +95,9 @@ choice to `localStorage`. `color-scheme` is set so native controls match.
 - **Honest state cards** (`.state-card`, `.empty`) — empty, error/offline (with
   the exact start command + Retry), and not-found.
 - **Workflow strip** (`.workflow`) — the six-step live path on the Overview.
-- **Sandbox banner** (`.sandbox-banner`) — persistent amber reminder that no real
-  money moves.
+- **Sandbox indicator** (`.sandbox-note`) — a subtle, single-line "Demo
+  environment · Sandbox payments" strip (the former full-width amber banner was
+  retired as visual noise); the full "no real money moves" detail is its tooltip.
 - **Connection pill** (`.conn`) — header live/offline/connecting indicator.
 - Plus: filter bar, buttons, key/value grids (`.kv`), proof/receipt boxes,
   copyable ids, pagination footer.
@@ -101,8 +116,10 @@ Every state is real and has a dedicated treatment — nothing is faked or hidden
 | corrupt record | flagged inline, never hidden |
 | tampered proof | verification chip shows ✕ (`Tampered`) |
 
-Proof verification is four-valued everywhere it appears: `ok` (Verified) /
-`mismatch` (Tampered) / `corrupt` (Corrupt) / `absent` (No proof).
+Proof verification is four-valued everywhere it appears: `ok` (**Proof valid**) /
+`mismatch` (Tampered) / `corrupt` (Corrupt) / `absent` (No proof). The label is
+"Proof valid", never a bare "Verified" — proof integrity is a specific,
+independently-recomputed claim, not a vague thumbs-up.
 
 ## Responsive behavior
 

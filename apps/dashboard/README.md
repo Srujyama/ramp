@@ -17,23 +17,40 @@ the visual system.
 
 | Route | Page | What it shows |
 |---|---|---|
-| `/` | **Overview** | Value-prop hero, the 6-step workflow strip (Agent request → Policy → Proof → Ledger → Payment → Receipt), live KPI tiles from the bridge (total, allowed, denied, proofs verified, failed/corrupt), and a "How a purchase is proven" explainer. |
-| `/decisions` | **Decisions** | The real ledger table: Time, Agent, Vendor, Amount, Outcome, Proof (verification), Payment, Fired rules. Filters by outcome, status, agent, and fired rule; cursor "Load more" pagination; corrupt rows flagged. |
-| `/decisions/:id` | **Decision detail** | The auditor view — the four-part trust ladder plus request, outcome + fired rules, provenance flow, trusted facts, proof id + independent verification, and the sandbox receipt. |
-| `/policy` | **Policy** | The caps and clearances the kernel enforces, **derived** from the authoritative facts on recorded decisions (there is no separate config endpoint), so it mirrors exactly what was evaluated. |
+| `/` | **Overview** | Value-prop hero, the 6-step workflow strip, live KPI tiles (total, allowed, denied, proofs valid, failed/corrupt), a **Recent activity** feed of the five most recent decisions (each with outcome/proof/payment chips, a deterministic explanation, a relative timestamp, an honest "Updated Xs ago", and a link to detail), and a "How a purchase is proven" explainer. |
+| `/decisions` | **Decisions** | The real ledger table: Time, Agent, Vendor, Amount, Outcome, Proof, Payment, and a deterministic **Explanation** (fired rules kept visible beneath). Filters by outcome, status, agent, and fired rule; cursor "Load more" pagination; corrupt rows flagged. |
+| `/decisions/:id` | **Decision detail** | The auditor view, built around the **execution timeline** (below) with request, outcome + fired rules, provenance flow, trusted facts, proof id + independent verification, policy digest, and the sandbox receipt beneath it. |
+| `/policy` | **Policy** | The caps and clearances the kernel enforces, **derived** from the authoritative facts on recorded decisions, plus the **Policy digest** and a read-only **Policy simulator** (below). |
 
 Navigation is deliberately only **Overview / Decisions / Policy**. The former
 standalone "Audit" route was folded into the decision detail (same trace, one
 place); "Cards & Limits" was renamed "Policy".
 
-### The four-part trust ladder
+### The execution timeline
 
-The decision detail keeps four claims *separable*, each shown honestly:
+The decision detail is organized as a six-stage timeline that keeps every claim
+*separable*, each shown honestly:
 
-**Decision allowed · Audit persisted · Proof verified · Payment executed**
+**Agent request → Trusted facts loaded → Policy evaluated → Decision recorded →
+Proof validated → Payment executed / blocked / failed**
 
-A deny or an unexecuted allow is not dressed up as success; a tampered proof
-shows ✕.
+A **policy denial** (blocked) is never conflated with a **payment failure**
+(failed) or a **proof mismatch** (tampered) or a **corrupt** record; an
+unexecuted allow reads *skipped*, not settled. Proof state reads **"Proof valid"**
+when it recomputes and matches, ✕ when tampered. The former four-part trust
+ladder (*decision allowed · audit persisted · proof verified · payment executed*)
+is expressed as stages of this one timeline rather than a separate strip.
+
+### Policy simulator (read-only)
+
+The Policy page carries a read-only simulator: it calls the bridge's
+`GET /simulate` to run a hypothetical purchase through the **real** kernel and
+shows ALLOWED/DENIED, a deterministic explanation, the fired rules (with raw
+ids), a facts-derived policy-checks checklist, the policy digest, and a
+"Simulation only — no payment executed" label. Seeded example scenarios prefill
+the form (they never auto-run). It is side-effect free — it records nothing and
+executes nothing. **Policy editing is intentionally out of scope** (it needs
+versioning, approvals, rollback, and its own audit trail first).
 
 ## States (all real)
 
@@ -137,3 +154,11 @@ reads.
   check and the tool's execution — by design.
 - **Policy config is derived** from observed decision facts (there is no separate
   policy-config endpoint), so `/policy` is empty until decisions with facts exist.
+- **Policy editing is intentionally out of scope** — the simulator only previews;
+  it cannot change policy. Historical policy **versioning** (version numbers,
+  change history) is deferred future work; the console surfaces a policy *digest*,
+  not a version.
+- The build uses a **relative asset base** (`base: './'`), so in-app navigation
+  via links works everywhere, but a hard browser reload of a deep URL
+  (`/decisions/:id`) on a static file server needs SPA fallback / an absolute
+  base. The `vite dev` server (the demo path) handles deep loads directly.

@@ -23,10 +23,12 @@ and provenance types are deliberately **local** to this package — the frozen
 | **Provenance capture** | `provenance-builder.ts` | **Deterministically DERIVE a provenance DAG from trusted context.** |
 | **Independent verification** | `proof-verification.ts` | **Recompute a decision's proof — never trust stored bytes.** |
 | **Verify CLI** | `cli/verify-proof.ts` | **`verify-proof <decisionId>` — re-verify from the shell, read-only.** |
-| **Read-only HTTP bridge** | `http-bridge.ts` | **`GET /decisions`, `GET /decisions/:id` — surface the audit trail to the dashboard.** |
+| **Read-only HTTP bridge** | `http-bridge.ts` | **`GET /decisions`, `GET /decisions/:id`, `GET /simulate` — surface the audit trail (and the read-only simulator) to the dashboard.** |
+| **Policy identity** | `policy-digest.ts` | **`policyDigest(facts)` — stable `sha256:…` digest of the org policy; wired into every proof.** |
+| **Policy simulator** | `simulate.ts` | **`simulate(db, input)` — run a hypothetical request through the REAL kernel; side-effect free (no persistence, no execution).** |
 
-The **bold** rows are the three features added in this task. The rest is the
-Phase-F audit-trail foundation they build on.
+The **bold** rows are the audit-trail + policy-identity + simulator features. The
+rest is the Phase-F audit-trail foundation they build on.
 
 ---
 
@@ -103,6 +105,7 @@ direct-invocation check).
 |---------------|--------|------|
 | `GET /decisions` | 200 | `{ "decisions": DecisionView[], "nextCursor"?: string }` |
 | `GET /decisions/:id` | 200 / 404 | `DecisionView` / `{ "error": "not_found" }` |
+| `GET /simulate` | 200 / 400 | `SimulationResult` / `{ "error": "bad_request" }` |
 | `OPTIONS *` (preflight) | 204 | — (`Access-Control-Allow-Methods: GET, OPTIONS`) |
 | any other method | 405 | `{ "error": "method_not_allowed" }` + `Allow: GET, OPTIONS` |
 | unknown path | 404 | `{ "error": "not_found" }` |
@@ -159,6 +162,39 @@ trust claims separable: *decision allowed*, *audit persisted*, *proof verified*,
 - A present-but-tampered proof → `proofVerified: false`, `reason: "mismatch"`.
 - A missing proof → `proofVerified: false`, `reason: "absent"` (a missing proof
   is **never** represented as verified).
+
+### `GET /simulate` — read-only policy preview
+
+`GET /simulate?agent&vendor&amount&category[&currency]` runs a **hypothetical**
+request through `simulate(db, input)` (`simulate.ts`) and returns a
+`SimulationResult`:
+
+```jsonc
+{ "outcome": "allow" | "deny", "firedRules": RuleId[], "reasons": string[],
+  "facts": Facts, "policyDigest": "sha256:…", "currency": "USD",
+  "simulationOnly": true }
+```
+
+`simulate` reuses the **real** `PolicyKernel` over the same authoritative reads
+(`LedgerFactSource.contextFor`) a real decision uses — there is no second copy of
+the policy — and is **completely side-effect free**: it never calls
+`recordDecision`, never builds or persists a proof, and never touches the payment
+executor. Nothing on this path writes the DB. An invalid `amount` (missing,
+negative, non-integer) is a `400`. `simulate.test.ts` snapshots the
+`decisions` / `ledger_entries` / `decision_executions` row counts before and
+after a batch of simulations and asserts they are unchanged.
+
+### Policy identity (`policy-digest.ts`)
+
+`policyDigest(facts)` returns a stable `sha256:…` digest (via the existing
+canonical-hash `digestOf`) over **only** the org-level policy fields —
+`per_txn_cap`, `daily_limit`, `approved_categories`. Agent-specific and
+request-specific data are deliberately excluded, so two decisions made under the
+same policy share one digest and any policy change moves it. It is wired into
+`buildProof` (`purchase.ts`), so every recorded decision now carries a
+`proof.policyDigest`, and it flows unchanged through the bridge's `DecisionView`
+to the dashboard. It is a **content identity, not a version number** — see
+*Limitations & future work*.
 
 ---
 
@@ -290,9 +326,9 @@ now persist **non-null** provenance; **historical rows are never back-filled.**
 pnpm --filter @ramp/ledger test   # tsc -b then node --test over dist/**/*.test.js
 ```
 
-Suite (all green): **117 tests** — including the audit-trail, proof, canonical
-hash, and provenance-validator suites plus the three features added here
-(provenance builder 13, proof verification 11, HTTP bridge 19).
+Suite (all green): **162 tests** — the audit-trail, proof, canonical hash, and
+provenance-validator suites plus the provenance builder, proof verification, HTTP
+bridge, and the policy-digest and side-effect-free simulator suites added here.
 
 ---
 
@@ -311,3 +347,12 @@ hash, and provenance-validator suites plus the three features added here
   origin pinning (it is meant to sit behind the dashboard, not the public net).
 - **Historical rows** keep `provenance: null` — only decisions recorded after
   this change carry a derived graph.
+- **Policy identity is a digest, not a version.** `policyDigest` uniquely
+  identifies *a* policy but carries no ordering or history. Human-readable
+  version numbers, a policy change log, and diffing two policies over time are
+  **deferred future work** — deliberately not faked.
+- **Policy editing is intentionally out of scope.** `simulate()` is a read-only
+  preview and cannot change policy. Safe policy *editing* requires versioning,
+  approvals, rollback, and its own audit trail; until those exist, the policy is
+  changed only by editing the seed/DB out-of-band, never through this package's
+  API.
