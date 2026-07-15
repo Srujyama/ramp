@@ -968,7 +968,7 @@ kbd,
 /* Key/value grid for request + facts. */
 .kv {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: max-content minmax(0, 1fr);
   gap: var(--space-sm) var(--space-lg);
   font-size: 13px;
 }
@@ -1055,21 +1055,33 @@ kbd,
 }
 .sim-result > :first-child { margin-top: 0; }
 
-/* --- decision detail cards: masonry column-flow so uneven-height cards pack
-   tightly instead of stranding gaps under short cards in a rigid grid row --- */
+/* --- decision detail cards: aligned 3-up grid. Cards in a row share a top
+   edge and stretch to equal height; the page reorders cards so rows carry
+   similar content volume instead of relying on masonry packing --- */
 .detail-cards {
-  column-count: 3;
-  column-gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-xl);
+  margin-top: var(--space-2xl);
 }
 .detail-cards > .card {
-  break-inside: avoid;
-  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
-@media (max-width: 900px) {
-  .detail-cards { column-count: 2; }
+.detail-cards > .card > :last-child {
+  margin-bottom: 0;
 }
-@media (max-width: 600px) {
-  .detail-cards { column-count: 1; }
+/* A lone empty-state sentence in an equal-height card: let it float into the
+   leftover space so it reads as intentional rather than stranded at the top. */
+.detail-cards > .card > .card-empty {
+  margin: auto 0;
+}
+@media (max-width: 1000px) {
+  .detail-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .detail-cards { grid-template-columns: 1fr; }
 }
 
 /* --- decision detail header (title / badges / timestamp / labeled ids) ------ */

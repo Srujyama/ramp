@@ -223,6 +223,22 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
           </dl>
         </Section>
 
+        <Section title="Trusted facts" sub="The authoritative facts the policy engine evaluated — from the ledger + registry, not model narration.">
+          {facts ? (
+            <dl className="kv">
+              <Row k="Vendor verified">{facts.vendor_verified ? "yes" : "no"}</Row>
+              <Row k="Per-txn cap">{formatMoney(facts.per_txn_cap, currency)}</Row>
+              <Row k="Daily limit">{formatMoney(facts.daily_limit, currency)}</Row>
+              <Row k="Spent today">{formatMoney(facts.daily_total_so_far, currency)}</Row>
+              <Row k="Approved categories">{facts.approved_categories.join(", ") || "—"}</Row>
+              <Row k="Agent cleared for">{facts.agent_cleared_categories.join(", ") || "—"}</Row>
+              <Row k="Attestation">{facts.attestation_present ? "present" : "absent"}</Row>
+            </dl>
+          ) : (
+            <p className="card-sub card-empty">No facts were recorded for this row.</p>
+          )}
+        </Section>
+
         <Section title="Fired rules" sub="Every policy rule the deterministic policy engine fired — stored verbatim, with its meaning.">
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
             <Chip chip={outcomeChip(v)} />
@@ -237,7 +253,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
               ))}
             </div>
           ) : (
-            <p className="card-sub" style={{ margin: 0 }}>No rules fired.</p>
+            <p className="card-sub card-empty">No rules fired.</p>
           )}
           {v.decision && v.decision.reasons.length > 0 ? (
             <ul style={{ margin: "6px 0 0", paddingLeft: 18, color: "var(--ink-muted)", fontSize: 13 }}>
@@ -250,22 +266,6 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
 
         <Section title="Provenance" sub="How the decision was produced — a readable flow, derived from trusted context (never agent-supplied).">
           <ProvenanceFlow view={v} />
-        </Section>
-
-        <Section title="Trusted facts" sub="The authoritative facts the policy engine evaluated — from the ledger + registry, not model narration.">
-          {facts ? (
-            <dl className="kv">
-              <Row k="Vendor verified">{facts.vendor_verified ? "yes" : "no"}</Row>
-              <Row k="Per-txn cap">{formatMoney(facts.per_txn_cap, currency)}</Row>
-              <Row k="Daily limit">{formatMoney(facts.daily_limit, currency)}</Row>
-              <Row k="Spent today">{formatMoney(facts.daily_total_so_far, currency)}</Row>
-              <Row k="Approved categories">{facts.approved_categories.join(", ") || "—"}</Row>
-              <Row k="Agent cleared for">{facts.agent_cleared_categories.join(", ") || "—"}</Row>
-              <Row k="Attestation">{facts.attestation_present ? "present" : "absent"}</Row>
-            </dl>
-          ) : (
-            <p className="card-sub" style={{ margin: 0 }}>No facts were recorded for this row.</p>
-          )}
         </Section>
 
         <Section title="Proof" sub="Tamper-evident proof, independently recomputed on every read — never trusted from stored bytes.">
@@ -310,7 +310,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
               </dl>
             </div>
           ) : (
-            <p className="card-sub" style={{ margin: 0 }}>
+            <p className="card-sub card-empty">
               {v.outcome === "deny"
                 ? "No payment — the request was blocked by policy, so the executor was never called."
                 : "No sandbox execution was recorded for this row (e.g. a gate-only policy check)."}
