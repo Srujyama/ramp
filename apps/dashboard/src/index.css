@@ -6,13 +6,13 @@
  * "Reference lime" — a business-facing spend console, styled after a clean
  * modern fintech console: soft gray canvas, white cards with quiet shadows,
  * one lime-green accent (primary actions + "allow" + proof-verified), amber
- * for attention/escalation, red reserved for deny/flag. Light-first; dark
- * ships in lockstep. Every color traces to one of these primitives — no
- * ad-hoc hex in components.
+ * for attention/escalation, red reserved for deny/flag. Every color traces
+ * to one of these primitives — no ad-hoc hex in components.
  *
- * Theming mirrors the old console's approach: CSS `prefers-color-scheme`
- * applies automatically, and an explicit `data-theme` (set by useTheme,
- * persisted to localStorage) can force either direction.
+ * Light is the default theme, unconditionally — it does NOT follow OS
+ * `prefers-color-scheme`. Dark is reached only via the explicit `data-theme`
+ * attribute (set by the header toggle in useTheme.ts, persisted to
+ * localStorage) — see the note above `@theme` below.
  */
 
 :root {
@@ -130,49 +130,12 @@
   color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --canvas: #0c0e11;
-    --surface: #15171b;
-    --surface-sunken: #1b1e23;
-    --surface-hover: #21242a;
-    --field: #101214;
-    --ink: #edeef1;
-    --ink-muted: #9ca2ad;
-    --ink-faint: #6b717c;
-    --line: rgba(255, 255, 255, 0.08);
-    --line-strong: rgba(255, 255, 255, 0.14);
-
-    --lime: #93cc4e;
-    --lime-strong: #a8da69;
-    --lime-soft: rgba(147, 204, 78, 0.16);
-    --lime-ink: #bee68c;
-
-    --amber: #efb25e;
-    --amber-soft: rgba(239, 178, 94, 0.16);
-    --amber-ink: #f3cb94;
-
-    --flag: #ef6b57;
-    --flag-soft: rgba(239, 107, 87, 0.16);
-    --flag-ink: #f4998a;
-
-    --info: #7c93f0;
-    --info-soft: rgba(124, 147, 240, 0.16);
-    --info-ink: #b7c3f7;
-
-    --chart-allow: #5f9c2c;
-    --chart-escalate: #b8721a;
-    --chart-deny: #c94a38;
-    --chart-neutral: #6b717c;
-
-    --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.07);
-    --shadow-popover:
-      0 0 0 1px rgba(255, 255, 255, 0.1), 0 12px 32px rgba(0, 0, 0, 0.5);
-    --shadow-ring: 0 0 0 1px var(--line);
-
-    color-scheme: dark;
-  }
-}
+/*
+ * No `@media (prefers-color-scheme: dark)` block on purpose: light is the
+ * unconditional default (see useTheme.ts) and does not follow OS preference.
+ * Dark is reached ONLY through the explicit `:root[data-theme="dark"]`
+ * override above, set by the header toggle and persisted to localStorage.
+ */
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;

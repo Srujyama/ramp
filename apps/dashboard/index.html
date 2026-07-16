@@ -16,16 +16,12 @@
     />
     <script>
       // Set data-theme before first paint to avoid a flash of the wrong theme
-      // (mirrors useTheme's own logic — saved choice, else OS preference).
+      // (mirrors useTheme's own logic — saved choice, else light by default;
+      // dark does NOT follow OS preference, it's opt-in only).
       (function () {
         try {
           var saved = localStorage.getItem("ramp-theme");
-          var theme =
-            saved === "light" || saved === "dark"
-              ? saved
-              : window.matchMedia("(prefers-color-scheme: dark)").matches
-                ? "dark"
-                : "light";
+          var theme = saved === "light" || saved === "dark" ? saved : "light";
           document.documentElement.setAttribute("data-theme", theme);
         } catch (e) {}
       })();

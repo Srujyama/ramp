@@ -61,10 +61,19 @@ export const DEFAULT_DB_PATH = join(PKG_ROOT, "ramp.db");
  * {@link DEFAULT_DB_PATH}. Every filesystem result is absolute — a relative path
  * is resolved against cwd ONCE, here, and never re-interpreted downstream.
  * The `:memory:` sentinel is passed through untouched.
+ *
+ * An EMPTY STRING is treated the same as "not provided," not as a real path.
+ * `RAMP_DB_PATH=$RAMP_DB_PATH some-command` (a common shell pattern for
+ * "forward this var if I have it") sets the env var to `""`, not unset, when
+ * the variable was never exported — and `"" ?? DEFAULT_DB_PATH` does NOT fall
+ * through, because `""` isn't nullish. Left unguarded, `resolve("")` silently
+ * resolves to `process.cwd()`, which is exactly the fail-open shape documented
+ * above `DEFAULT_DB_PATH`: whoever's cwd happens to be gets a different,
+ * likely-nonexistent "ledger."
  */
 export function resolveDbPath(path?: string): string {
-  const candidate = path ?? process.env.RAMP_DB_PATH;
-  if (candidate === undefined) return DEFAULT_DB_PATH;
+  const candidate = path || process.env.RAMP_DB_PATH;
+  if (candidate === undefined || candidate === "") return DEFAULT_DB_PATH;
   if (candidate === IN_MEMORY_PATH) return IN_MEMORY_PATH;
   return resolve(candidate);
 }

@@ -285,12 +285,12 @@ export function AppLayout(): JSX.Element {
   useDocTitleFromPath();
   return (
     <DecisionsWindowProvider>
-      <div className="flex min-h-screen bg-canvas">
+      <div className="flex h-screen overflow-hidden bg-canvas">
         <SkipLink />
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar />
-          <main id="main" className="min-w-0 flex-1 px-6 py-6 lg:px-8 lg:py-8">
+          <main id="main" className="min-w-0 flex-1 overflow-y-auto px-6 py-6 lg:px-8 lg:py-8">
             <div className="mx-auto w-full max-w-[1320px]">
               <Outlet />
             </div>

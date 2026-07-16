@@ -1,9 +1,10 @@
 /**
  * @ramp/dashboard — theme control
  *
- * Fixes the Phase-0 toggle: initializes from a saved choice OR the OS
- * preference, ALWAYS writes an explicit `data-theme` (so it can force light on a
- * dark-OS machine and vice-versa), and persists the choice. The returned `dark`
+ * Light is the unconditional default — it does NOT follow OS preference, so a
+ * dark-OS visitor still sees light on first load. Dark is opt-in only, via the
+ * explicit toggle, and persists once chosen. ALWAYS writes an explicit
+ * `data-theme` so the two states can never be ambiguous. The returned `dark`
  * boolean is the single source of truth for label + aria-pressed, so they can
  * never contradict the rendered theme.
  */
@@ -17,9 +18,9 @@ function initialTheme(): Theme {
     const saved = localStorage.getItem(KEY);
     if (saved === "light" || saved === "dark") return saved;
   } catch {
-    /* localStorage may be unavailable; fall through to OS preference */
+    /* localStorage may be unavailable; fall through to the default */
   }
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return "light";
 }
 
 export function useTheme(): { theme: Theme; dark: boolean; toggle: () => void } {

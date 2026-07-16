@@ -86,6 +86,8 @@ RAMP_DB_PATH=$RAMP_DB_PATH node apps/payments-mcp/scripts/demo.mjs
 
 Then, in two separate terminals **with the same `RAMP_DB_PATH`**:
 
+**Ensure your ports are clear. The frontend must be running on 5173.** Use npx kill-port <port-num>.
+
 ```sh
 # 2) Start the read-only ledger bridge (default port 8787).
 RAMP_DB_PATH=$RAMP_DB_PATH pnpm --filter @ramp/ledger bridge
