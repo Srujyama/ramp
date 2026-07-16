@@ -18,7 +18,7 @@
  * authority; everything else asks it.
  *
  * PURE: no I/O, no clock, no randomness. `facts` in, `Explanation` out. The
- * `pnpm why` CLI reads the facts from the ledger and hands them here; this module
+ * `pnpm explain` CLI reads the facts from the ledger and hands them here; this module
  * knows nothing about SQLite.
  */
 import type { Facts, Decision, DecisionOutcome, RuleId, PolicyKernel } from "@ramp/shared";
@@ -302,7 +302,7 @@ function nearestStopFor(facts: Facts, kernel: PolicyKernel, baseline: DecisionOu
  * plus the categorical blockers no amount can clear).
  *
  * `decision` must be the verdict the kernel produced for `facts`. The caller (the
- * `pnpm why` CLI) reads both from the append-only decision log, so the explanation
+ * `pnpm explain` CLI) reads both from the append-only decision log, so the explanation
  * is about the decision that was ACTUALLY recorded, not a fresh re-evaluation that
  * might see different ledger state.
  */

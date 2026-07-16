@@ -18,8 +18,9 @@
  * Built to survive an empty ledger: a fresh DB reports zeros, not a crash.
  */
 import { openLedgerStrict, closeLedger, verifyChain, chainHead } from "@ramp/ledger";
+import { money } from "./_lib.mjs";
 
-const asJson = process.argv.includes("--json");
+const asJson = process.argv.slice(2).includes("--json");
 const db = openLedgerStrict();
 
 /** Safe scalar query — returns fallback on any error (missing table, etc.). */
@@ -110,7 +111,6 @@ try {
     const filled = max > 0 ? Math.round((n / max) * width) : 0;
     return "█".repeat(filled) + "·".repeat(width - filled);
   };
-  const money = (n) => `$${Number(n).toLocaleString()}`;
   const pct = (n) => (total > 0 ? `${Math.round((n / total) * 100)}%` : "0%");
 
   const L = [];

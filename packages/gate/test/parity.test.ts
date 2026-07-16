@@ -58,6 +58,12 @@ const CASES: readonly Facts[] = [
   baseFacts({ category: "travel" }), // approved but uncleared
   baseFacts({ amount: 500, daily_total_so_far: 1000 }), // cap boundary
   baseFacts({ daily_total_so_far: 1160 }), // daily boundary
+  // ESCALATE cases — the third lattice tier. Without these, a WASM kernel that
+  // mishandles `escalate` (e.g. throwing on the outcome) passes parity silently.
+  baseFacts({ amount: 450, daily_total_so_far: 0 }), // E1: within cap, over the escalation threshold → escalate
+  baseFacts({ vendor_risk_tier: "elevated" }), // E2: verified but elevated-risk vendor → escalate
+  baseFacts({ recent_txn_count: 6, velocity_limit: 6 }), // E3: velocity → escalate
+  baseFacts({ duplicate_recent_count: 1 }), // E4: possible duplicate → escalate
 ];
 
 test("parity: reference and wasm kernels agree on every case", { skip: !isWasmKernelAvailable() ? "wasm/pkg not built — run build:wasm" : false }, () => {

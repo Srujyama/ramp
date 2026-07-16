@@ -20,10 +20,10 @@
  *   7. deny/budget_exceeded              (policy.dl D7), one per broken budget,
  *      in the ledger's (scope, key) order
  * ...then, only if NO deny fired:
- *   7. escalate/over_escalation_threshold (policy.dl E1)
- *   8. escalate/elevated_risk_vendor      (policy.dl E2)
- *   9. escalate/velocity_exceeded         (policy.dl E3)
- *  10. escalate/possible_duplicate        (policy.dl E4)
+ *   8. escalate/over_escalation_threshold (policy.dl E1)
+ *   9. escalate/elevated_risk_vendor      (policy.dl E2)
+ *  10. escalate/velocity_exceeded         (policy.dl E3)
+ *  11. escalate/possible_duplicate        (policy.dl E4)
  *
  * The lattice is **deny > escalate > allow**. Order within a tier affects only
  * the reason list; the tiers themselves are the semantics. Deny dominates
@@ -40,12 +40,6 @@ interface FiredRule {
   readonly reason: string;
 }
 
-/**
- * Pure evaluation of a single `Facts` object against the policy rules.
- *
- * Mirrors `datalog/policy.dl`: the same predicates, the same arithmetic
- * (`<=` / `>` on integer whole currency units), the same deny triggers.
- */
 /**
  * The numeric `Facts` fields. All must be finite, non-negative integers — the
  * repo-wide "money is integer whole units" invariant, which exists so the

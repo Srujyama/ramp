@@ -30,8 +30,7 @@
  */
 import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-import path from "node:path";
+import { basename, dirname, join } from "node:path";
 import { createPublicKey } from "node:crypto";
 import { demoGatePublicKey, DEMO_GATE_KEY_ID } from "@ramp/provenance";
 
@@ -160,8 +159,7 @@ const target = outPath ?? join(RECEIPT_DIR, `ramp-receipt-${safeId}.mjs`);
 const targetDir = dirname(target);
 if (!existsSync(targetDir)) mkdirSync(targetDir, { recursive: true });
 // Replace the basename placeholder in the banner now that we know the path.
-const basename = path.basename(target);
-writeFileSync(target, receipt.replace("__RECEIPT_BASENAME__", basename), "utf8");
+writeFileSync(target, receipt.replace("__RECEIPT_BASENAME__", basename(target)), "utf8");
 
 process.stdout.write(
   `\n  Wrote a self-contained proof receipt:\n    ${target}\n\n` +

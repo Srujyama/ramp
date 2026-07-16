@@ -85,7 +85,7 @@ export function bundleSigningBytes(bundleDigest: string): Buffer {
  *
  * Signs the `bundleDigest`, not the whole bundle: the digest already commits to
  * every field (it is computed over all of them), so signing it signs all of them
- * — and it keeps the signed bytes a fixed 78 characters regardless of how large
+ * — and it keeps the signed bytes a fixed 79 characters regardless of how large
  * the provenance graph grows.
  */
 export function signBundleDigest(

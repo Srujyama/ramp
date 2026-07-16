@@ -41,7 +41,10 @@ function parseDecision(json: string): Decision {
     throw new Error("wasm kernel returned a non-object decision");
   }
   const r = raw as Record<string, unknown>;
-  if (r.decision !== "allow" && r.decision !== "deny") {
+  // The lattice is three-valued: deny > escalate > allow. `escalate` is a real
+  // outcome the Rust kernel returns (wasm/src/lib.rs) — omitting it here made the
+  // WASM kernel THROW on every held payment. Kept in sync with DecisionOutcome.
+  if (r.decision !== "allow" && r.decision !== "deny" && r.decision !== "escalate") {
     throw new Error(`wasm kernel returned an invalid decision outcome: ${String(r.decision)}`);
   }
   if (!Array.isArray(r.reasons) || !r.reasons.every((x) => typeof x === "string")) {

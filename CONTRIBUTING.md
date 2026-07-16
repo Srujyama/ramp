@@ -40,6 +40,7 @@ pnpm install            # installs the whole workspace
 | `pnpm receipt [<id>]`   | Emit a **self-contained `.mjs` proof receipt** for a decision (the real verifier inlined + the bundle + the gate public key). `node ramp-receipt-<id>.mjs` re-verifies it with zero deps. Default: newest deny; pass a requestId or bundle-digest prefix; `-- --out <path>`. |
 | `pnpm approve`          | **The HUMAN channel** — `--as <approver>` SIGNS the approval; identity is proven, not typed. Never an MCP tool. |
 | `pnpm notary`           | Mint a demo attestation (`--spoof` / `--stale` for the deny beats). |
+| `pnpm sdk-example`      | Runnable ~15-line agent built on the `@ramp/client` SDK — the honest happy path end to end. |
 | `pnpm dev`              | Start the dashboard shell (Vite dev server).                       |
 | `pnpm mcp`              | Start the stub payments MCP server over stdio.                     |
 | `pnpm build:wasm`       | OPTIONAL — compile the Souffle kernel to WASM (no-op without tools).|
@@ -65,9 +66,10 @@ review is required.
 | `@ramp/quarantine`    | `packages/quarantine/` | @Srujyama   | Pillar 3: CaMeL quarantine + declassifiers. |
 | `@ramp/attestation`   | `packages/attestation/`| @Srujyama   | Pillar 4: Ed25519 notary attestation. |
 | `@ramp/provenance`    | `packages/provenance/` | @Srujyama   | Pillar 2: decision bundles + the auditor's verifier. |
-| `@ramp/ledger`        | `packages/ledger/`     | @neilporw   | Authoritative fact source (SQLite).     |
-| `@ramp/payments-mcp`  | `apps/payments-mcp/`   | @neilporw   | Stub MCP server that emits spend requests. |
-| `@ramp/dashboard`     | `apps/dashboard/`      | @JonKach    | Vite + React shell.                     |
+| `@ramp/ledger`        | `packages/ledger/`     | @neilporw   | Authoritative fact source (SQLite) + decision log + proofs + bridge. |
+| `@ramp/client`        | `packages/client/`     | @Srujyama   | The typed agent SDK (a convenience over the real lifecycle). |
+| `@ramp/payments-mcp`  | `apps/payments-mcp/`   | @neilporw   | Self-enforcing MCP tool + read-only agent tools. |
+| `@ramp/dashboard`     | `apps/dashboard/`      | @JonKach    | Vite + React audit console (read-only). |
 | The hook              | `.claude/`             | @Srujyama   | The fail-closed PreToolUse enforcement point. |
 | Repo infra            | `.github/`, root config| @Srujyama   | CI, CODEOWNERS, root scaffolding.       |
 

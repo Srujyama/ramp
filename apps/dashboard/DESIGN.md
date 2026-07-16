@@ -118,20 +118,17 @@ the wrong theme on reload. `color-scheme` is set so native controls match.
   page (a self-link there would be dead weight).
 - **Chart primitives** (`components/charts/*`) — hand-rolled, tokenized SVG, no
   charting dependency: `StackedBar` (daily decision volume by outcome, rounded only
-  at the top, 2px surface gaps between stacked segments, per-bar hover tooltip),
+  at the top, 2px surface gaps between stacked segments, per-bar hover tooltip) and
   `Donut` (a *ranked* breakdown — vendor/category spend — drawn from a single-hue
   sequential ramp rather than a categorical rainbow, since it's a supporting widget
   and the console spends its one accent with intention; caps at 5 named slices, the
-  rest fold into a neutral "Other"), `Gauge` (half-circle arc for spend-vs-limit,
-  colored by the real chart-status trio: on-track/near-limit/over-limit),
-  `Sparkline` (thin single-series trend, terminal point only).
+  rest fold into a neutral "Other").
 - **Dashboard widgets** (`components/widgets/*`) — self-contained cards consumed by
   `Dashboard.tsx`, each taking the shared `DecisionsWindowProvider` data as a prop:
-  `SpendOverviewWidget`, `AgentFleetWidget`, `TrustSummaryWidget`,
+  `SpendOverviewWidget`, `TrustSummaryWidget`,
   `RecentActivityWidget`, `CategoryBreakdownWidget`, `VendorBreakdownWidget`,
-  `LimitUsageWidget` (org-wide caps reference — deliberately *not* another
-  spend-vs-limit gauge; that's already on every Agent Card), and `PlaceholderWidget`
-  (see below).
+  `LimitUsageWidget` (org-wide caps reference — the Agent Card carries its own
+  spend-vs-limit bar), and `PlaceholderWidget` (see below).
 - **"Add widget" + placeholder widgets** (`lib/useWidgetPrefs.ts`) — real modularity,
   not decoration: widget visibility is a `Record<string, boolean>` persisted to
   `localStorage`, toggled from a dropdown in the Dashboard header. Two widgets

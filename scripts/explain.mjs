@@ -28,6 +28,7 @@
  */
 import { openLedgerStrict, closeLedger, getDecision, listDecisions } from "@ramp/ledger";
 import { getKernel, explainDecision } from "@ramp/gate";
+import { money } from "./_lib.mjs";
 
 const argv = process.argv.slice(2);
 const asJson = argv.includes("--json");
@@ -125,7 +126,6 @@ try {
     process.exit(0);
   }
 
-  const money = (n) => `$${Number(n).toLocaleString()}`;
   const isAllow = explanation.outcome === "allow";
   const L = [];
   L.push("");

@@ -16,7 +16,7 @@ are true.
 decision.*
 
 ```bash
-pnpm install && pnpm db:reset && pnpm build && pnpm test   # 514 tests
+pnpm install && pnpm db:reset && pnpm build && pnpm test   # 530 tests
 pnpm demo     # drive every pitch beat through the REAL hook; assert exit codes
 pnpm proof    # independently re-verify the bundles the gate sealed
 ```
@@ -112,10 +112,11 @@ implementation-agnostic; a parity test cross-checks the two.
 | **`@ramp/shared`**    | `packages/shared/`     | —                 | The **frozen contract**: `Facts`, `Decision`, `RuleId`, `PolicyKernel`, `SpendRequest`, fact translation, `canonicalJson`. Zero runtime deps; browser-safe; imported by everyone. |
 | **`@ramp/gate`**      | `packages/gate/`       | `@ramp/shared`    | **Pillar 1** — the **policy kernel** (hero). `policy.dl` (Souffle) is the source of truth; the TS reference kernel mirrors it line-for-line; optional WASM build. |
 | **`@ramp/provenance`**| `packages/provenance/` | `@ramp/shared`    | **Pillar 2** — decision bundles + `verifyBundle`, the auditor's function. Does **not** depend on `@ramp/gate`: an auditor brings their own kernel. |
-| **`@ramp/quarantine`**| `packages/quarantine/` | `@ramp/shared`    | **Pillar 3** — the CaMeL wrapper + total declassifiers into bounded codomains. |
+| **`@ramp/quarantine`**| `packages/quarantine/` | — (`node:crypto`) | **Pillar 3** — the CaMeL wrapper + total declassifiers into bounded codomains. |
 | **`@ramp/attestation`**| `packages/attestation/`| `@ramp/shared`   | **Pillar 4** — Ed25519 notary attestation, canonical domain-separated signing, binding checks. |
-| **`@ramp/ledger`**    | `packages/ledger/`     | shared + provenance | The **authoritative fact source** (SQLite) + vendor registry. Pure DB reads — never model narration. Records the exact SQL it ran as provenance. |
-| **`@ramp/payments-mcp`** | `apps/payments-mcp/`| `@ramp/shared`    | Stub MCP server exposing `mcp__payments__pay_vendor`. An honest non-enforcing stub — enforcement lives in the hook. |
+| **`@ramp/ledger`**    | `packages/ledger/`     | shared + provenance + gate | The **authoritative fact source** (SQLite) + vendor registry, the append-only decision log, proofs, the read-only bridge, and the policy simulator. Pure DB reads — never model narration. |
+| **`@ramp/client`**    | `packages/client/`     | shared + gate + ledger + attestation | The **typed agent SDK** — build a provable spending agent in a few lines. A convenience over the real lifecycle, not a bypass. |
+| **`@ramp/payments-mcp`** | `apps/payments-mcp/`| shared + ledger + attestation | **Self-enforcing** MCP tool (`mcp__payments__pay_vendor`) + 4 read-only agent tools — drives the purchase lifecycle itself, so it is safe even with no hook present. |
 | **`@ramp/dashboard`** | `apps/dashboard/`      | shared + provenance + gate | Vite + React. The **Audit page re-verifies bundles in your browser** with WebCrypto and the real kernel. |
 | The gate              | `hook/` (+ `.claude/` shim) | all of the above | The fail-closed `PreToolUse` enforcement point — the ONLY place policy is enforced. |
 
@@ -133,7 +134,7 @@ corepack enable
 pnpm install         # install the whole workspace
 pnpm db:reset        # build the demo ledger from schema.sql + seed.sql
 pnpm build           # tsc build every package
-pnpm test            # run every workspace's node:test suite (514 tests)
+pnpm test            # run every workspace's node:test suite (530 tests)
 
 pnpm demo            # drive EVERY pitch beat through the real hook, assert exit codes
 pnpm proof           # independently re-verify the bundles the gate just sealed

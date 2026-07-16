@@ -43,16 +43,16 @@ still need propagation — never silently leave them inconsistent.
 
 - `main` requires: a PR, **1 code-owner review**, and the CI **`build`** check green. No direct
   pushes, no force-push. Branch → PR → review → merge.
-- Ownership (`.github/CODEOWNERS`): **@Srujyama** = `@ramp/gate` + `@ramp/shared` + repo wiring +
-  pitch artifacts; **@neilporw** = `@ramp/ledger` + `@ramp/payments-mcp`; **@JonKach** =
-  `@ramp/dashboard`.
+- Ownership (`.github/CODEOWNERS`): **@Srujyama** = `@ramp/gate` + `@ramp/shared` + the security
+  pillars + `@ramp/client` + repo wiring + pitch artifacts; **@neilporw** = `@ramp/ledger` +
+  `@ramp/payments-mcp`; **@JonKach** = `@ramp/dashboard`.
 - **Single-instance-service caution** does NOT apply here (this is a normal web repo, no Studio/MCP
   bridge). Ignore the global note about competing servers for this project.
 
 ## The monorepo (all four pillars built & green)
 
 pnpm + TypeScript, Node 24. `pnpm install && pnpm db:reset && pnpm build && pnpm test` → all green
-(**514 tests**; 1 wasm-parity skip is expected without Soufflé/wasm-pack). Then `pnpm demo` drives
+(**530 tests**; 1 wasm-parity skip is expected without Soufflé/wasm-pack). Then `pnpm demo` drives
 every PITCH beat through the real hook and `pnpm proof` re-verifies the sealed bundles.
 
 | Workspace | Pillar | What it is |
@@ -63,6 +63,7 @@ every PITCH beat through the real hook and `pnpm proof` re-verifies the sealed b
 | `@ramp/quarantine` | **3** | CaMeL wrapper + total declassifiers into bounded codomains. |
 | `@ramp/attestation` | **4** | Ed25519 notary attestation + binding checks. |
 | `@ramp/ledger` | — | Authoritative facts via `node:sqlite` (+ records its own provenance), the append-only **decision log**, tamper-evident **proofs**, the read-only **HTTP bridge**, the **policy simulator**, and the shared **purchase lifecycle**. |
+| `@ramp/client` | — | The typed agent **SDK** (`createRampClient`) — build a provable spending agent in a few lines. A convenience over the real lifecycle, not a bypass. |
 | `@ramp/payments-mcp` | — | **Self-enforcing** MCP tool — drives the purchase lifecycle itself, so it is safe to call with no hook present. The 2nd independent gate over the same kernel. |
 | `@ramp/dashboard` | — | Vite+React **audit console**: Overview / Decisions / Decision detail / Policy + simulator. Decision detail **re-derives the decision in your browser** with the real kernel. |
 
