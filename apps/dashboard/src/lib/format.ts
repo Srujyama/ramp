@@ -107,6 +107,12 @@ export const RULE_META: Record<RuleId, { title: string; blurb: string }> = {
       "The agent has hit its payment-rate limit for the window. A burst isn't " +
       "necessarily fraud — a batch run bursts too — so it's held for a human, not refused.",
   },
+  "escalate/possible_duplicate": {
+    title: "Possible duplicate",
+    blurb:
+      "A settled payment already matches this vendor, amount, and category. Held so " +
+      "a human can confirm it isn't a double-payment — legitimate repeats do happen.",
+  },
   "escalate/elevated_risk_vendor": {
     title: "Elevated-risk vendor",
     blurb:
@@ -226,6 +232,7 @@ const RULE_PHRASE: Record<RuleId, string> = {
     "it is within the caps but large enough that a person should approve it",
   "escalate/elevated_risk_vendor": "the vendor is verified but was onboarded recently",
   "escalate/velocity_exceeded": "the agent has made too many payments too quickly",
+  "escalate/possible_duplicate": "a matching payment already settled recently — a possible double-payment",
 };
 
 /** Oxford-comma join: [] → "", [a] → "a", [a,b] → "a and b", [a,b,c] → "a, b, and c". */

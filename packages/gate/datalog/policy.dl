@@ -98,6 +98,11 @@
 .decl velocity_limit(l: number)
 .input velocity_limit
 
+// duplicate_recent_count(R, N): settled payments matching this one (vendor+amount+
+// category) inside the dedup window. From the ledger.
+.decl duplicate_recent_count(r: symbol, n: number)
+.input duplicate_recent_count
+
 // escalation_threshold(T): org amount above which a human must approve, even
 // though the spend is within every hard cap. From policy_config. One row.
 .decl escalation_threshold(t: number)
@@ -178,6 +183,13 @@ escalate(R) :-
   recent_txn_count(Ag, N),
   velocity_limit(L),
   N >= L.
+
+// E4: looks like a double payment — a match already settled recently. Escalate,
+// because legitimate repeats happen; a human confirms once.
+escalate(R) :-
+  request(R),
+  duplicate_recent_count(R, N),
+  N >= 1.
 
 // ---- DENY: any single trigger is enough (deny dominates) --------------------
 .decl deny(r: symbol)

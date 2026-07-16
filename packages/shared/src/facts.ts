@@ -108,6 +108,16 @@ export interface Facts {
    * rather than denies: hold it, let a person look, don't refuse a real workload.
    */
   readonly velocity_limit: number;
+  /**
+   * How many ALREADY-SETTLED payments match this one — same vendor, same amount,
+   * same category — inside the dedup window (a ledger read).
+   *
+   * The double-payment is the oldest AP fraud there is: submit the same invoice
+   * twice, or a compromised agent re-fires a legitimate-looking payment. No cap,
+   * budget, or rate limit sees it — every copy is individually fine. Matching the
+   * copy is the control.
+   */
+  readonly duplicate_recent_count: number;
 }
 
 /**
@@ -163,4 +173,5 @@ export const FACT_SOURCES: { readonly [K in keyof Facts]: FactSource } = {
   budgets: "ledger_db",
   recent_txn_count: "ledger_db",
   velocity_limit: "policy_config",
+  duplicate_recent_count: "ledger_db",
 };

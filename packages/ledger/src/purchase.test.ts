@@ -61,6 +61,7 @@ function authFacts(over: Partial<AuthoritativeFacts> = {}): AuthoritativeFacts {
     budgets: [],
     recentTxnCount: 0,
     velocityLimit: 6,
+    duplicateRecentCount: 0,
     ...over,
   };
 }

@@ -404,6 +404,34 @@ beat(
   "deny/budget_exceeded",
 );
 
+// -- Beat 10: DUPLICATE — you already paid this ------------------------------
+// agent_dup already settled acme_corp / subscriptions / $120 half an hour ago.
+// This re-submits the exact same payment: within every cap, budget, and rate —
+// and it escalates as a possible double-payment. No amount-based limit sees it.
+const dupInvoice = "ACME CORP\nInvoice inv_dup_now\nMonthly SaaS seat\nTotal: USD 120\n";
+beat(
+  10,
+  "DUPLICATE — re-paying an identical settled payment escalates",
+  {
+    vendorId: "acme_corp",
+    amount: 120,
+    currency: "USD",
+    category: "subscriptions",
+    invoiceRef: "inv_dup_now",
+    requestingAgent: "agent_dup",
+    invoiceDocument: dupInvoice,
+    attestation: mintAttestation({
+      invoiceDocument: dupInvoice,
+      serverDomain: "acme.example.com",
+      amount: 120,
+      currency: "USD",
+      invoiceRef: "inv_dup_now",
+    }),
+  },
+  "escalate",
+  "escalate/possible_duplicate",
+);
+
 // -- Fail-closed: the ledger is gone ----------------------------------------
 {
   const prior = process.env.RAMP_DB_PATH;

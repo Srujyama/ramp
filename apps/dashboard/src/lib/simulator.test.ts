@@ -50,6 +50,7 @@ vendor_risk_tier: "standard",
 budgets: [],
 recent_txn_count: 0,
 velocity_limit: 6,
+duplicate_recent_count: 0,
 };
 
 test("validateSimForm accepts a well-formed form", () => {

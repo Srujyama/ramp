@@ -223,6 +223,14 @@ function evaluate(f) {
         `payment(s) in the velocity window (limit ${f.velocity_limit}) — a human must approve the next`,
     ]);
   }
+  if (f.duplicate_recent_count >= 1) {
+    escalations.push([
+      "escalate/possible_duplicate",
+      `possible_duplicate: ${f.duplicate_recent_count} settled payment(s) already match vendor ` +
+        `"${f.vendor}", amount ${f.amount}, category "${f.category}" in the dedup window — ` +
+        `a human must confirm this is not a repeat`,
+    ]);
+  }
 
   // deny > escalate > allow. Deny first: an escalation must never hand a human a
   // request that policy already rejected.
@@ -274,6 +282,7 @@ const FACT_SOURCES = {
   budgets: "ledger_db",
   recent_txn_count: "ledger_db",
   velocity_limit: "policy_config",
+  duplicate_recent_count: "ledger_db",
 };
 
 // ---------------------------------------------------------------------------

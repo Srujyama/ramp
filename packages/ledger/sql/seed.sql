@@ -19,7 +19,8 @@ INSERT INTO agents (agent_id, display_name) VALUES
   ('agent_12', 'Ops Agent 12'),
   -- A busy automation agent: already at the velocity limit this hour, so its next
   -- payment escalates on rate even though every amount is tiny and within cap.
-  ('agent_burst', 'Batch Agent');
+  ('agent_burst', 'Batch Agent'),
+  ('agent_dup', 'Duplicate-prone Agent');
 
 -- Vendor registry: one verified vendor + two unverified (for the spoof/deny beats).
 INSERT INTO vendors (vendor_id, display_name, verified, registry_domain, registry_verified_at, registry_method, risk_tier) VALUES
@@ -37,6 +38,7 @@ INSERT INTO categories (category_id, display_name, approved) VALUES
   ('software',        'Software',        1),
   ('travel',          'Travel',          1),
   ('automation',      'Automation',      1),
+  ('subscriptions',   'Subscriptions',   1),
   ('crypto',          'Crypto',          0);
 
 -- agent_47 is cleared for office_supplies + software (NOT travel -> demoable
@@ -46,7 +48,9 @@ INSERT INTO agent_category_clearances (agent_id, category_id) VALUES
   ('agent_47', 'software'),
   ('agent_12', 'office_supplies'),
   ('agent_12', 'travel'),
-  ('agent_burst', 'automation');
+  ('agent_12', 'subscriptions'),
+  ('agent_burst', 'automation'),
+  ('agent_dup', 'subscriptions');
 
 -- Prior spend today for agent_47 totalling 1140 (600 + 540) so 340 more still allows.
 INSERT INTO ledger_entries (agent_id, vendor_id, category_id, amount, currency, request_id, ts) VALUES
@@ -62,7 +66,10 @@ INSERT INTO ledger_entries (agent_id, vendor_id, category_id, amount, currency, 
   -- sees 1700, daily and weekly see 0. Set up so a monthly budget catches spend a
   -- daily budget cannot — the whole point of windowed budgets.
   ('agent_12', 'acme_corp', 'travel', 850, 'USD', 'req_trav_01', datetime('now', '-12 days')),
-  ('agent_12', 'acme_corp', 'travel', 850, 'USD', 'req_trav_02', datetime('now', '-20 days'));
+  ('agent_12', 'acme_corp', 'travel', 850, 'USD', 'req_trav_02', datetime('now', '-20 days')),
+  -- A settled subscriptions payment agent_12 can accidentally re-submit. Isolated
+  -- in its own category so re-paying it disturbs no other budget.
+  ('agent_dup', 'acme_corp', 'subscriptions', 120, 'USD', 'req_dup_seed', datetime('now', '-30 minutes'));
 
 -- Org policy limits.
 -- escalation_threshold 400 sits between the hero 340 (ALLOW, unattended) and the
@@ -70,8 +77,8 @@ INSERT INTO ledger_entries (agent_id, vendor_id, category_id, amount, currency, 
 -- velocity_limit 6 over a 60-min window: agent_47 has 2 recent settled payments,
 -- so the hero and every existing beat are untouched; a 7th payment from a busy
 -- agent escalates. Chosen above the seeded counts so nothing pre-existing trips.
-INSERT INTO policy_limits (id, per_txn_cap, daily_limit, escalation_threshold, velocity_limit, velocity_window_minutes, currency) VALUES
-  (1, 500, 1500, 400, 6, 60, 'USD');
+INSERT INTO policy_limits (id, per_txn_cap, daily_limit, escalation_threshold, velocity_limit, velocity_window_minutes, dedup_window_minutes, currency) VALUES
+  (1, 500, 1500, 400, 6, 60, 1440, 'USD');
 
 -- Additional budgets (policy.dl D7). Numbers chosen so every demo beat lands
 -- where PITCH.md says, which is NOT automatic — the first attempt set
@@ -101,6 +108,7 @@ INSERT INTO budgets (scope, key, limit_amount) VALUES
   -- two independent reasons it can never be paid.
   ('category_daily', 'crypto',             0),
   ('category_daily', 'automation',     10000),
+  ('category_daily', 'subscriptions',  10000),
   -- Windowed budgets (policy.dl D7, SAME rule): travel accumulates over longer
   -- periods. agent_12 spent 1700 on travel earlier this month; the monthly window
   -- catches spend the daily/weekly windows cannot see. One rule, many periods.
