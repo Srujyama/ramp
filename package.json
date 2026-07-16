@@ -27,6 +27,7 @@
     "stats": "node scripts/stats.mjs",
     "explain": "node scripts/explain.mjs",
     "simulate": "node scripts/simulate.mjs",
+    "policy-diff": "node scripts/policy-diff.mjs",
     "sdk-example": "node scripts/sdk-example.mjs"
   },
   "dependencies": {

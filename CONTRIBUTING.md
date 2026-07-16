@@ -36,6 +36,7 @@ pnpm install            # installs the whole workspace
 | `pnpm stats`            | Read-only operator view of gate activity (money stopped, top rules, integrity). |
 | `pnpm explain [<id>]`   | Read-only "why was this stopped, and what would flip it" — the **kernel-confirmed** counterfactual. `-- --list` to browse stopped payments, `-- --json` for machine output. |
 | `pnpm simulate [<f>]`   | Read-only **pre-flight** for a batch: preview every payment through the real kernel (zero side effects), roll up money flow, flag per-agent overcommitment. Pass a JSON batch file, or omit for a demo batch. `-- --json` for machine output. |
+| `pnpm policy-diff`      | Read-only **policy what-if**: replay the whole decision log under overridden dials (`-- --cap N --daily N --threshold N --velocity N`) and report the transitions + money impact. Deterministic replay; only scalar policy knobs move. `-- --json` for machine output. |
 | `pnpm approve`          | **The HUMAN channel** — `--as <approver>` SIGNS the approval; identity is proven, not typed. Never an MCP tool. |
 | `pnpm notary`           | Mint a demo attestation (`--spoof` / `--stale` for the deny beats). |
 | `pnpm dev`              | Start the dashboard shell (Vite dev server).                       |

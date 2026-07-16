@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { heroAttestation, mintAttestation, HERO_INVOICE } from "./notary.mjs";
 import { openLedgerStrict, closeLedger, listDecisions, simulateBatch } from "@ramp/ledger";
-import { getKernel, explainDecision } from "@ramp/gate";
+import { getKernel, explainDecision, reclassify } from "@ramp/gate";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOOK = join(HERE, "..", "hook", "evaluate.mjs");
@@ -525,6 +525,39 @@ beat(
     console.log(`${ok ? "  PASS" : "! FAIL"}  Beat 12: batch preview is side-effect-free AND honest about compounding`);
     console.log(`         -> wrote nothing: ${wroteNothing}; each $200 fits alone: ${allFitAlone}; ` +
       `flagged overcommit ($600 allowed > $360 headroom): ${flagged}\n`);
+  } finally {
+    closeLedger(db);
+  }
+}
+
+// -- Beat 13: policy what-if — `pnpm policy-diff` replays the log under a change --
+// Read-only replay: re-judge the recorded daily-limit deny with only the daily
+// limit raised, and confirm it flips deny→allow — while a categorical deny
+// (unverified vendor) is immune to the same dial. Proves the what-if turns exactly
+// the dial it claims and nothing else.
+{
+  console.log("--- Beat 13: `pnpm policy-diff` — replay the log under a hypothetical policy ---\n");
+  const db = openLedgerStrict();
+  try {
+    const { kernel } = getKernel();
+    const dailyDeny = listDecisions(db, { firedRule: "deny/daily_limit_exceeded", limit: 1 })
+      .decisions[0];
+    const vendorDeny = listDecisions(db, { firedRule: "deny/vendor_not_verified", limit: 1 })
+      .decisions[0];
+    if (!dailyDeny?.facts || !vendorDeny?.facts) {
+      failures++;
+      console.log("! FAIL  Beat 13: expected a daily-limit deny and a vendor deny in the log.\n");
+    } else {
+      // Raise the daily limit well past the request → the daily deny should allow.
+      const raised = reclassify(dailyDeny.facts, dailyDeny.outcome, { daily_limit: 100000 }, kernel);
+      // The same dial must NOT rescue an unverified-vendor deny (categorical).
+      const immune = reclassify(vendorDeny.facts, vendorDeny.outcome, { daily_limit: 100000 }, kernel);
+      const ok = raised.after === "allow" && raised.changed && immune.after === "deny" && !immune.changed;
+      if (!ok) failures++;
+      console.log(`${ok ? "  PASS" : "! FAIL"}  Beat 13: the what-if turns exactly the dial it claims`);
+      console.log(`         -> daily deny under daily_limit=100000: ${raised.before}→${raised.after}; ` +
+        `vendor deny (categorical) stays ${immune.before}→${immune.after}\n`);
+    }
   } finally {
     closeLedger(db);
   }

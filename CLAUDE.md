@@ -52,7 +52,7 @@ still need propagation — never silently leave them inconsistent.
 ## The monorepo (all four pillars built & green)
 
 pnpm + TypeScript, Node 24. `pnpm install && pnpm db:reset && pnpm build && pnpm test` → all green
-(**500 tests**; 1 wasm-parity skip is expected without Soufflé/wasm-pack). Then `pnpm demo` drives
+(**508 tests**; 1 wasm-parity skip is expected without Soufflé/wasm-pack). Then `pnpm demo` drives
 every PITCH beat through the real hook and `pnpm proof` re-verifies the sealed bundles.
 
 | Workspace | Pillar | What it is |
