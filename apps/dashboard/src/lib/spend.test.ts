@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isSettledSpend, dateKey, todayKey, settledSpendOn, settledSpendTotal } from "./spend.js";
+import { isSettledSpend, dateKey, todayKey, settledSpendOn } from "./spend.js";
 import { mkView } from "./testfixtures.js";
 
 const settled = { receiptId: "r1", executionId: "e1", status: "settled" as const, provider: "sandbox", executedAt: "2026-07-15 10:00:00" };
@@ -65,13 +65,4 @@ test("settledSpendOn sums only today's settled money", () => {
 
 test("settledSpendOn returns 0 for an empty feed — an honest zero, not a guess", () => {
   assert.equal(settledSpendOn([], "2026-07-15"), 0);
-});
-
-test("settledSpendTotal sums settled money across every day in the window", () => {
-  const rows = [
-    mkView({ decisionId: "a", ts: "2026-07-15 09:00:00", outcome: "allow", amount: 340, execution: settled }),
-    mkView({ decisionId: "b", ts: "2026-07-14 09:00:00", outcome: "allow", amount: 1000, execution: settled }),
-    mkView({ decisionId: "c", ts: "2026-07-14 10:00:00", outcome: "allow", amount: 700, execution: failed }),
-  ];
-  assert.equal(settledSpendTotal(rows), 1340);
 });

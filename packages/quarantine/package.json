@@ -22,9 +22,6 @@
     "pretest": "tsc",
     "test": "node --test \"dist/**/*.test.js\""
   },
-  "dependencies": {
-    "@ramp/shared": "workspace:*"
-  },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^5.7.3"

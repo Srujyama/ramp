@@ -24,6 +24,7 @@
  */
 import { openLedgerStrict, closeLedger, listDecisions } from "@ramp/ledger";
 import { getKernel, reclassify, hasOverrides } from "@ramp/gate";
+import { money } from "./_lib.mjs";
 
 const argv = process.argv.slice(2);
 const asJson = argv.includes("--json");
@@ -102,7 +103,6 @@ try {
     process.exit(0);
   }
 
-  const money = (n) => `$${Number(n).toLocaleString()}`;
   const dialStr = Object.entries(overrides)
     .map(([k, v]) => `${k}=${v}`)
     .join(", ");

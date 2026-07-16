@@ -55,15 +55,6 @@ export function todayKey(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
 
-/** Total settled spend across `decisions`, unbounded by date. */
-export function settledSpendTotal(decisions: readonly DecisionView[]): number {
-  let total = 0;
-  for (const d of decisions) {
-    if (isSettledSpend(d)) total += d.amount;
-  }
-  return total;
-}
-
 /**
  * Total settled spend on one UTC calendar day, derived from the decisions
  * passed in.

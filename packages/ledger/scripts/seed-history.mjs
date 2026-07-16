@@ -780,9 +780,9 @@ const MAX_EXECUTION_DELAY_MS = 9000;
 // than as early.
 //
 // It is also INCONSISTENT with the base seed, which stamps agent_47's calibrated 1140
-// as spent today at whatever hour `db:reset` ran (`priorSpendTimes`, src/db.ts). The
+// as spent today at a single instant (`datetime('now')` in sql/seed.sql). The
 // demo's premise is a day already in progress, and one agent cannot be mid-day while
-// the other three are at a hard zero. `seedPriorSpend` resolves this by spreading
+// the other three are at a hard zero. This seeder resolves that by spreading events
 // across the elapsed day rather than stamping the future; today's events do the same.
 //
 // Only the PLACEMENT is rescaled — the SET and the ORDER are untouched. Two properties
@@ -901,7 +901,7 @@ const allRows = db
 let badProofs = 0;
 for (const row of allRows) {
   const v = verifyDecisionProof({ proof: JSON.parse(row.proof_json) });
-  if (v.reason !== "ok") badProofs++;
+  if (!v.proofVerified) badProofs++;
 }
 if (badProofs > 0) problems.push(`${badProofs} decision(s) have a proof that does not verify`);
 

@@ -27,6 +27,7 @@
 import { readFileSync } from "node:fs";
 import { openLedgerStrict, closeLedger, simulateBatch } from "@ramp/ledger";
 import { getKernel } from "@ramp/gate";
+import { money } from "./_lib.mjs";
 
 const argv = process.argv.slice(2);
 const asJson = argv.includes("--json");
@@ -91,7 +92,6 @@ try {
     process.exit(0);
   }
 
-  const money = (n) => `$${Number(n).toLocaleString()}`;
   const tag = (o) => (o === "allow" ? "ALLOW" : o === "escalate" ? "HOLD " : "DENY ");
   const L = [];
   L.push("");

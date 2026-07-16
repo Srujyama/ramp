@@ -80,7 +80,7 @@ function beat(n, title, toolInput, expect, expectRule) {
   console.log(`${ok ? "  PASS" : "! FAIL"}  Beat ${n}: ${title}`);
   console.log(`         -> ${decision} (exit ${exitCode}, expected ${wantDecision} / exit ${wantExit})`);
   if (expectRule) {
-    console.log(`         -> rules: [${rules.join(", ")}]${expectRule ? ` (want ${expectRule})` : ""}`);
+    console.log(`         -> rules: [${rules.join(", ")}] (want ${expectRule})`);
   }
   if (VERBOSE || !ok) {
     console.log(`         -> ${reason}`);

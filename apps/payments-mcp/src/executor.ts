@@ -17,7 +17,7 @@
  * provider credentials, and the receipt it returns carries none either — its key
  * set is exactly {receiptId, executionId, status, provider}.
  *
- * ponytail: a REAL adapter (e.g. Stripe or the Ramp payments API) would read its
+ * Note: a REAL adapter (e.g. Stripe or the Ramp payments API) would read its
  * credentials from server-side environment/secret storage at call time and use
  * them only to talk to the provider over the wire. It would NEVER place those
  * credentials — or card numbers, tokens, or any secret — onto the receipt or

@@ -2,10 +2,10 @@
 # Every PR touching a path below requests a review from its owner.
 # Owners: @Srujyama (owner), @neilporw, @JonKach, @tomasciar.
 #
-# Split of the 8 workspaces:
-#   @Srujyama  — the gate (hero) + the three security pillars + the shared contract + repo wiring
-#   @neilporw  — the ledger/registry fact source + the payments MCP stub
-#   @JonKach   — the dashboard shell
+# Split of the 9 workspaces:
+#   @Srujyama  — the gate (hero) + the three security pillars + the shared contract + the client SDK + repo wiring
+#   @neilporw  — the ledger/registry fact source + the self-enforcing payments MCP tool
+#   @JonKach   — the dashboard audit console
 #   @tomasciar — see the fallback; no area claimed yet
 # Later, more specific rules win, so the fallback comes first.
 

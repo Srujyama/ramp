@@ -25,6 +25,7 @@ export type {
   Explanation,
   RuleExplanation,
   Counterfactual,
+  NearestStop,
 } from "./explain.js";
 export { applyPolicyOverrides, reclassify, hasOverrides } from "./reclassify.js";
 export type { PolicyOverrides, Reclassification } from "./reclassify.js";
