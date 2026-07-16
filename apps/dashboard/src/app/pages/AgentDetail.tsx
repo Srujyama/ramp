@@ -13,6 +13,7 @@ import { Skeleton } from "../../components/ui/skeleton.js";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card.js";
 import { AgentCard } from "../../components/AgentCard.js";
 import { StatusChip } from "../../components/StatusChip.js";
+import { TruncationNotice } from "../../components/TruncationNotice.js";
 
 export function AgentDetail(): JSX.Element {
   const { agentId = "" } = useParams();
@@ -39,6 +40,8 @@ export function AgentDetail(): JSX.Element {
       <Link to="/app/agents" className="flex w-fit items-center gap-1.5 text-[13px] text-ink-muted hover:text-ink">
         <ArrowLeft className="size-3.5" /> All agent cards
       </Link>
+
+      {win.status === "success" ? <TruncationNotice truncated={win.data.truncated} /> : null}
 
       {win.status === "loading" ? (
         <Skeleton className="h-[280px] max-w-md" />

@@ -66,7 +66,7 @@ function rederive(facts: Facts | null, recorded: Decision | null): Verdict {
   if (!recorded) {
     return {
       kind: "unavailable",
-      why: "This record has no stored decision — an infrastructure error row, not a policy outcome.",
+      why: "This record has no stored decision: an infrastructure error row, not a policy outcome.",
     };
   }
   try {
@@ -132,7 +132,7 @@ export function Rederive({
         <p className="mt-2.5 text-[13px] text-ink-muted">
           <strong className="text-ink">Do not trust the recorded decision.</strong> Running the real policy
           engine on the facts stored in this record does not reproduce what was recorded. The record may be
-          intact and still be wrong — integrity is not soundness.
+          intact and still be wrong: integrity is not soundness.
         </p>
         <dl className="mt-3 flex flex-col gap-2 text-[13px]">
           <div className="flex flex-wrap items-center gap-2">
@@ -169,7 +169,7 @@ export function Rederive({
       </div>
       <p className="mt-2.5 text-[13px] text-ink-muted">
         We took the facts stored in this record, ran the <strong className="text-ink">real policy engine</strong>{" "}
-        on them in this page, and independently got <strong className="text-ink">{outcome}</strong> — the same
+        on them in this page, and independently got <strong className="text-ink">{outcome}</strong>, the same
         outcome that was recorded, from the same rules. Nothing here asked the server whether the decision was
         valid.
       </p>

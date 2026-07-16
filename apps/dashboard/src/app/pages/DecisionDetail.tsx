@@ -73,7 +73,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
           <div>
             <CardTitle>Execution timeline</CardTitle>
             <CardDescription>
-              The full lifecycle of this spend, top to bottom — every stage derived only from what the audit
+              The full lifecycle of this spend, top to bottom. Every stage is derived only from what the audit
               trail records.
             </CardDescription>
           </div>
@@ -109,7 +109,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
           <CardHeader>
             <div>
               <CardTitle>Trusted facts</CardTitle>
-              <CardDescription>What the policy engine evaluated — from the ledger + registry, never model narration.</CardDescription>
+              <CardDescription>What the policy engine evaluated, sourced from the ledger and registry, never model narration.</CardDescription>
             </div>
           </CardHeader>
           <CardContent>
@@ -119,7 +119,9 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
                 <Row k="Vendor risk tier">{facts.vendor_risk_tier}</Row>
                 <Row k="Per-txn cap">{formatMoney(facts.per_txn_cap, currency)}</Row>
                 <Row k="Daily limit">{formatMoney(facts.daily_limit, currency)}</Row>
-                <Row k="Spent today">{formatMoney(facts.daily_total_so_far, currency)}</Row>
+                {/* A pre-decision snapshot, not a live total — label it as the
+                    historical input it is, so it can't be read as spend-to-date. */}
+                <Row k="Spent today, before this">{formatMoney(facts.daily_total_so_far, currency)}</Row>
                 <Row k="Approved categories">{facts.approved_categories.join(", ") || "—"}</Row>
                 <Row k="Agent cleared for">{facts.agent_cleared_categories.join(", ") || "—"}</Row>
                 <Row k="Attestation">{facts.attestation_present ? "Present" : "Absent"}</Row>
@@ -222,9 +224,9 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
             ) : (
               <p className="text-[13px] text-ink-muted">
                 {v.outcome === "deny"
-                  ? "No payment — the request was blocked by policy, so the executor was never called."
+                  ? "No payment: the request was blocked by policy, so the executor was never called."
                   : v.outcome === "escalate"
-                    ? "No payment — held for human approval, so the executor was never called."
+                    ? "No payment: held for human approval, so the executor was never called."
                     : "No sandbox execution was recorded for this row (e.g. a gate-only policy check)."}
               </p>
             )}

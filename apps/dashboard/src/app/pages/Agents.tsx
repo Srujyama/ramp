@@ -5,6 +5,7 @@ import { summarizeAgents } from "../../lib/agents.js";
 import { BridgeErrorState, StateCard } from "../../components/ui/state-card.js";
 import { Skeleton } from "../../components/ui/skeleton.js";
 import { AgentCard } from "../../components/AgentCard.js";
+import { TruncationNotice } from "../../components/TruncationNotice.js";
 
 export function Agents(): JSX.Element {
   const win = useDecisionsWindow();
@@ -20,7 +21,7 @@ export function Agents(): JSX.Element {
       <div>
         <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Agent cards</h1>
         <p className="text-[13.5px] text-ink-muted">
-          Every AI agent that has requested spend — clearances, limits, and trust, per card.
+          Every AI agent that has requested spend. Clearances, limits, and trust, per card.
         </p>
       </div>
 
@@ -37,11 +38,14 @@ export function Agents(): JSX.Element {
           Trigger a payment through the MCP <code>pay_vendor</code> tool and its agent card appears here.
         </StateCard>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {agents.map((a) => (
-            <AgentCard key={a.agentId} agent={a} />
-          ))}
-        </div>
+        <>
+          <TruncationNotice truncated={win.data.truncated} />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {agents.map((a) => (
+              <AgentCard key={a.agentId} agent={a} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

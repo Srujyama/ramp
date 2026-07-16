@@ -21,7 +21,7 @@ export function PlaceholderWidget({ title, description }: { title: string; descr
         <div className="flex flex-col items-center gap-2 py-4 text-center">
           <PlugZap className="size-5 text-ink-faint" strokeWidth={1.5} />
           <p className="max-w-xs text-[12.5px] text-ink-faint">
-            Not tracked by the ledger yet — this widget is a placeholder, not illustrative data. Remove it
+            Not tracked by the ledger yet. This widget is a placeholder, not illustrative data. Remove it
             from Add widget until a real source exists.
           </p>
         </div>

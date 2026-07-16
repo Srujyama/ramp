@@ -79,11 +79,11 @@ export function decisionFlow(v: DecisionView): FlowStep[] {
       title: "Decision produced",
       detail:
         v.outcome === "allow"
-          ? "allow — every condition held"
+          ? "allow: every condition held"
           : v.outcome === "deny"
-            ? `deny — ${v.firedRules.length} rule${v.firedRules.length === 1 ? "" : "s"} fired`
+            ? `deny: ${v.firedRules.length} rule${v.firedRules.length === 1 ? "" : "s"} fired`
             : v.outcome === "escalate"
-              ? `escalate — held for a human, ${v.firedRules.length} rule${v.firedRules.length === 1 ? "" : "s"} fired`
+              ? `escalate: held for a human, ${v.firedRules.length} rule${v.firedRules.length === 1 ? "" : "s"} fired`
               : "no policy decision (error row)",
       tone: v.outcome === "allow" ? "accent" : v.outcome === "deny" ? "deny" : v.outcome === "escalate" ? "warn" : "warn",
     },

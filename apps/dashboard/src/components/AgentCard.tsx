@@ -13,6 +13,11 @@ import { cn } from "../lib/utils.js";
  * this agent actually made. The card face keeps a fixed dark identity across
  * both app themes (see --cardface in index.css) so it reads as an object,
  * not another themed panel. Clickable: opens the agent's full detail page.
+ *
+ * The "$X / $Y today" figure is asymmetric on purpose: the NUMERATOR is
+ * derived settled spend (money that moved), the DENOMINATOR is the policy
+ * limit copied from recorded facts (config). Without a recorded limit there is
+ * no denominator to show, so the bar is omitted rather than guessed.
  */
 export function AgentCard({
   agent,
@@ -24,10 +29,13 @@ export function AgentCard({
   /** Set false on the agent's own detail page — a self-link is dead weight there. */
   linked?: boolean;
 }): JSX.Element {
-  const hasFacts = agent.dailyLimit !== null && agent.dailyTotalSoFar !== null;
-  const pct = hasFacts && agent.dailyLimit! > 0 ? agent.dailyTotalSoFar! / agent.dailyLimit! : 0;
-  const over = pct > 1;
-  const barTone = over ? "bg-chart-deny" : pct >= 0.85 ? "bg-chart-escalate" : "bg-lime";
+  // Numerator: always derived, always known (0 = nothing settled today).
+  // Denominator: policy config, which may genuinely be unobserved.
+  const spentToday = agent.dailyTotalSoFar;
+  const dailyLimit = agent.dailyLimit;
+  const pct = dailyLimit !== null && dailyLimit > 0 ? spentToday / dailyLimit : null;
+  const over = pct !== null && pct > 1;
+  const barTone = over ? "bg-chart-deny" : pct !== null && pct >= 0.85 ? "bg-chart-escalate" : "bg-lime";
 
   const hasProofHistory = agent.decisionCount > 0;
   const allVerified = hasProofHistory && agent.flaggedCount === 0;
@@ -70,26 +78,22 @@ export function AgentCard({
       </div>
 
       <div>
-        {hasFacts ? (
-          <>
-            <div className="flex items-baseline gap-1.5">
-              <span className="tabular text-[26px] font-semibold leading-none">
-                {formatMoney(agent.dailyTotalSoFar!, "USD")}
-              </span>
-              <span className="text-[12px] text-cardface-ink-muted">
-                / {formatMoney(agent.dailyLimit!, "USD")} today
-              </span>
-            </div>
-            <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-cardface-2">
-              <div
-                className={cn("h-full origin-left rounded-full transition-transform duration-300", barTone)}
-                style={{ transform: `scaleX(${Math.max(0, Math.min(1, pct))})`, width: "100%" }}
-              />
-            </div>
-          </>
-        ) : (
-          <div className="text-[13px] text-cardface-ink-muted">No spend recorded yet.</div>
-        )}
+        <div className="flex items-baseline gap-1.5">
+          <span className="tabular text-[26px] font-semibold leading-none">
+            {formatMoney(spentToday, "USD")}
+          </span>
+          <span className="text-[12px] text-cardface-ink-muted">
+            {dailyLimit !== null ? <>/ {formatMoney(dailyLimit, "USD")} today</> : "settled today"}
+          </span>
+        </div>
+        {pct !== null ? (
+          <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-cardface-2">
+            <div
+              className={cn("h-full origin-left rounded-full transition-transform duration-300", barTone)}
+              style={{ transform: `scaleX(${Math.max(0, Math.min(1, pct))})`, width: "100%" }}
+            />
+          </div>
+        ) : null}
       </div>
 
       {agent.clearedCategories.length > 0 && (

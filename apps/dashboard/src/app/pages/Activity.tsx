@@ -144,7 +144,7 @@ export function Activity(): JSX.Element {
       <div>
         <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Activity</h1>
         <p className="text-[13.5px] text-ink-muted">
-          Every evaluated spend request — outcome, independent proof verification, and payment. Newest first.
+          Every evaluated spend request: outcome, independent proof verification, and payment. Newest first.
         </p>
       </div>
 
@@ -224,7 +224,7 @@ export function Activity(): JSX.Element {
         <BridgeErrorState error={error} onRetry={() => setReloadKey((k) => k + 1)} />
       ) : rows.length === 0 ? (
         <StateCard icon="activity" title="No decisions yet">
-          Trigger a payment through the MCP <code>pay_vendor</code> tool — decisions stream in here with full
+          Trigger a payment through the MCP <code>pay_vendor</code> tool. Decisions stream in here with full
           provenance.
         </StateCard>
       ) : (

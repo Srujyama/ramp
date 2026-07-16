@@ -49,6 +49,33 @@ test("summarizeCategories reports approved from the most recent facts naming tha
   assert.equal(c.approved, false);
 });
 
+test("summarizeVendors/summarizeCategories: allowed-but-unexecuted money is not spend", () => {
+  // Same rule as agents.ts, via the one shared predicate: authorisation is not
+  // settlement, so an allow with no execution row contributes nothing.
+  const rows = [
+    mkView({ decisionId: "d1", vendorId: "acme_corp", category: "software", outcome: "allow", amount: 100, execution: { receiptId: "r1", executionId: "e1", status: "settled", provider: "sandbox", executedAt: "2026-07-15 10:00:00" } }),
+    mkView({ decisionId: "d2", vendorId: "acme_corp", category: "software", outcome: "allow", amount: 9000, execution: null }),
+    mkView({ decisionId: "d3", vendorId: "acme_corp", category: "software", outcome: "allow", amount: 700, execution: { receiptId: "r3", executionId: "e3", status: "failed", provider: "sandbox", executedAt: "2026-07-15 10:00:00" } }),
+  ];
+  const [v] = summarizeVendors(rows);
+  assert.ok(v);
+  assert.equal(v.settledSpend, 100);
+
+  const [c] = summarizeCategories(rows);
+  assert.ok(c);
+  assert.equal(c.settledSpend, 100);
+});
+
+test("dailySpend: an allowed-but-unexecuted decision counts as allowed but adds 0 spend", () => {
+  const rows = [
+    mkView({ decisionId: "d1", ts: "2026-07-15 09:00:00", outcome: "allow", amount: 340, execution: null }),
+  ];
+  const [day] = dailySpend(rows);
+  assert.ok(day);
+  assert.equal(day.allowed, 1); // it IS an allow decision
+  assert.equal(day.settledSpend, 0); // but no money moved
+});
+
 test("dailySpend buckets by UTC calendar day, oldest first, and never invents a settled amount for a deny", () => {
   const rows = [
     mkView({ decisionId: "d1", ts: "2026-07-15 09:00:00", outcome: "allow", amount: 100, execution: { receiptId: "r1", executionId: "e1", status: "settled", provider: "sandbox", executedAt: "2026-07-15 09:00:00" } }),

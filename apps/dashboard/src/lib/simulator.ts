@@ -174,61 +174,61 @@ export interface Scenario {
 export const SCENARIOS: readonly Scenario[] = [
   {
     id: "allow_happy_path",
-    title: "Allowed — happy path",
+    title: "Allowed: happy path",
     expect: "allow",
     note: "Verified vendor, approved+cleared category, under cap, 1140 + 340 ≤ 1500.",
     input: { agent: "agent_47", vendor: "acme_corp", amount: 340, category: "office_supplies", currency: "USD" },
   },
   {
     id: "deny_vendor_unverified",
-    title: "Denied — vendor not verified",
+    title: "Denied: vendor not verified",
     expect: "deny",
     note: "sketchy_llc is not verified in the vendor registry.",
     input: { agent: "agent_47", vendor: "sketchy_llc", amount: 100, category: "office_supplies", currency: "USD" },
   },
   {
     id: "deny_over_cap",
-    title: "Denied — over per-transaction cap",
+    title: "Denied: over per-transaction cap",
     expect: "deny",
     note: "600 exceeds the 500 per-transaction cap.",
     input: { agent: "agent_47", vendor: "acme_corp", amount: 600, category: "office_supplies", currency: "USD" },
   },
   {
     id: "deny_category_not_approved",
-    title: "Denied — category not approved",
+    title: "Denied: category not approved",
     expect: "deny",
     note: "crypto is explicitly not on the approved category list.",
     input: { agent: "agent_47", vendor: "acme_corp", amount: 100, category: "crypto", currency: "USD" },
   },
   {
     id: "deny_agent_uncleared",
-    title: "Denied — agent not cleared",
+    title: "Denied: agent not cleared",
     expect: "deny",
     note: "travel is approved org-wide, but agent_47 is not cleared for it.",
     input: { agent: "agent_47", vendor: "acme_corp", amount: 100, category: "travel", currency: "USD" },
   },
   {
     id: "deny_daily_limit",
-    title: "Denied — daily limit exceeded",
+    title: "Denied: daily limit exceeded",
     expect: "deny",
     note: "Under the per-txn cap, but 1140 + 400 = 1540 > 1500 daily limit.",
     input: { agent: "agent_47", vendor: "acme_corp", amount: 400, category: "office_supplies", currency: "USD" },
   },
   {
     id: "escalate_over_threshold",
-    title: "Escalate — needs human approval",
+    title: "Escalate: needs human approval",
     expect: "escalate",
     note:
       "$450 is within every hard cap, but above the $400 escalation threshold. Uses agent_12 " +
-      "(zero spend today) so it can't collide with agent_47's daily total and deny instead — " +
-      "deny dominates escalate, so this only reads as escalate with headroom to spare.",
+      "(zero spend today) so it can't collide with agent_47's daily total and deny instead. " +
+      "Deny dominates escalate, so this only reads as escalate with headroom to spare.",
     input: { agent: "agent_12", vendor: "acme_corp", amount: 450, category: "office_supplies", currency: "USD" },
   },
   {
     id: "escalate_elevated_risk_vendor",
-    title: "Escalate — elevated-risk vendor",
+    title: "Escalate: elevated-risk vendor",
     expect: "escalate",
-    note: "newco_ltd is verified and real, but onboarded yesterday — a human glance is cheap.",
+    note: "newco_ltd is verified and real, but onboarded yesterday. A human glance is cheap.",
     input: { agent: "agent_12", vendor: "newco_ltd", amount: 100, category: "office_supplies", currency: "USD" },
   },
 ];

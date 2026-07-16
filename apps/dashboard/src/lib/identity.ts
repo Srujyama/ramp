@@ -13,6 +13,8 @@
 const AGENT_LABELS: Readonly<Record<string, string>> = {
   agent_47: "Procurement Agent 47",
   agent_12: "Ops Agent 12",
+  agent_23: "Travel Agent 23",
+  agent_08: "Eng Tools Agent 08",
 };
 
 const VENDOR_LABELS: Readonly<Record<string, string>> = {
@@ -20,11 +22,15 @@ const VENDOR_LABELS: Readonly<Record<string, string>> = {
   newco_ltd: "NewCo Ltd",
   sketchy_llc: "Sketchy LLC",
   unknown_labs: "Unknown Labs",
+  globex_inc: "Globex Inc",
+  initech: "Initech",
 };
 
 const VENDOR_DOMAINS: Readonly<Record<string, string>> = {
   acme_corp: "acme.example.com",
   newco_ltd: "newco.example.com",
+  globex_inc: "globex.example.com",
+  initech: "initech.example.com",
 };
 
 /** "agent_47" -> "Agent 47"; "sketchy_llc" -> "Sketchy Llc". A last resort. */
