@@ -19,6 +19,12 @@ export function mkFacts(over: Partial<Facts> = {}): Facts {
     attestation_present: true,
     escalation_threshold: 400,
     vendor_risk_tier: "trusted",
+    // `budgets` became a REQUIRED field of the frozen contract (policy.dl D7)
+    // while this branch was in flight, so mkFacts stopped compiling once merged
+    // with main. Empty is the right value for a fixture: a decision with no
+    // additional budgets is a real, common case, and D7 is exercised properly in
+    // @ramp/gate's tests.
+    budgets: [],
     ...over,
   };
 }
