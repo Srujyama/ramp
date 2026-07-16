@@ -7,7 +7,7 @@
 > detection, signed approvals, `pnpm stats` (money stopped), the `@ramp/client` SDK, and the
 > operator/auditor CLIs `pnpm explain` (kernel-confirmed counterfactuals), `pnpm simulate`
 > (pre-flight a batch), `pnpm policy-diff` (policy what-if), and `pnpm receipt` (a self-verifying
-> portable proof). 512 tests, 18 demo beats. Both HTML artifacts are propagated and in sync.
+> portable proof). 514 tests, 18 demo beats. Both HTML artifacts are propagated and in sync.
 >
 > **Published artifact URLs (republish to these; don't mint new ones):**
 > - Plan: https://claude.ai/code/artifact/30f5b98e-903f-4f8d-80f6-aaab5d80a2de
@@ -521,7 +521,7 @@ console, and a policy simulator. **9 workspaces:** `@ramp/shared`, `@ramp/gate` 
 `@ramp/provenance`, `@ramp/payments-mcp` (self-enforcing tool + 4 read-only agent tools),
 **`@ramp/client`** (typed SDK), `@ramp/dashboard`. CI, branch protection, 4 collaborators.
 
-**512 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 18 demo beats above
+**514 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 18 demo beats above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 
@@ -550,6 +550,14 @@ The thesis is provability, so the repo gets audited like the product:
 Both are regression-tested. Neither was reachable end-to-end through the hook's input guard — they
 were defence-in-depth failures — but "the layer above happened to catch it" is not the standard a
 provability pitch gets to claim.
+
+The operator tools get held to the same bar. `explain`, `simulate`, and `policy-diff` all reason
+about amounts by probing the kernel, and every one of them assumes the same invariant: **raising the
+amount never improves a verdict** (severity is monotone on `deny > escalate > allow`). That assumption
+is now a **property test** over thousands of random fact sets — and it is mutation-checked: injecting a
+bogus "allow large amounts" carve-out makes it (and the parity test) go red. An unproven assumption
+underneath a feature that says "kernel-confirmed" would be exactly the kind of quiet gap this project
+exists to rule out.
 
 ## Sources
 
