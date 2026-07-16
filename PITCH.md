@@ -3,7 +3,7 @@
 > **Single source of truth for the pitch.** The plan (`hackathon-plan.html`) and the slide
 > deck (`pitch-deck.html`) both derive from this file. **If you change the pitch, change it
 > HERE first, then propagate to both artifacts** (see `CLAUDE.md` → "Keeping the pitch in sync").
-> Last substantive update: 2026-07-15 — **all four pillars built and enforced**, plus the audit
+> Last substantive update: 2026-07-16 — five fraud/ops features added (velocity, windowed budgets,
 > console, policy simulator, and decision log merged in. Both HTML artifacts are propagated and
 > in sync as of this date.
 >
@@ -107,6 +107,28 @@ budget is structurally blind to. Demo beat 7 is `$300` of software: under the
 category budget** (540 already spent + 300 > 800). Deliberately a budget beat that
 *isn't* the daily limit, or D7 would only ever be demoed by something D5 already
 catches.
+
+### Every fraud a cap cannot see
+
+Amount limits stop one big theft. They are blind to the ways money actually leaks,
+and the kernel now has a rule for each — one generic rulebook, not a pile of
+special cases:
+
+| Control | The fraud it catches | Verdict |
+| --- | --- | --- |
+| per-txn cap, daily limit | one oversized payment | deny |
+| category / vendor budgets | steady overspend in one place | deny |
+| **weekly / monthly budgets** | slow accumulation a daily window can't see | deny |
+| **velocity** | a *flurry* of small payments (account drain) | escalate |
+| **duplicate detection** | re-paying the same invoice (the oldest AP fraud) | escalate |
+| escalation threshold | a spend big enough a human should glance | escalate |
+| elevated-risk vendor | verified, but onboarded yesterday | escalate |
+| attestation (pillar 4) | a spoofed/unattested invoice | deny |
+| injection quarantine (pillar 3) | a jailbreak buried in an invoice | inert |
+
+Every row is a real rule, in all four kernels, cross-checked by the parity test,
+and demoed in CI. Deny stops it; escalate holds it for a human; and *every*
+decision is provable after the fact.
 
 ### Velocity: the fraud a cap cannot see
 
@@ -279,8 +301,45 @@ asserts the **exit code** on every beat. It runs in CI, so these are not claims:
 6. **Escalate** — `$450` (within the `$500` cap, over the `$400` threshold) → **ask**, exit 0,
    held. And a **verified vendor onboarded yesterday** → **ask**. And `deny > escalate` demoed:
    over-threshold *and* unverified → **deny**, nobody is asked.
+7. **Budget** — `$300` software: under every cap, but over the **category** budget → **deny**.
+8. **Velocity** — the 7th tiny payment in an hour → **ask**. *Fraud is fast, not big; no cap sees it.*
+9. **Window** — `$400` travel: fine daily and weekly, over the **monthly** budget → **deny**.
+10. **Duplicate** — re-paying an identical settled invoice → **ask**. *The oldest AP fraud.*
 
-Plus **fail-closed**, demoed: an unreachable ledger → deny, exit 2 (see below).
+**14 beats, all asserted in CI.** Plus **fail-closed**: an unreachable ledger → deny, exit 2.
+
+### The money it stops (`pnpm stats`)
+
+Every decision is logged, so the gate can tell you the one number the "Save Money"
+question is actually asking: **how much would have gone out the door that didn't.**
+
+```
+  13 decision(s) judged      allowed 1 · held 4 · denied 8
+  MONEY
+    flowed (allowed)     $340
+    STOPPED (deny+held)  $3,295   <- what a wrong/fraud payment would have cost
+  WHAT'S CATCHING THINGS
+    deny/attestation_invalid · deny/budget_exceeded · escalate/possible_duplicate · … (8 rules)
+```
+
+That is not a slogan; it is a column. On the seeded demo the gate stops **$3,295**
+of wrong-or-fraudulent spend and lets **$340** of real spend through — and every
+one of those decisions is independently re-verifiable.
+
+### Build on it in five lines (`@ramp/client`)
+
+The whole gate is one typed SDK call for an agent author:
+
+```ts
+const ramp = createRampClient();
+const r = await ramp.pay(request);   // verifies attestation, drives the fail-closed lifecycle
+if (r.status === "allowed") {…} else if (r.status === "escalated") {…/* a human must approve */} else {…}
+```
+
+Plus `ramp.budget(agent)`, `ramp.preview(request)` (real kernel, zero side effects), and
+`ramp.approval(id)`. It's a **convenience, not a bypass**: a payment through the SDK is judged by the
+same lifecycle, and an agent that skips it and calls a raw tool is still caught by the hook. `pnpm
+sdk-example` is a runnable ~15-line agent.
 
 ### The audit console (`pnpm dev` + `pnpm --filter @ramp/ledger bridge`)
 
@@ -343,12 +402,13 @@ already described in their own posts.
 
 ## Traction (this is not vaporware)
 
-**All four pillars are built, wired into the enforcement path, and green** — plus a working audit
-console, a policy simulator, an append-only decision log, and a sandbox payment lifecycle. 8
-workspaces: `@ramp/shared` (frozen contract), `@ramp/gate` (kernel + real Soufflé `policy.dl`),
-`@ramp/ledger` (authoritative facts + decision log + proofs + read-only bridge),
-**`@ramp/quarantine`**, **`@ramp/attestation`**, **`@ramp/provenance`**, `@ramp/payments-mcp`
-(self-enforcing tool), `@ramp/dashboard` (the audit console). CI, branch protection, 4 collaborators.
+**All four pillars are built, wired into the enforcement path, and green** — plus real fraud controls
+(velocity, windowed budgets, duplicate detection), a human approval channel with **signed** approver
+identity, an external-witness head receipt, a money-stopped operator view, a typed agent SDK, an audit
+console, and a policy simulator. **9 workspaces:** `@ramp/shared`, `@ramp/gate` (kernel + real Soufflé
+`policy.dl` — now ~10 rules), `@ramp/ledger`, `@ramp/quarantine`, `@ramp/attestation`,
+`@ramp/provenance`, `@ramp/payments-mcp` (self-enforcing tool + 4 read-only agent tools),
+**`@ramp/client`** (typed SDK), `@ramp/dashboard`. CI, branch protection, 4 collaborators.
 
 **483 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,

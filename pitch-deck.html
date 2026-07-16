@@ -1239,6 +1239,36 @@
     </div>
   </section>
 
+  <!-- ===================================================== SLIDE 15b — MONEY -->
+  <section class="slide" data-note="This is the Save Money slide. One command — pnpm stats — reports the money that would have gone out the door and didn't. On the seeded demo the gate stops 3,295 dollars of wrong or fraudulent spend and lets 340 dollars of real spend through. Amount caps stop one big theft; velocity, windowed budgets, and duplicate detection catch how money actually leaks. And every stop is provable after the fact.">
+    <div class="stage">
+      <p class="eyebrow green">Save time. Save money.</p>
+      <h1 class="headline">One command tells you the money it stopped.</h1>
+      <div class="cols">
+        <div class="card">
+          <span class="stamp green">pnpm stats — the seeded demo</span>
+          <div class="mono" style="font-size:clamp(13px,1.35vw,17px);margin:16px 0 0;line-height:1.9;color:var(--ink-2);">
+            <div>13 decisions &nbsp;<span style="color:var(--faint);">·</span>&nbsp; allowed 1 &nbsp; held 4 &nbsp; denied 8</div>
+            <div style="margin-top:14px;">flowed &nbsp;<span class="tag-green">$340</span></div>
+            <div><span class="tag-red">STOPPED &nbsp;$3,295</span></div>
+            <div style="color:var(--muted);font-size:13px;margin-top:6px;">what a wrong / fraudulent payment would have cost</div>
+          </div>
+        </div>
+        <div class="card">
+          <span class="stamp">Every fraud a cap can't see</span>
+          <div style="font-size:clamp(13px,1.35vw,16px);margin:16px 0 0;line-height:1.75;color:var(--ink-2);">
+            <div><span class="tag-red">deny</span> — oversized, over-budget, spoofed invoice</div>
+            <div style="margin-top:8px;"><span class="tag-amber">hold</span> — a <b>flurry</b> of small payments (drain)</div>
+            <div style="margin-top:8px;"><span class="tag-amber">hold</span> — <b>re-paying</b> an identical invoice</div>
+            <div style="margin-top:8px;"><span class="tag-amber">hold</span> — spend past the <b>monthly</b> window</div>
+            <div style="margin-top:8px;"><span class="tag-amber">hold</span> — a vendor onboarded <b>yesterday</b></div>
+          </div>
+        </div>
+      </div>
+      <p class="footnote green">Amount limits stop one big theft. These catch how money actually leaks — and every stop is provable after the fact.</p>
+    </div>
+  </section>
+
   <!-- ===================================================== SLIDE 15 -->
   <section class="slide" data-note="This is not a slide-deck idea — the backbone is built and green. Five workspaces, CI, branch protection, twenty-five tests passing, the gate allows and denies live today. Everyone else scopes the card. We prove the decision — and here's the receipt.">
     <div class="stage">
@@ -1251,10 +1281,11 @@
         <div class="status-row"><span class="ws">@ramp/attestation</span><span class="desc">PILLAR 4 — real Ed25519 notary + binding checks</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/ledger</span><span class="desc">authoritative facts + decision log + proofs + read-only bridge</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/shared</span><span class="desc">frozen contract — Facts, Decision, RuleId, PolicyKernel</span><span class="ck">✓</span></div>
-        <div class="status-row"><span class="ws">@ramp/payments-mcp</span><span class="desc">self-enforcing tool — the 2nd independent gate</span><span class="ck">✓</span></div>
+        <div class="status-row"><span class="ws">@ramp/payments-mcp</span><span class="desc">self-enforcing tool + 4 read-only agent tools</span><span class="ck">✓</span></div>
+        <div class="status-row"><span class="ws">@ramp/client</span><span class="desc">typed SDK — build a spending agent in 5 lines</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/dashboard</span><span class="desc">the audit console — re-derives decisions in your browser</span><span class="ck">✓</span></div>
       </div>
-      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">8 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">345 tests PASS</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
+      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">483 tests PASS</span> · <span class="tag-green">14 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
       <p class="heroline">Everyone else scopes the card. <span class="tag-green">We prove the decision</span> — and here's the receipt.</p>
     </div>
   </section>
