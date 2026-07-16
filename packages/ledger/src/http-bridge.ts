@@ -337,8 +337,12 @@ export function createLedgerBridge(options: LedgerBridgeOptions): Server {
  * that IMPORTING this module never starts a server.
  */
 export async function startLedgerBridge(): Promise<Server> {
-  const { openLedger, DEFAULT_DB_PATH } = await import("./db.js");
-  const dbPath = process.env.RAMP_DB_PATH ?? DEFAULT_DB_PATH;
+  // Delegate to resolveDbPath() rather than re-deriving `$RAMP_DB_PATH` here —
+  // a second copy of that precedence logic already drifted once (see
+  // resolveDbPath's own doc comment for the empty-string fail-open shape it
+  // guards against).
+  const { openLedger, resolveDbPath } = await import("./db.js");
+  const dbPath = resolveDbPath();
   const allowedOrigin = process.env.RAMP_BRIDGE_ORIGIN ?? "http://localhost:5173";
   const port = Number(process.env.PORT ?? "8787");
 

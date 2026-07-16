@@ -61,10 +61,19 @@ export const DEFAULT_DB_PATH = join(PKG_ROOT, "ramp.db");
  * {@link DEFAULT_DB_PATH}. Every filesystem result is absolute — a relative path
  * is resolved against cwd ONCE, here, and never re-interpreted downstream.
  * The `:memory:` sentinel is passed through untouched.
+ *
+ * An EMPTY STRING is treated the same as "not provided," not as a real path.
+ * `RAMP_DB_PATH=$RAMP_DB_PATH some-command` (a common shell pattern for
+ * "forward this var if I have it") sets the env var to `""`, not unset, when
+ * the variable was never exported — and `"" ?? DEFAULT_DB_PATH` does NOT fall
+ * through, because `""` isn't nullish. Left unguarded, `resolve("")` silently
+ * resolves to `process.cwd()`, which is exactly the fail-open shape documented
+ * above `DEFAULT_DB_PATH`: whoever's cwd happens to be gets a different,
+ * likely-nonexistent "ledger."
  */
 export function resolveDbPath(path?: string): string {
-  const candidate = path ?? process.env.RAMP_DB_PATH;
-  if (candidate === undefined) return DEFAULT_DB_PATH;
+  const candidate = path || process.env.RAMP_DB_PATH;
+  if (candidate === undefined || candidate === "") return DEFAULT_DB_PATH;
   if (candidate === IN_MEMORY_PATH) return IN_MEMORY_PATH;
   return resolve(candidate);
 }
@@ -224,10 +233,21 @@ export function healColumns(db: LedgerDb): void {
 /**
  * Apply the schema DDL (idempotent — every statement is `IF NOT EXISTS`), then
  * heal any additive columns the DDL cannot add to an existing table.
+ *
+ * `healColumns` MUST run before `readSchemaSql`'s DDL, not after: schema.sql
+ * also declares `idx_decisions_seq`, an index ON the additive `seq` column, in
+ * the SAME statement batch as `CREATE TABLE IF NOT EXISTS decisions`. On a
+ * pre-existing ledger from before `seq` existed, `CREATE TABLE IF NOT EXISTS`
+ * is a no-op (table already there) but the index creation still runs against
+ * that old table — "no such column: seq" — before `healColumns` ever gets a
+ * chance to add it. Healing first means the column already exists by the time
+ * the index statement runs, on both a fresh DB (table doesn't exist yet, so
+ * this loop no-ops via the tableExists check) and an old one (column gets
+ * added here).
  */
 export function applySchema(db: LedgerDb): void {
-  db.exec(readSchemaSql());
   healColumns(db);
+  db.exec(readSchemaSql());
   // CHECK constraints cannot be ALTERed in SQLite, so widening one means
   // rebuilding the table. See migrate.ts — it is the only migration here that
   // can destroy data if it is edited carelessly.

@@ -9,7 +9,11 @@
     "composite": false,
     "moduleResolution": "Bundler",
     "module": "ESNext",
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "references": [
     { "path": "../../packages/shared" },

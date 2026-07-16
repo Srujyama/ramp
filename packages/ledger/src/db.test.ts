@@ -90,6 +90,27 @@ test("resolveDbPath precedence: explicit arg > $RAMP_DB_PATH > default", () => {
   }
 });
 
+test("resolveDbPath treats an empty-string $RAMP_DB_PATH the same as unset", () => {
+  // `RAMP_DB_PATH=$RAMP_DB_PATH some-command` sets the env var to "" (not
+  // unset) whenever the variable was never exported in that shell — a common
+  // shape in practice, and the exact failure a user hit: it silently resolved
+  // to process.cwd() instead of falling back to DEFAULT_DB_PATH.
+  const prior = process.env.RAMP_DB_PATH;
+  try {
+    process.env.RAMP_DB_PATH = "";
+    assert.equal(resolveDbPath(), DEFAULT_DB_PATH);
+    // An empty explicit argument must fall through to the (real) env value...
+    process.env.RAMP_DB_PATH = "/tmp/from-env.db";
+    assert.equal(resolveDbPath(""), "/tmp/from-env.db");
+    // ...and to DEFAULT_DB_PATH when the env value is also empty/unset.
+    process.env.RAMP_DB_PATH = "";
+    assert.equal(resolveDbPath(""), DEFAULT_DB_PATH);
+  } finally {
+    if (prior === undefined) delete process.env.RAMP_DB_PATH;
+    else process.env.RAMP_DB_PATH = prior;
+  }
+});
+
 test("openLedgerStrict REFUSES a nonexistent ledger instead of conjuring one", () => {
   withTempDir((dir) => {
     const missing = join(dir, "does-not-exist.db");

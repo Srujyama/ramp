@@ -119,7 +119,7 @@ function looksLikeSimulation(v: unknown): v is SimulationResult {
   if (typeof v !== "object" || v === null) return false;
   const s = v as Record<string, unknown>;
   return (
-    (s.outcome === "allow" || s.outcome === "deny") &&
+    (s.outcome === "allow" || s.outcome === "deny" || s.outcome === "escalate") &&
     Array.isArray(s.firedRules) &&
     typeof s.policyDigest === "string" &&
     s.simulationOnly === true
@@ -143,6 +143,7 @@ export async function simulatePolicy(
     category: input.category,
   });
   if (input.currency) params.set("currency", input.currency);
+  if (input.attested !== undefined) params.set("attested", String(input.attested));
   const body = await getJson(`/simulate?${params.toString()}`, signal);
   if (!looksLikeSimulation(body)) {
     throw new BridgeError("malformed", "Bridge simulate response had the wrong shape.");

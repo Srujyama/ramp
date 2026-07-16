@@ -3,11 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Provable Agent Spend — Dashboard</title>
+    <title>Provable Agent Spend</title>
     <meta
       name="description"
-      content="Deterministic Datalog policy gate for agent payments — decisions, provenance, audit."
+      content="The trust layer between AI agents and money — agent spend cards, live vendor and category breakdowns, and every purchase independently provable."
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // Set data-theme before first paint to avoid a flash of the wrong theme
+      // (mirrors useTheme's own logic — saved choice, else light by default;
+      // dark does NOT follow OS preference, it's opt-in only).
+      (function () {
+        try {
+          var saved = localStorage.getItem("ramp-theme");
+          var theme = saved === "light" || saved === "dark" ? saved : "light";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

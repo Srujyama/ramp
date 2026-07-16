@@ -63,3 +63,16 @@ test("decision step reflects the outcome", () => {
   assert.equal(deny?.tone, "deny");
   assert.match(deny?.detail ?? "", /1 rule/);
 });
+
+test("escalate never reads as 'no policy decision' — a verdict was reached, just held", () => {
+  const steps = decisionFlow(
+    mkView({ outcome: "escalate", status: "escalated", firedRules: ["escalate/over_escalation_threshold"], execution: null }),
+  );
+  const decision = steps.find((s) => s.key === "decision");
+  assert.doesNotMatch(decision?.detail ?? "", /no policy decision/);
+  assert.match(decision?.detail ?? "", /escalate/);
+
+  const payment = steps.at(-1);
+  assert.equal(payment?.title, "Payment held");
+  assert.notEqual(payment?.title, "Payment executed");
+});

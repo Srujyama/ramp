@@ -56,6 +56,12 @@ test("outcomeChip maps allow/deny/error honestly", () => {
   assert.equal(outcomeChip(mkView({ status: "error", outcome: null })).tone, "warn");
 });
 
+test("outcomeChip never renders escalate as a deny", () => {
+  const chip = outcomeChip(mkView({ outcome: "escalate", status: "escalated" }));
+  assert.equal(chip.label, "Needs approval");
+  assert.notEqual(chip.tone, "deny");
+});
+
 test("verificationChip covers all four proof states", () => {
   assert.equal(verificationChip("ok").label, "Proof valid");
   assert.equal(verificationChip("ok").tone, "accent");
@@ -83,6 +89,10 @@ test("paymentChip never claims a settlement it can't prove", () => {
   assert.equal(paymentChip(mkView({ outcome: "deny", status: "denied", execution: null })).label, "Blocked");
   // Allow but no recorded execution (gate-only policy row) → not executed, never "settled".
   assert.equal(paymentChip(mkView({ outcome: "allow", execution: null })).label, "Not executed");
+  // Escalate → held for a human, never conflated with a deny's "Blocked".
+  const held = paymentChip(mkView({ outcome: "escalate", status: "escalated", execution: null }));
+  assert.equal(held.label, "Held");
+  assert.notEqual(held.label, "Blocked");
 });
 
 test("explainDecision narrates an allow that settled", () => {
@@ -147,6 +157,19 @@ test("explainDecision surfaces a corrupt proof above the outcome", () => {
   assert.equal(out, "The stored proof is malformed and could not be verified. Treat this record as compromised.");
 });
 
+test("explainDecision narrates an escalation as held, not denied", () => {
+  const out = explainDecision(
+    mkView({
+      outcome: "escalate",
+      status: "escalated",
+      execution: null,
+      firedRules: ["escalate/over_escalation_threshold"],
+    }),
+  );
+  assert.match(out, /^Held for human approval because/);
+  assert.doesNotMatch(out, /^Denied/);
+});
+
 test("explainDecision narrates a pre-decision error", () => {
   const out = explainDecision(
     mkView({
@@ -171,6 +194,12 @@ test("explainSimulation narrates a deny with joined reasons", () => {
     out,
     "Denied because the category is not on the approved list and it would exceed the daily limit. No payment would be executed.",
   );
+});
+
+test("explainSimulation narrates an escalation as held, not denied", () => {
+  const out = explainSimulation("escalate", ["escalate/elevated_risk_vendor"]);
+  assert.match(out, /^Would be held for human approval because/);
+  assert.doesNotMatch(out, /^Denied/);
 });
 
 test("explainSimulation produces a distinct phrase for every deny rule id", () => {

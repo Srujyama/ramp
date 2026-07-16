@@ -82,12 +82,14 @@ export function decisionFlow(v: DecisionView): FlowStep[] {
           ? "allow — every condition held"
           : v.outcome === "deny"
             ? `deny — ${v.firedRules.length} rule${v.firedRules.length === 1 ? "" : "s"} fired`
-            : "no policy decision (error row)",
-      tone: v.outcome === "allow" ? "accent" : v.outcome === "deny" ? "deny" : "warn",
+            : v.outcome === "escalate"
+              ? `escalate — held for a human, ${v.firedRules.length} rule${v.firedRules.length === 1 ? "" : "s"} fired`
+              : "no policy decision (error row)",
+      tone: v.outcome === "allow" ? "accent" : v.outcome === "deny" ? "deny" : v.outcome === "escalate" ? "warn" : "warn",
     },
     {
       key: "payment",
-      title: v.outcome === "deny" ? "Payment blocked" : "Payment executed",
+      title: v.outcome === "deny" ? "Payment blocked" : v.outcome === "escalate" ? "Payment held" : "Payment executed",
       detail: pay.title,
       tone: pay.tone,
     },
