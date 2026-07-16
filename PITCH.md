@@ -4,9 +4,10 @@
 > deck (`pitch-deck.html`) both derive from this file. **If you change the pitch, change it
 > HERE first, then propagate to both artifacts** (see `CLAUDE.md` → "Keeping the pitch in sync").
 > Last substantive update: 2026-07-16 — overnight run: velocity, windowed budgets, duplicate
-> detection, signed approvals, `pnpm stats` (money stopped), the `@ramp/client` SDK, `pnpm explain`
-> (kernel-confirmed counterfactuals), and `pnpm simulate` (pre-flight a batch). 508 tests, 17 demo
-> beats. Both HTML artifacts are propagated and in sync as of this date.
+> detection, signed approvals, `pnpm stats` (money stopped), the `@ramp/client` SDK, and the
+> operator/auditor CLIs `pnpm explain` (kernel-confirmed counterfactuals), `pnpm simulate`
+> (pre-flight a batch), `pnpm policy-diff` (policy what-if), and `pnpm receipt` (a self-verifying
+> portable proof). 514 tests, 18 demo beats. Both HTML artifacts are propagated and in sync.
 >
 > **Published artifact URLs (republish to these; don't mint new ones):**
 > - Plan: https://claude.ai/code/artifact/30f5b98e-903f-4f8d-80f6-aaab5d80a2de
@@ -316,8 +317,11 @@ asserts the **exit code** on every beat. It runs in CI, so these are not claims:
 13. **Policy what-if** — `pnpm policy-diff` replays the log under a changed dial: raising the daily
     limit flips the recorded daily-limit deny back to **allow**, while the same dial leaves a
     categorical (unverified-vendor) deny **untouched**. *The what-if turns exactly the dial it claims.*
+14. **Portable receipt** — `pnpm receipt` emits a self-contained `.mjs`; CI generates it, runs it
+    with **plain node** (VERIFIED), then **tampers** the embedded decision and confirms the receipt
+    now rejects it. *A proof you hand someone and they check themselves — no install, no trust.*
 
-**17 beats, all asserted in CI.** Plus **fail-closed**: an unreachable ledger → deny, exit 2.
+**18 beats, all asserted in CI.** Plus **fail-closed**: an unreachable ledger → deny, exit 2.
 
 ### The money it stops (`pnpm stats`)
 
@@ -361,6 +365,13 @@ says so plainly: *no amount clears this.* Same discipline as everything else her
 — the kernel is the authority; the explainer only asks it. `pnpm explain -- --list`
 shows every stopped payment to choose from.
 
+It answers the mirror question too. Point it at an **allowed** payment and it
+reports the **safety margin** — how close it came to being stopped: *"Allowed at
+$340 — $21 short of being denied (that starts at $361)."* Same kernel-confirmed
+probe, run upward instead of down. An allow that squeaked under the daily limit by
+$21 looks identical to one with $1,000 of room in a plain log; the gate tells you
+which is which.
+
 ### Know before you send (`pnpm simulate`)
 
 `explain` answers *after* a payment is stopped. `simulate` answers *before you send
@@ -403,6 +414,28 @@ policy knobs turn (cap, daily limit, escalation threshold, velocity limit);
 categorical facts (an unverified vendor, a missing attestation) are not dials and
 are left exactly as recorded, so a categorical deny stays denied no matter how you
 turn the caps. Read-only: it previews a policy edit, it doesn't make one.
+
+### Hand an auditor the receipt (`pnpm receipt`)
+
+The strongest version of "don't trust us" is a file you run yourself. `pnpm
+receipt` emits **one self-contained `.mjs`** for a decision — and it verifies with
+nothing but `node`:
+
+```
+$ node ramp-receipt-inv_2026_07_0043.mjs
+  decision: DENY   reason: attestation_invalid …
+  RESULT: VERIFIED ✓  — re-derived from its own facts; digests + gate signature check out.
+```
+
+No install, no network, no database, nothing from this repo. Inside, it re-derives
+the decision from its recorded facts, checks every digest, and verifies the gate's
+Ed25519 signature against an **embedded public key** (public keys verify signatures;
+they can't forge them). The verifier body is the repo's **real** `verify-ramp-proof.mjs`
+inlined verbatim — the same file whose parity with the production kernel is
+cross-checked in CI on thousands of randomized fact sets — so the receipt inherits
+that guarantee rather than re-implementing the rules. **Tampering is caught**: edit
+the embedded decision or a single fact and it fails with a digest mismatch (demo
+beat 14 asserts exactly this — a clean receipt verifies, a tampered one is rejected).
 
 ### Build on it in five lines (`@ramp/client`)
 
@@ -488,7 +521,7 @@ console, and a policy simulator. **9 workspaces:** `@ramp/shared`, `@ramp/gate` 
 `@ramp/provenance`, `@ramp/payments-mcp` (self-enforcing tool + 4 read-only agent tools),
 **`@ramp/client`** (typed SDK), `@ramp/dashboard`. CI, branch protection, 4 collaborators.
 
-**508 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 17 demo beats above
+**514 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 18 demo beats above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 
@@ -517,6 +550,14 @@ The thesis is provability, so the repo gets audited like the product:
 Both are regression-tested. Neither was reachable end-to-end through the hook's input guard — they
 were defence-in-depth failures — but "the layer above happened to catch it" is not the standard a
 provability pitch gets to claim.
+
+The operator tools get held to the same bar. `explain`, `simulate`, and `policy-diff` all reason
+about amounts by probing the kernel, and every one of them assumes the same invariant: **raising the
+amount never improves a verdict** (severity is monotone on `deny > escalate > allow`). That assumption
+is now a **property test** over thousands of random fact sets — and it is mutation-checked: injecting a
+bogus "allow large amounts" carve-out makes it (and the parity test) go red. An unproven assumption
+underneath a feature that says "kernel-confirmed" would be exactly the kind of quiet gap this project
+exists to rule out.
 
 ## Sources
 

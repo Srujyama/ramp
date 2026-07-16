@@ -162,6 +162,48 @@ test("multiple broken budgets each map to their own line, in fired order", () =>
   assert.equal(budgetRules[1]!.clearsAtAmountAtMost, 150); // 350-200
 });
 
+test("nearestStop: an allow reports how close it was to being stopped", () => {
+  // Hero: amount 340, daily_total 1140, limit 1500 → daily headroom 360 → denied at 361.
+  // Escalation threshold 400 → held at 401. Nearest worse is the deny at 361.
+  const e = explain(baseFacts());
+  assert.equal(e.outcome, "allow");
+  assert.ok(e.nearestStop);
+  assert.equal(e.nearestStop!.amount, 361);
+  assert.equal(e.nearestStop!.outcome, "deny");
+  assert.equal(e.nearestStop!.margin, 21); // 361 - 340
+  assert.equal(e.nearestStop!.rule, "deny/daily_limit_exceeded");
+  // Kernel-confirm the boundary: allow at 360, deny at 361.
+  assert.equal(referenceKernel.evaluate({ ...baseFacts(), amount: 360 }).decision, "allow");
+  assert.equal(referenceKernel.evaluate({ ...baseFacts(), amount: 361 }).decision, "deny");
+  assert.match(e.headline, /21 short of being denied/);
+});
+
+test("nearestStop: when the escalation threshold is the nearest edge, it's a hold", () => {
+  // Fresh agent (no prior), amount 340, threshold 400 → held at 401, denied at cap+1 (501).
+  // Nearest worse is the hold at 401.
+  const e = explain(baseFacts({ daily_total_so_far: 0 }));
+  assert.equal(e.outcome, "allow");
+  assert.equal(e.nearestStop!.amount, 401);
+  assert.equal(e.nearestStop!.outcome, "escalate");
+  assert.equal(e.nearestStop!.rule, "escalate/over_escalation_threshold");
+});
+
+test("nearestStop: an escalate reports how close it is to an outright deny", () => {
+  // amount 450, no prior, threshold 400 → escalate. Cap 500 → denied at 501.
+  const e = explain(baseFacts({ amount: 450, daily_total_so_far: 0 }));
+  assert.equal(e.outcome, "escalate");
+  assert.ok(e.nearestStop);
+  assert.equal(e.nearestStop!.outcome, "deny");
+  assert.equal(e.nearestStop!.amount, 501);
+  assert.equal(e.nearestStop!.margin, 51);
+});
+
+test("nearestStop: a deny has none (nothing worse to reach)", () => {
+  const e = explain(baseFacts({ amount: 900 }));
+  assert.equal(e.outcome, "deny");
+  assert.equal(e.nearestStop, null);
+});
+
 test("determinism: explaining the same decision twice is deep-equal", () => {
   const facts = baseFacts({ amount: 900 });
   const a = explain(facts);
