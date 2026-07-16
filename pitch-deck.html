@@ -1324,6 +1324,32 @@
     </div>
   </section>
 
+  <!-- ===================================================== SLIDE 15e — POLICY WHAT-IF -->
+  <section class="slide" data-note="Should the cap be 500 or 300? Don't guess — replay the decisions you already made. pnpm policy-diff re-judges every logged decision's exact facts under the changed dial and tells you precisely what it would have done: lower the cap to 300 and two past payments flip to deny, 340 dollars that would now be stopped. It's deterministic replay — same kernel, same facts, one dial moved — so the answer is exact, not modelled. And it states its scope: only the four scalar policy knobs turn. A categorical deny — unverified vendor, missing attestation — stays denied no matter how you turn the caps, because those aren't dials.">
+    <div class="stage">
+      <p class="eyebrow green">Save time. Save money.</p>
+      <h1 class="headline">Tune the policy with evidence — not guesses.</h1>
+      <div class="cols">
+        <div class="card">
+          <span class="stamp green">pnpm policy-diff -- --cap 300</span>
+          <div class="mono" style="font-size:clamp(12px,1.25vw,16px);margin:16px 0 0;line-height:1.85;color:var(--ink-2);">
+            <div>evaluated <b>13</b> · changed <b>2</b></div>
+            <div style="margin-top:10px;">would now be <span class="tag-red">STOPPED $340</span> (was allowed)</div>
+            <div style="margin-top:10px;color:var(--muted);">allow→deny 1 &nbsp; escalate→deny 1</div>
+          </div>
+        </div>
+        <div class="card">
+          <span class="stamp">Deterministic replay — exact, not modelled</span>
+          <div style="font-size:clamp(13px,1.35vw,16px);margin:16px 0 0;line-height:1.75;color:var(--ink-2);">
+            <div>Same kernel, same facts, <b>one dial moved</b>. The verdict falls out the way it did in production.</div>
+            <div style="margin-top:12px;color:var(--muted);">Only the scalar knobs turn. A <b>categorical</b> deny (unverified vendor, missing attestation) stays denied — it was never a dial.</div>
+          </div>
+        </div>
+      </div>
+      <p class="footnote green">Read-only — it previews a policy edit, it doesn't make one.</p>
+    </div>
+  </section>
+
   <!-- ===================================================== SLIDE 15 -->
   <section class="slide" data-note="This is not a slide-deck idea — the backbone is built and green. Five workspaces, CI, branch protection, twenty-five tests passing, the gate allows and denies live today. Everyone else scopes the card. We prove the decision — and here's the receipt.">
     <div class="stage">
@@ -1340,7 +1366,7 @@
         <div class="status-row"><span class="ws">@ramp/client</span><span class="desc">typed SDK — build a spending agent in 5 lines</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/dashboard</span><span class="desc">the audit console — re-derives decisions in your browser</span><span class="ck">✓</span></div>
       </div>
-      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">500 tests PASS</span> · <span class="tag-green">16 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
+      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">508 tests PASS</span> · <span class="tag-green">17 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
       <p class="heroline">Everyone else scopes the card. <span class="tag-green">We prove the decision</span> — and here's the receipt.</p>
     </div>
   </section>

@@ -26,6 +26,8 @@ export type {
   RuleExplanation,
   Counterfactual,
 } from "./explain.js";
+export { applyPolicyOverrides, reclassify, hasOverrides } from "./reclassify.js";
+export type { PolicyOverrides, Reclassification } from "./reclassify.js";
 
 /** A `DescribedKernel` wrapping the always-available reference implementation. */
 const REFERENCE_DESCRIBED: DescribedKernel = {
