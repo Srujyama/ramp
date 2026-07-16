@@ -8,7 +8,7 @@
  */
 
 // Facts — the closed, authoritative fact set (maps 1:1 to policy.dl relations).
-export type { Facts, FactSource } from "./facts.js";
+export type { Facts, FactSource, BudgetLine } from "./facts.js";
 export { FACT_SOURCES } from "./facts.js";
 
 // Decision — the kernel's output shape + rule identifiers + narrow helpers.

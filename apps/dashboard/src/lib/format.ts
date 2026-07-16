@@ -89,6 +89,12 @@ export const RULE_META: Record<RuleId, { title: string; blurb: string }> = {
       "No verified attestation ties this invoice to the vendor's registered domain. " +
       "Missing, expired, forged, and “signed by the wrong domain” all land here.",
   },
+  "deny/budget_exceeded": {
+    title: "Budget exceeded",
+    blurb:
+      "This spend would break a category, vendor, or period budget — separate from " +
+      "the agent's daily limit. The reason names which budget and by how much.",
+  },
   "escalate/over_escalation_threshold": {
     title: "Needs human approval",
     blurb:
@@ -206,6 +212,7 @@ const RULE_PHRASE: Record<RuleId, string> = {
   "deny/attestation_invalid":
     "no verified attestation ties this invoice to the vendor's registered domain",
   "deny/malformed_facts": "the request's numbers were not usable, so it was not evaluated",
+  "deny/budget_exceeded": "it would break a category, vendor, or period budget",
   "escalate/over_escalation_threshold":
     "it is within the caps but large enough that a person should approve it",
   "escalate/elevated_risk_vendor": "the vendor is verified but was onboarded recently",

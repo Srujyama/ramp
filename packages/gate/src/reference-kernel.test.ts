@@ -39,6 +39,7 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     attestation_present: true,
   escalation_threshold: 400,
   vendor_risk_tier: "standard",
+  budgets: [],
   };
   return { ...base, ...overrides };
 }

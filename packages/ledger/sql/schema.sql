@@ -225,3 +225,21 @@ CREATE TABLE IF NOT EXISTS decision_approvals (
   approval_digest TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_approvals_verdict ON decision_approvals (verdict);
+
+-- ============================================================================
+-- ADDITIONAL budgets: category / vendor / period caps beyond the agent's daily
+-- limit. Generic by design — a new budget scope is a ROW here, not a new rule in
+-- four kernels. See packages/shared/src/facts.ts (Facts.budgets) and policy.dl D7.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS budgets (
+  -- 'category_daily' | 'vendor_daily' | 'agent_monthly' | ...
+  --
+  -- 'agent_daily' is RESERVED and must never appear: that scope is
+  -- daily_limit/daily_total_so_far (policy.dl D5), and a row here would mean two
+  -- mechanisms speaking about one budget, free to disagree. Enforced by the CHECK
+  -- below AND by a test, because a CHECK on a pre-existing DB is not retrofittable.
+  scope        TEXT NOT NULL CHECK (scope <> 'agent_daily'),
+  key          TEXT NOT NULL,
+  limit_amount INTEGER NOT NULL CHECK (limit_amount >= 0),
+  PRIMARY KEY (scope, key)
+);

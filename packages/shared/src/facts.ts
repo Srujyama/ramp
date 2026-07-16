@@ -60,6 +60,62 @@ export interface Facts {
    * and still be one we started paying yesterday.
    */
   readonly vendor_risk_tier: string;
+  /**
+   * Every ADDITIONAL budget this spend must fit under, beyond the agent's daily
+   * limit. Sorted by `(scope, key)` — see {@link BudgetLine}.
+   *
+   * ============================================================================
+   * WHY A LIST AND NOT MORE SCALARS
+   * ============================================================================
+   * A category budget, a vendor cap, and a monthly limit are all the SAME SHAPE:
+   * "spend so far + this amount vs a limit". Adding a `category_budget` /
+   * `category_spent` pair, then a `vendor_budget` / `vendor_spent` pair, then a
+   * `monthly_*` pair, means three near-identical rules in four kernels — twelve
+   * hand-maintained copies of one idea, drifting independently. This repo has
+   * been bitten by exactly that shape twice already (the duplicated fact-source
+   * port; the two canonical encoders).
+   *
+   * One list, one rule (`policy.dl` D7). A new budget scope is a row in a table,
+   * not an edit to four kernels.
+   *
+   * ============================================================================
+   * WHY `agent_daily` IS *NOT* IN HERE
+   * ============================================================================
+   * It could be — it is the same shape. It stays as the `daily_limit` /
+   * `daily_total_so_far` scalars because it predates this generalisation and
+   * because `deny/daily_limit_exceeded: 1140 + 400 > 1500` is quoted verbatim in
+   * PITCH.md and named in 15 files. Rewriting the pitch's most-quoted line to buy
+   * nothing behavioural is churn, not craft.
+   *
+   * That leaves two mechanisms for one concept, which is the smell described
+   * above — so the boundary is enforced rather than trusted: the ledger NEVER
+   * emits an `agent_daily` line, and a test asserts it. The two cannot disagree
+   * because only one of them ever speaks about that scope.
+   */
+  readonly budgets: readonly BudgetLine[];
+}
+
+/**
+ * One budget the spend must fit under.
+ *
+ * `spent` is an authoritative ledger read, never a claim — same rule as every
+ * other gating fact.
+ */
+export interface BudgetLine {
+  /**
+   * What the budget is scoped to: `"category_daily"`, `"vendor_daily"`,
+   * `"agent_monthly"`. Deliberately a string, not a union: a new scope should be
+   * a row in the `budgets` table, and the kernel's rule is generic over it — it
+   * compares numbers and reports the scope, it does not need to know the
+   * taxonomy. `"agent_daily"` is reserved and never emitted (see `Facts.budgets`).
+   */
+  readonly scope: string;
+  /** What it applies to: the category id, vendor id, or agent id. */
+  readonly key: string;
+  /** The cap, integer whole units. */
+  readonly limit: number;
+  /** Spend already counted against this budget, from the ledger. */
+  readonly spent: number;
 }
 
 /** Field-by-field provenance for a `Facts` object — where each fact came from. */
@@ -89,4 +145,5 @@ export const FACT_SOURCES: { readonly [K in keyof Facts]: FactSource } = {
   attestation_present: "attestation",
   escalation_threshold: "policy_config",
   vendor_risk_tier: "vendor_registry",
+  budgets: "ledger_db",
 };

@@ -20,6 +20,7 @@ import type {
   AuthoritativeFactSource,
   AuthoritativeFacts,
 } from "@ramp/shared";
+import type { BudgetLine } from "@ramp/shared";
 import type { FactProvenance } from "@ramp/provenance";
 import type { LedgerDb } from "./db.js";
 
@@ -45,6 +46,25 @@ export const LEDGER_QUERIES = {
   limits:
     "SELECT per_txn_cap, daily_limit, escalation_threshold, currency FROM policy_limits WHERE id = 1",
   vendorRiskTier: "SELECT risk_tier FROM vendors WHERE vendor_id = ?",
+  // ORDER BY is load-bearing, not cosmetic: the kernel emits one reason per
+  // broken budget IN LIST ORDER, so an unsorted list would make the SAME facts
+  // produce a different Decision depending on SQLite's row order. That is the
+  // exact non-determinism the whole design rules out, and it would stay invisible
+  // until a bundle failed to re-verify on someone else's machine.
+  // Selects by KEY, not by a hardcoded scope list. The first version enumerated
+  // ('category_daily', 'vendor_daily') in the WHERE clause, which meant a budget
+  // row with any other scope was SILENTLY IGNORED — you could add a quarterly
+  // budget, see it in the table, believe it was enforced, and it would never run.
+  // A configured-but-unenforced budget is worse than no budget: it is a control
+  // everyone believes in and nobody has. Now every row keyed to this request is
+  // selected, and a scope we cannot measure throws (see #spentFor) rather than
+  // passing quietly.
+  budgets:
+    "SELECT scope, key, limit_amount FROM budgets WHERE key IN (?, ?, ?) ORDER BY scope, key",
+  categorySpentToday:
+    "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE category_id = ? AND date(ts) = date('now')",
+  vendorSpentToday:
+    "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE vendor_id = ? AND date(ts) = date('now')",
   approvedCategories:
     "SELECT category_id FROM categories WHERE approved = 1 ORDER BY category_id",
   agentClearances:
@@ -136,6 +156,55 @@ export class LedgerFactSource implements AuthoritativeFactSource {
   }
 
   /**
+   * Every ADDITIONAL budget this request is measured against, sorted by
+   * (scope, key). Only budgets that APPLY to this request — its category, its
+   * vendor — never the whole table.
+   *
+   * NEVER emits an `agent_daily` line. That scope belongs to
+   * daily_limit/daily_total_so_far (policy.dl D5); a line here would mean two
+   * mechanisms speaking about one budget, free to disagree. The schema CHECKs it
+   * and a test asserts it — one guard is a hope, and this is the seam where two
+   * designs meet.
+   */
+  getBudgetsFor(categoryId: string, vendorId: string, agentId: string): BudgetLine[] {
+    const rows = this.#db
+      .prepare(LEDGER_QUERIES.budgets)
+      .all(categoryId, vendorId, agentId) as Array<{
+      scope: string;
+      key: string;
+      limit_amount: number;
+    }>;
+    return rows.map((r) => ({
+      scope: r.scope,
+      key: r.key,
+      limit: Number(r.limit_amount),
+      spent: this.#spentFor(r.scope, r.key),
+    }));
+  }
+
+  /** Spend counted against one budget scope. Authoritative read, never a claim. */
+  #spentFor(scope: string, key: string): number {
+    const q =
+      scope === "category_daily"
+        ? LEDGER_QUERIES.categorySpentToday
+        : scope === "vendor_daily"
+          ? LEDGER_QUERIES.vendorSpentToday
+          : null;
+    if (q === null) {
+      // A scope we cannot measure must NOT read as zero spend — that would make
+      // any budget we don't understand infinitely permissive, which is the exact
+      // fail-open shape this repo keeps finding. Refuse loudly instead; the hook
+      // turns the throw into a deny.
+      throw new Error(
+        `@ramp/ledger: no spend query for budget scope "${scope}". A scope we cannot ` +
+          `measure must not read as zero spend — that is an unlimited budget.`,
+      );
+    }
+    const row = this.#db.prepare(q).get(key) as { total: number } | undefined;
+    return row ? Number(row.total) : 0;
+  }
+
+  /**
    * The vendor's registry risk tier. An unregistered vendor is `"unknown"` —
    * NOT `"trusted"`. A vendor we have never heard of is the least familiar thing
    * there is, and defaulting an unknown to the most permissive tier is the exact
@@ -218,6 +287,7 @@ export class LedgerFactSource implements AuthoritativeFactSource {
       attestationPresent: ctx.attestationPresent ?? false,
       escalationThreshold: limits.escalationThreshold,
       vendorRiskTier: this.getVendorRiskTier(req.vendorId),
+      budgets: this.getBudgetsFor(req.category, req.vendorId, req.requestingAgent),
     };
   }
 
@@ -311,6 +381,20 @@ export class LedgerFactSource implements AuthoritativeFactSource {
           table: "vendors",
           query: LEDGER_QUERIES.vendorRiskTier,
           params: [req.vendorId],
+        },
+      },
+      {
+        fact: "budgets",
+        // VERBATIM — not a prettified rendering. The honesty check compares this
+        // against the fact byte for byte, and a friendlier string here is a
+        // provenance entry that disagrees with what the kernel actually judged.
+        value: facts.budgets,
+        source: "ledger_db",
+        derivation: {
+          kind: "sql",
+          table: "budgets",
+          query: LEDGER_QUERIES.budgets,
+          params: [req.category, req.vendorId, req.requestingAgent],
         },
       },
       {

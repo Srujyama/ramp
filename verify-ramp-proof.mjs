@@ -187,6 +187,18 @@ function evaluate(f) {
     ]);
   }
 
+  // D7: any additional budget this spend would break. Generic over scope; the
+  // list is pre-sorted by (scope, key) so reasons are byte-stable.
+  for (const b of f.budgets ?? []) {
+    if (b.spent + f.amount > b.limit) {
+      denies.push([
+        "deny/budget_exceeded",
+        `budget_exceeded: ${b.scope} budget for "${b.key}" — ` +
+          `${b.spent} + ${f.amount} > ${b.limit}`,
+      ]);
+    }
+  }
+
   // ESCALATE (E1, E2) — a third outcome: the rulebook cannot settle this, a
   // human must. The payment is HELD; it is not "allowed pending review".
   const escalations = [];
@@ -252,6 +264,7 @@ const FACT_SOURCES = {
   attestation_present: "attestation",
   escalation_threshold: "policy_config",
   vendor_risk_tier: "vendor_registry",
+  budgets: "ledger_db",
 };
 
 // ---------------------------------------------------------------------------

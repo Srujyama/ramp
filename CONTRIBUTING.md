@@ -133,6 +133,18 @@ Things that look like bugs but are not — read before "fixing":
   never look one up by agent or vendor — only by decision id, with the digest checked. Otherwise a
   $1 approval can be presented against a $50,000 payment.
 
+- **Budgets are ONE generic rule (D7), not one rule per scope.** A category budget, a vendor cap and
+  a monthly limit are the same arithmetic; N near-duplicate rules across four kernels is the
+  duplication shape that has already bitten this repo twice. Add a *row*, not a rule.
+  `agent_daily` is RESERVED and never emitted as a budget line — that scope is
+  `daily_limit`/`daily_total_so_far` (D5), and a line would mean two mechanisms free to disagree.
+  Guarded by a schema CHECK *and* a test.
+- **The budget list must arrive sorted by `(scope, key)`.** The kernel emits one reason per broken
+  budget in list order, so an unsorted list makes the SAME facts yield a different `Decision`
+  depending on SQLite's row order — invisible until a bundle fails to re-verify elsewhere.
+- **A provenance `value` is the fact VERBATIM, never a prettified rendering.** Typed
+  `Facts[keyof Facts]` for that reason. Rendering belongs in `render.ts`.
+
 ## Optional: the Souffle → WASM kernel
 
 The gate ships a TS reference kernel (the golden oracle) that is always available. A

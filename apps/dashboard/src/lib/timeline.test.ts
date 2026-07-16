@@ -206,5 +206,6 @@ function mkFacts(): DecisionView["facts"] {
     attestation_present: false,
   escalation_threshold: 400,
   vendor_risk_tier: "standard",
+  budgets: [],
   };
 }

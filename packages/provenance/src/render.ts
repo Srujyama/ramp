@@ -38,9 +38,26 @@ export function describeDerivation(d: Derivation): string {
   }
 }
 
-/** Format a fact's value compactly for the tree. */
+/**
+ * Format a fact's value compactly for the tree.
+ *
+ * RENDERING LIVES HERE, and only here. The provenance record itself stores fact
+ * values verbatim — a prettified value in the record is provenance that disagrees
+ * with the fact it explains, which the honesty check (correctly) rejects. So the
+ * friendly string is made at display time, from evidence, rather than stored
+ * instead of it.
+ */
 function formatValue(value: FactProvenance["value"]): string {
-  if (Array.isArray(value)) return `[${value.join(", ")}]`;
+  if (Array.isArray(value)) {
+    return `[${value
+      .map((v) =>
+        v !== null && typeof v === "object" && "scope" in v
+          ? `${(v as { scope: string }).scope}:${(v as { key: string }).key} ` +
+            `${(v as { spent: number }).spent}/${(v as { limit: number }).limit}`
+          : String(v),
+      )
+      .join(", ")}]`;
+  }
   return String(value);
 }
 

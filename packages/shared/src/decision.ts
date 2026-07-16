@@ -81,6 +81,16 @@ export type RuleId =
    * most an agent may ever spend", which are not the same number and pretending
    * they were is how caps drift upward until they mean nothing.
    */
+  /**
+   * This spend would break one of the ADDITIONAL budgets — a category's daily
+   * budget, a vendor cap, a monthly limit. One rule, generic over every scope
+   * (`policy.dl` D7); the reason names which budget and by how much.
+   *
+   * Deliberately ONE rule rather than one per scope: they are all the same
+   * arithmetic, and a rule per scope would be N hand-maintained copies of one
+   * idea across four kernels. A new scope is a row in a table, not a code change.
+   */
+  | "deny/budget_exceeded"
   | "escalate/over_escalation_threshold"
   /**
    * The vendor is verified and registered, but carries an elevated risk tier

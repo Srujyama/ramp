@@ -86,6 +86,7 @@ const HERO_FACTS: Facts = {
   attestation_present: true,
 escalation_threshold: 400,
 vendor_risk_tier: "standard",
+budgets: [],
 };
 
 /** Complete, honest provenance for HERO_FACTS — one entry per Facts field. */
@@ -105,6 +106,7 @@ function heroProvenance(facts: Facts = HERO_FACTS): FactProvenance[] {
     { fact: "attestation_present", value: facts.attestation_present, source: "attestation", derivation: { kind: "attestation", notaryKeyId: "notary_demo_ed25519_1", statementDigest: "a".repeat(64), verified: true } },
     { fact: "escalation_threshold", value: facts.escalation_threshold, source: "policy_config", derivation: { kind: "sql", table: "policy_limits", query: "SELECT escalation_threshold FROM policy_limits WHERE id = 1", params: [] } },
     { fact: "vendor_risk_tier", value: facts.vendor_risk_tier, source: "vendor_registry", derivation: { kind: "sql", table: "vendors", query: "SELECT risk_tier FROM vendors WHERE vendor_id = ?", params: ["acme_corp"] } },
+    { fact: "budgets", value: facts.budgets, source: "ledger_db", derivation: { kind: "sql", table: "budgets", query: "SELECT scope, key, limit_amount FROM budgets WHERE key IN (?, ?, ?) ORDER BY scope, key", params: ["office_supplies", "acme_corp", "agent_47"] } },
   ];
 }
 
@@ -180,6 +182,7 @@ test("factsDigest is key-order independent (canonical encoding)", () => {
     agent_cleared_categories: HERO_FACTS.agent_cleared_categories,
     escalation_threshold: HERO_FACTS.escalation_threshold,
     vendor_risk_tier: HERO_FACTS.vendor_risk_tier,
+  budgets: [],
   } as Facts;
   assert.equal(digestFacts(reordered), digestFacts(HERO_FACTS));
 });
