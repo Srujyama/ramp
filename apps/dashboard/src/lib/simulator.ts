@@ -151,7 +151,7 @@ export interface Scenario {
   id: string;
   title: string;
   /** The outcome we expect given the seeded demo policy (documentation only). */
-  expect: "allow" | "deny";
+  expect: "allow" | "deny" | "escalate";
   /** Why this scenario is interesting. */
   note: string;
   input: {
@@ -213,6 +213,23 @@ export const SCENARIOS: readonly Scenario[] = [
     expect: "deny",
     note: "Under the per-txn cap, but 1140 + 400 = 1540 > 1500 daily limit.",
     input: { agent: "agent_47", vendor: "acme_corp", amount: 400, category: "office_supplies", currency: "USD" },
+  },
+  {
+    id: "escalate_over_threshold",
+    title: "Escalate — needs human approval",
+    expect: "escalate",
+    note:
+      "$450 is within every hard cap, but above the $400 escalation threshold. Uses agent_12 " +
+      "(zero spend today) so it can't collide with agent_47's daily total and deny instead — " +
+      "deny dominates escalate, so this only reads as escalate with headroom to spare.",
+    input: { agent: "agent_12", vendor: "acme_corp", amount: 450, category: "office_supplies", currency: "USD" },
+  },
+  {
+    id: "escalate_elevated_risk_vendor",
+    title: "Escalate — elevated-risk vendor",
+    expect: "escalate",
+    note: "newco_ltd is verified and real, but onboarded yesterday — a human glance is cheap.",
+    input: { agent: "agent_12", vendor: "newco_ltd", amount: 100, category: "office_supplies", currency: "USD" },
   },
 ];
 

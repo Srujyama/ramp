@@ -179,6 +179,9 @@ export function paymentChip(v: DecisionView): StatusChip {
   if (v.outcome === "deny") {
     return { label: "Blocked", tone: "neutral", title: "Denied by policy — the executor was never called, so no payment was attempted." };
   }
+  if (v.outcome === "escalate") {
+    return { label: "Held", tone: "warn", title: "Policy could not settle this — the payment is held pending human approval, not executed." };
+  }
   if (v.outcome === "allow") {
     return { label: "Not executed", tone: "neutral", title: "Allowed by policy, but no sandbox execution was recorded for this row (e.g. a gate-only policy check)." };
   }
@@ -233,6 +236,20 @@ function denyReasonClause(firedRules: RuleId[]): string {
 }
 
 /**
+ * The deterministic "because …" clause for the fired escalate rules, in
+ * rule-evaluation order. Mirrors {@link denyReasonClause} for the third outcome:
+ * escalate is not a deny, so it gets its own reason vocabulary rather than
+ * borrowing the deny phrase map.
+ */
+function escalateReasonClause(firedRules: RuleId[]): string {
+  const phrases = firedRules
+    .filter((r) => r.startsWith("escalate/"))
+    .map((r) => RULE_PHRASE[r]);
+  if (phrases.length === 0) return "a policy condition needs a human to confirm it";
+  return humanJoin(phrases);
+}
+
+/**
  * A concise, plain-English account of a recorded decision, derived purely from
  * its state. Precedence (first match wins): proof-integrity failure dominates
  * because a broken proof means the record itself can't be trusted, then
@@ -259,6 +276,10 @@ export function explainDecision(v: DecisionView): string {
   if (v.outcome === "deny") {
     return `Denied because ${denyReasonClause(v.firedRules)}. No payment was executed.`;
   }
+  // 4b. Policy could not settle it — held for a human, not denied and not paid.
+  if (v.outcome === "escalate") {
+    return `Held for human approval because ${escalateReasonClause(v.firedRules)}. No payment was executed.`;
+  }
   // 5. Policy allowed the spend — narrate by what execution actually recorded.
   if (v.outcome === "allow") {
     if (v.execution?.status === "settled") {
@@ -283,6 +304,9 @@ export function explainSimulation(
 ): string {
   if (outcome === "allow") {
     return "Allowed — every policy condition held: the vendor is verified, the category is approved and the agent is cleared, and the amount is within the per-transaction cap and daily limit.";
+  }
+  if (outcome === "escalate") {
+    return `Would be held for human approval because ${escalateReasonClause(firedRules)}. No payment would be executed.`;
   }
   return `Denied because ${denyReasonClause(firedRules)}. No payment would be executed.`;
 }

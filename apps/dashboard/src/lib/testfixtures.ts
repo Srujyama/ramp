@@ -1,7 +1,27 @@
 /**
  * @ramp/dashboard — test fixtures (a minimal DecisionView builder).
  */
-import type { DecisionView } from "./types.js";
+import type { DecisionView, Facts } from "./types.js";
+
+export function mkFacts(over: Partial<Facts> = {}): Facts {
+  return {
+    request_id: "req_test",
+    requesting_agent: "agent_47",
+    amount: 340,
+    vendor: "acme_corp",
+    category: "office_supplies",
+    vendor_verified: true,
+    daily_total_so_far: 1140,
+    per_txn_cap: 500,
+    daily_limit: 1500,
+    approved_categories: ["office_supplies", "software", "travel"],
+    agent_cleared_categories: ["office_supplies", "software"],
+    attestation_present: true,
+    escalation_threshold: 400,
+    vendor_risk_tier: "trusted",
+    ...over,
+  };
+}
 
 export function mkView(over: Partial<DecisionView> = {}): DecisionView {
   return {

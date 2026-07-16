@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
@@ -56,5 +57,10 @@ function bundlesApi(): Plugin {
 // Base "./" so the built shell can be served from any sub-path (demo hosting).
 export default defineConfig({
   base: "./",
-  plugins: [react(), bundlesApi()],
+  plugins: [tailwindcss(), react(), bundlesApi()],
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "src"),
+    },
+  },
 });

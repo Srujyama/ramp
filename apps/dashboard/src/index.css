@@ -1,0 +1,312 @@
+@import "tailwindcss";
+
+/**
+ * @ramp/dashboard — design tokens
+ *
+ * "Reference lime" — a business-facing spend console, styled after a clean
+ * modern fintech console: soft gray canvas, white cards with quiet shadows,
+ * one lime-green accent (primary actions + "allow" + proof-verified), amber
+ * for attention/escalation, red reserved for deny/flag. Light-first; dark
+ * ships in lockstep. Every color traces to one of these primitives — no
+ * ad-hoc hex in components.
+ *
+ * Theming mirrors the old console's approach: CSS `prefers-color-scheme`
+ * applies automatically, and an explicit `data-theme` (set by useTheme,
+ * persisted to localStorage) can force either direction.
+ */
+
+:root {
+  /* ---- neutrals ---- */
+  --canvas: #eef0f3;
+  --surface: #ffffff;
+  --surface-sunken: #f5f6f9;
+  --surface-hover: #ebedf2;
+  --field: #f2f3f7;
+  --ink: #14161a;
+  --ink-muted: #5b616d;
+  --ink-faint: #8b92a0;
+  --line: #e7e9ef;
+  --line-strong: #d7dae3;
+
+  /* ---- accents ---- */
+  --lime: #7fb239;
+  --lime-strong: #6a9a2d;
+  --lime-soft: #e7f2da;
+  --lime-ink: #3d6519;
+
+  --amber: #e2a03d;
+  --amber-soft: #fbefda;
+  --amber-ink: #8a5c14;
+
+  --flag: #e2503b;
+  --flag-soft: #fce7e3;
+  --flag-ink: #a32e1d;
+
+  --info: #4c6fe5;
+  --info-soft: #e8ecfd;
+  --info-ink: #33459e;
+
+  --verify: var(--lime);
+  --verify-soft: var(--lime-soft);
+  --verify-ink: var(--lime-ink);
+
+  /*
+   * Chart categorical fills (allow/escalate/deny segments in bars & donuts).
+   * NOT the same values as --lime/--amber/--flag above: those are tuned for
+   * UI accents (badge text on a soft background, button fills) where legibility
+   * wants high lightness; solid chart fills need a stricter OKLCH lightness
+   * band + colorblind-safe hue separation. Validated with the dataviz skill's
+   * validate_palette.js (light: all pass; dark: retuned darker to land in the
+   * dark categorical band, L 0.48–0.67) — do not hand-edit without re-running it.
+   */
+  --chart-allow: #7fb239;
+  --chart-escalate: #d97706;
+  --chart-deny: #e2503b;
+  --chart-neutral: #9aa1ac; /* infra "error" rows: not a policy outcome, not a hue */
+
+  /*
+   * Agent Card face — a physical corporate card doesn't repaint when your
+   * phone flips to dark mode, so this stays fixed across both app themes
+   * (defined once, not overridden in the dark block below). It's what makes
+   * the card read as an OBJECT rather than another themed panel.
+   */
+  --cardface: #1c2016;
+  --cardface-2: #262b1e;
+  --cardface-ink: #f5f6f4;
+  --cardface-ink-muted: #a4ab9c;
+  --cardface-line: rgba(255, 255, 255, 0.1);
+  --cardface-ring: rgba(140, 196, 71, 0.35);
+
+  /* ---- elevation ---- */
+  --shadow-card:
+    0 1px 2px rgba(20, 22, 26, 0.04), 0 10px 24px -12px rgba(20, 22, 26, 0.1);
+  --shadow-popover:
+    0 4px 10px -2px rgba(20, 22, 26, 0.08),
+    0 16px 32px -12px rgba(20, 22, 26, 0.18);
+  --shadow-ring: 0 0 0 1px var(--line);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --canvas: #0c0e11;
+  --surface: #15171b;
+  --surface-sunken: #1b1e23;
+  --surface-hover: #21242a;
+  --field: #101214;
+  --ink: #edeef1;
+  --ink-muted: #9ca2ad;
+  --ink-faint: #6b717c;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+
+  --lime: #93cc4e;
+  --lime-strong: #a8da69;
+  --lime-soft: rgba(147, 204, 78, 0.16);
+  --lime-ink: #bee68c;
+
+  --amber: #efb25e;
+  --amber-soft: rgba(239, 178, 94, 0.16);
+  --amber-ink: #f3cb94;
+
+  --flag: #ef6b57;
+  --flag-soft: rgba(239, 107, 87, 0.16);
+  --flag-ink: #f4998a;
+
+  --info: #7c93f0;
+  --info-soft: rgba(124, 147, 240, 0.16);
+  --info-ink: #b7c3f7;
+
+  --chart-allow: #5f9c2c;
+  --chart-escalate: #b8721a;
+  --chart-deny: #c94a38;
+  --chart-neutral: #6b717c;
+
+  --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.07);
+  --shadow-popover:
+    0 0 0 1px rgba(255, 255, 255, 0.1), 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-ring: 0 0 0 1px var(--line);
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #0c0e11;
+    --surface: #15171b;
+    --surface-sunken: #1b1e23;
+    --surface-hover: #21242a;
+    --field: #101214;
+    --ink: #edeef1;
+    --ink-muted: #9ca2ad;
+    --ink-faint: #6b717c;
+    --line: rgba(255, 255, 255, 0.08);
+    --line-strong: rgba(255, 255, 255, 0.14);
+
+    --lime: #93cc4e;
+    --lime-strong: #a8da69;
+    --lime-soft: rgba(147, 204, 78, 0.16);
+    --lime-ink: #bee68c;
+
+    --amber: #efb25e;
+    --amber-soft: rgba(239, 178, 94, 0.16);
+    --amber-ink: #f3cb94;
+
+    --flag: #ef6b57;
+    --flag-soft: rgba(239, 107, 87, 0.16);
+    --flag-ink: #f4998a;
+
+    --info: #7c93f0;
+    --info-soft: rgba(124, 147, 240, 0.16);
+    --info-ink: #b7c3f7;
+
+    --chart-allow: #5f9c2c;
+    --chart-escalate: #b8721a;
+    --chart-deny: #c94a38;
+    --chart-neutral: #6b717c;
+
+    --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.07);
+    --shadow-popover:
+      0 0 0 1px rgba(255, 255, 255, 0.1), 0 12px 32px rgba(0, 0, 0, 0.5);
+    --shadow-ring: 0 0 0 1px var(--line);
+
+    color-scheme: dark;
+  }
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Instrument Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-hover: var(--surface-hover);
+  --color-field: var(--field);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-lime: var(--lime);
+  --color-lime-strong: var(--lime-strong);
+  --color-lime-soft: var(--lime-soft);
+  --color-lime-ink: var(--lime-ink);
+
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-amber-ink: var(--amber-ink);
+
+  --color-flag: var(--flag);
+  --color-flag-soft: var(--flag-soft);
+  --color-flag-ink: var(--flag-ink);
+
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-ink: var(--info-ink);
+
+  --color-verify: var(--verify);
+  --color-verify-soft: var(--verify-soft);
+  --color-verify-ink: var(--verify-ink);
+
+  --color-chart-allow: var(--chart-allow);
+  --color-chart-escalate: var(--chart-escalate);
+  --color-chart-deny: var(--chart-deny);
+  --color-chart-neutral: var(--chart-neutral);
+
+  --color-cardface: var(--cardface);
+  --color-cardface-2: var(--cardface-2);
+  --color-cardface-ink: var(--cardface-ink);
+  --color-cardface-ink-muted: var(--cardface-ink-muted);
+  --color-cardface-line: var(--cardface-line);
+  --color-cardface-ring: var(--cardface-ring);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-popover: var(--shadow-popover);
+  --shadow-ring: var(--shadow-ring);
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-2xl: 30px;
+
+  --text-hero: 2.75rem;
+  --text-hero--line-height: 1.04;
+  --text-hero--letter-spacing: -0.02em;
+  --text-hero--font-weight: 600;
+
+  --text-display: 2rem;
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.015em;
+  --text-display--font-weight: 600;
+
+  --animate-in: enter 0.16s cubic-bezier(0.23, 1, 0.32, 1);
+
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: scale(0.97) translateY(2px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background: var(--color-lime-soft);
+    color: var(--color-lime-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-info);
+    outline-offset: 2px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

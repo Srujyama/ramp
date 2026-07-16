@@ -90,7 +90,7 @@ export interface ExecutionRecord {
 
 // --- decision ----------------------------------------------------------------
 
-export type DecisionStatus = "allowed" | "denied" | "error";
+export type DecisionStatus = "allowed" | "denied" | "escalated" | "error";
 
 /** One decision as served by `GET /decisions` and `GET /decisions/:id`. */
 export interface DecisionView {
@@ -134,6 +134,12 @@ export interface SimulationInput {
   amount: number;
   category: string;
   currency?: string;
+  /**
+   * Whether to assume an attestation accompanied this hypothetical request.
+   * Defaults to `true` server-side — a simulation has no real invoice to attest,
+   * so without this every simulation would deny on `deny/attestation_invalid`.
+   */
+  attested?: boolean;
 }
 
 /**
@@ -149,6 +155,8 @@ export interface SimulationResult {
   facts: Facts;
   policyDigest: string;
   currency: string;
+  /** The attestation premise this simulation assumed (see `SimulationInput.attested`). */
+  assumedAttested: boolean;
   simulationOnly: true;
 }
 

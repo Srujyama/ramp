@@ -224,10 +224,21 @@ export function healColumns(db: LedgerDb): void {
 /**
  * Apply the schema DDL (idempotent — every statement is `IF NOT EXISTS`), then
  * heal any additive columns the DDL cannot add to an existing table.
+ *
+ * `healColumns` MUST run before `readSchemaSql`'s DDL, not after: schema.sql
+ * also declares `idx_decisions_seq`, an index ON the additive `seq` column, in
+ * the SAME statement batch as `CREATE TABLE IF NOT EXISTS decisions`. On a
+ * pre-existing ledger from before `seq` existed, `CREATE TABLE IF NOT EXISTS`
+ * is a no-op (table already there) but the index creation still runs against
+ * that old table — "no such column: seq" — before `healColumns` ever gets a
+ * chance to add it. Healing first means the column already exists by the time
+ * the index statement runs, on both a fresh DB (table doesn't exist yet, so
+ * this loop no-ops via the tableExists check) and an old one (column gets
+ * added here).
  */
 export function applySchema(db: LedgerDb): void {
-  db.exec(readSchemaSql());
   healColumns(db);
+  db.exec(readSchemaSql());
   // CHECK constraints cannot be ALTERed in SQLite, so widening one means
   // rebuilding the table. See migrate.ts — it is the only migration here that
   // can destroy data if it is edited carelessly.

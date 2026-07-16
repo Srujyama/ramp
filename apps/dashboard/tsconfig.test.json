@@ -17,10 +17,16 @@
     "src/lib/activity.ts",
     "src/lib/timeline.ts",
     "src/lib/simulator.ts",
+    "src/lib/identity.ts",
+    "src/lib/agents.ts",
+    "src/lib/rollups.ts",
     "src/lib/format.test.ts",
     "src/lib/provenance.test.ts",
     "src/lib/activity.test.ts",
     "src/lib/timeline.test.ts",
-    "src/lib/simulator.test.ts"
+    "src/lib/simulator.test.ts",
+    "src/lib/identity.test.ts",
+    "src/lib/agents.test.ts",
+    "src/lib/rollups.test.ts"
   ]
 }

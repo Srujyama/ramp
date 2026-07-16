@@ -287,7 +287,25 @@ export async function handlePayVendor(
     );
   }
 
-  const db = openDb();
+  // Guarded on its own: a failure to even open the ledger (bad path, missing
+  // parent dir, permissions) must still come back as a structuredContent
+  // envelope, not an uncaught throw — every MCP client dereferences
+  // structuredContent unconditionally on a non-isError result, and an SDK-level
+  // generic error result carries no structuredContent at all.
+  let db: ReturnType<typeof openDb>;
+  try {
+    db = openDb();
+  } catch (err) {
+    return toResult(
+      {
+        status: "audit_error",
+        decisionId: null,
+        message: `Failed to open ledger: ${err instanceof Error ? err.message : String(err)}`,
+      },
+      true,
+    );
+  }
+
   try {
     const { kind, kernel } = resolveKernel();
     const factSource = new LedgerFactSource(db);
