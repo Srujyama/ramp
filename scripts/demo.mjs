@@ -17,6 +17,7 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
 import { heroAttestation, mintAttestation, HERO_INVOICE } from "./notary.mjs";
 import { openLedgerStrict, closeLedger, listDecisions, simulateBatch } from "@ramp/ledger";
 import { getKernel, explainDecision, reclassify } from "@ramp/gate";
@@ -561,6 +562,45 @@ beat(
   } finally {
     closeLedger(db);
   }
+}
+
+// -- Beat 14: the portable receipt — `pnpm receipt`, run it yourself ----------
+// Generate a self-contained proof receipt for a sealed decision, then RUN it with
+// plain node as a subprocess (exactly how an auditor would) and assert it verifies
+// — and, crucially, that TAMPERING with it is caught. A receipt that passed after
+// being edited would be theatre, not proof.
+{
+  console.log("--- Beat 14: `pnpm receipt` — a self-contained proof, run with plain node ---\n");
+  const receiptScript = join(HERE, "receipt.mjs");
+  const cleanPath = join(HERE, "..", ".ramp", "receipts", "demo-beat14.mjs");
+  const tamperedPath = join(HERE, "..", ".ramp", "receipts", "demo-beat14-tampered.mjs");
+  // Generate (default: newest deny bundle) to a known path.
+  const gen = spawnSync(process.execPath, [receiptScript, "--out", cleanPath], { encoding: "utf8" });
+  let ranOk = false;
+  let tamperCaught = false;
+  if (gen.status === 0) {
+    const run = spawnSync(process.execPath, [cleanPath], { encoding: "utf8" });
+    ranOk = run.status === 0 && /VERIFIED/.test(run.stdout);
+    // Tamper: flip the embedded recorded decision, and confirm the receipt rejects it.
+    try {
+      const src = readFileSync(cleanPath, "utf8");
+      const tampered = src.replace('"decision": "deny"', '"decision": "allow"');
+      writeFileSync(tamperedPath, tampered, "utf8");
+      const bad = spawnSync(process.execPath, [tamperedPath], { encoding: "utf8" });
+      tamperCaught = bad.status === 1 && /NOT VERIFIED/.test(bad.stdout);
+    } catch {
+      /* tamperCaught stays false → beat fails */
+    }
+  }
+  const ok = gen.status === 0 && ranOk && tamperCaught;
+  if (!ok) failures++;
+  console.log(`${ok ? "  PASS" : "! FAIL"}  Beat 14: a generated receipt verifies with plain node, and tampering is caught`);
+  console.log(`         -> generated: ${gen.status === 0}; clean receipt VERIFIED: ${ranOk}; ` +
+    `tampered receipt REJECTED: ${tamperCaught}`);
+  if (!ok && gen.status !== 0) {
+    console.log(`         -> generator stderr: ${(gen.stderr ?? "").trim() || "(none)"}`);
+  }
+  console.log("");
 }
 
 console.log("=".repeat(72));

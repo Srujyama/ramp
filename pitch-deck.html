@@ -1350,6 +1350,32 @@
     </div>
   </section>
 
+  <!-- ===================================================== SLIDE 15f — PORTABLE RECEIPT -->
+  <section class="slide" data-note="The strongest version of 'don't trust us' is a file you run yourself. pnpm receipt emits one self-contained mjs for a decision — no install, no network, no database, nothing from our repo. Run it with plain node and it re-derives the decision from its own recorded facts, checks every digest, and verifies the gate's Ed25519 signature against an embedded public key — public keys verify signatures, they can't forge them. The verifier inside is our real verify-ramp-proof file inlined verbatim, the same one whose parity with the production kernel is cross-checked in CI on thousands of random fact sets. And tampering is caught: edit the embedded decision or one fact and it fails on a digest mismatch. CI proves this every run — generates a receipt, runs it, then tampers it and confirms rejection.">
+    <div class="stage">
+      <p class="eyebrow green">Don't trust us — check it yourself</p>
+      <h1 class="headline">A proof you run yourself. One file, zero deps.</h1>
+      <div class="cols">
+        <div class="card">
+          <span class="stamp green">node ramp-receipt-inv_2026_07_0043.mjs</span>
+          <div class="mono" style="font-size:clamp(12px,1.25vw,16px);margin:16px 0 0;line-height:1.85;color:var(--ink-2);">
+            <div>decision: <span class="tag-red">DENY</span> · attestation_invalid</div>
+            <div style="margin-top:10px;"><span class="tag-green">RESULT: VERIFIED ✓</span></div>
+            <div style="margin-top:6px;color:var(--muted);">re-derived from its own facts · digests + gate signature check out</div>
+          </div>
+        </div>
+        <div class="card">
+          <span class="stamp">No install, no network, no repo</span>
+          <div style="font-size:clamp(13px,1.35vw,16px);margin:16px 0 0;line-height:1.75;color:var(--ink-2);">
+            <div>The <b>real</b> verifier inlined verbatim (CI-checked against the production kernel) + the bundle + the gate <b>public</b> key.</div>
+            <div style="margin-top:12px;"><span class="tag-amber">Tamper it</span> — edit the decision or one fact — and it fails on a digest mismatch. CI asserts exactly this.</div>
+          </div>
+        </div>
+      </div>
+      <p class="footnote green">You don't have to trust our monorepo — just ~300 lines you can read, and node.</p>
+    </div>
+  </section>
+
   <!-- ===================================================== SLIDE 15 -->
   <section class="slide" data-note="This is not a slide-deck idea — the backbone is built and green. Five workspaces, CI, branch protection, twenty-five tests passing, the gate allows and denies live today. Everyone else scopes the card. We prove the decision — and here's the receipt.">
     <div class="stage">
@@ -1366,7 +1392,7 @@
         <div class="status-row"><span class="ws">@ramp/client</span><span class="desc">typed SDK — build a spending agent in 5 lines</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/dashboard</span><span class="desc">the audit console — re-derives decisions in your browser</span><span class="ck">✓</span></div>
       </div>
-      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">508 tests PASS</span> · <span class="tag-green">17 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
+      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">508 tests PASS</span> · <span class="tag-green">18 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
       <p class="heroline">Everyone else scopes the card. <span class="tag-green">We prove the decision</span> — and here's the receipt.</p>
     </div>
   </section>

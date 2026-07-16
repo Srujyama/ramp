@@ -141,6 +141,7 @@ pnpm stats           # operator view: allow/hold/deny rates, money stopped, what
 pnpm explain [<id>]  # why a payment was stopped + the KERNEL-CONFIRMED counterfactual
 pnpm simulate [<f>]  # pre-flight a batch through the real kernel (zero side effects)
 pnpm policy-diff     # replay the log under a hypothetical policy dial (-- --cap 300)
+pnpm receipt         # emit a self-contained .mjs proof anyone can run with just node
 pnpm dev             # dashboard (Vite) — the Audit page re-verifies in your browser
 pnpm mcp             # (separately) run the stub payments MCP server
 ```
