@@ -11,6 +11,9 @@ importers:
       '@ramp/attestation':
         specifier: workspace:*
         version: link:packages/attestation
+      '@ramp/client':
+        specifier: workspace:*
+        version: link:packages/client
       '@ramp/gate':
         specifier: workspace:*
         version: link:packages/gate
@@ -143,6 +146,28 @@ importers:
 
   packages/attestation:
     dependencies:
+      '@ramp/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  packages/client:
+    dependencies:
+      '@ramp/attestation':
+        specifier: workspace:*
+        version: link:../attestation
+      '@ramp/gate':
+        specifier: workspace:*
+        version: link:../gate
+      '@ramp/ledger':
+        specifier: workspace:*
+        version: link:../ledger
       '@ramp/shared':
         specifier: workspace:*
         version: link:../shared

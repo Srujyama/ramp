@@ -24,6 +24,7 @@
 /packages/provenance/       @Srujyama
 /packages/quarantine/       @Srujyama
 /packages/attestation/      @Srujyama
+/packages/client/           @Srujyama
 
 # --- The demo/audit drivers (owner) ----------------------------------------
 # scripts/demo.mjs is executable documentation of PITCH.md and runs in CI.
