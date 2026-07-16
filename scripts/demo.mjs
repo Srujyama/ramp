@@ -345,6 +345,36 @@ beat(
   "deny/budget_exceeded",
 );
 
+// -- Beat 8: VELOCITY — spending fast, not big --------------------------------
+// agent_burst has already settled 6 tiny payments this hour (the seeded velocity
+// limit). Its next $5 payment is within every cap, from a verified+trusted vendor,
+// with a valid attestation — and it still escalates, on RATE. This is the fraud a
+// cap cannot see: a compromised agent draining an account in a flurry of small,
+// individually-fine payments.
+const burstInvoice = "ACME CORP\nInvoice inv_burst_next\nPens\nTotal: USD 5\n";
+beat(
+  8,
+  "VELOCITY — 7th rapid payment escalates on rate, not amount",
+  {
+    vendorId: "acme_corp",
+    amount: 5,
+    currency: "USD",
+    category: "automation",
+    invoiceRef: "inv_burst_next",
+    requestingAgent: "agent_burst",
+    invoiceDocument: burstInvoice,
+    attestation: mintAttestation({
+      invoiceDocument: burstInvoice,
+      serverDomain: "acme.example.com",
+      amount: 5,
+      currency: "USD",
+      invoiceRef: "inv_burst_next",
+    }),
+  },
+  "escalate",
+  "escalate/velocity_exceeded",
+);
+
 // -- Fail-closed: the ledger is gone ----------------------------------------
 {
   const prior = process.env.RAMP_DB_PATH;

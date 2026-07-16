@@ -44,7 +44,12 @@ export const LEDGER_QUERIES = {
   vendorVerified: "SELECT verified FROM vendors WHERE vendor_id = ?",
   vendorDomain: "SELECT registry_domain FROM vendors WHERE vendor_id = ?",
   limits:
-    "SELECT per_txn_cap, daily_limit, escalation_threshold, currency FROM policy_limits WHERE id = 1",
+    "SELECT per_txn_cap, daily_limit, escalation_threshold, velocity_limit, velocity_window_minutes, currency FROM policy_limits WHERE id = 1",
+  // Count of the agent's SETTLED payments inside the velocity window. Counts
+  // ledger_entries (real spend), not decisions — a held or denied attempt is not
+  // a payment, and velocity is about money that actually moved.
+  recentTxnCount:
+    "SELECT COUNT(*) AS n FROM ledger_entries WHERE agent_id = ? AND ts >= datetime('now', ?)",
   vendorRiskTier: "SELECT risk_tier FROM vendors WHERE vendor_id = ?",
   // ORDER BY is load-bearing, not cosmetic: the kernel emits one reason per
   // broken budget IN LIST ORDER, so an unsorted list would make the SAME facts
@@ -77,6 +82,10 @@ export interface Limits {
   readonly dailyLimit: number;
   /** Amount above which a human must approve, even within the hard caps. */
   readonly escalationThreshold: number;
+  /** Count at/above which the next payment escalates. */
+  readonly velocityLimit: number;
+  /** Rolling window (minutes) the velocity count is measured over. */
+  readonly velocityWindowMinutes: number;
   readonly currency: string;
 }
 
@@ -233,6 +242,8 @@ export class LedgerFactSource implements AuthoritativeFactSource {
           per_txn_cap: number;
           daily_limit: number;
           escalation_threshold: number;
+          velocity_limit: number;
+          velocity_window_minutes: number;
           currency: string;
         }
       | undefined;
@@ -245,8 +256,23 @@ export class LedgerFactSource implements AuthoritativeFactSource {
       perTxnCap: Number(row.per_txn_cap),
       dailyLimit: Number(row.daily_limit),
       escalationThreshold: Number(row.escalation_threshold),
+      velocityLimit: Number(row.velocity_limit),
+      velocityWindowMinutes: Number(row.velocity_window_minutes),
       currency: row.currency,
     };
+  }
+
+  /**
+   * How many payments the agent has settled inside the velocity window.
+   *
+   * The window comes from policy config, formatted as SQLite's relative modifier
+   * ("-60 minutes"). Deterministic given the DB clock, like daily_total_so_far.
+   */
+  getRecentTxnCount(agentId: string, windowMinutes: number): number {
+    const row = this.#db
+      .prepare(LEDGER_QUERIES.recentTxnCount)
+      .get(agentId, `-${windowMinutes} minutes`) as { n: number } | undefined;
+    return row ? Number(row.n) : 0;
   }
 
   /** The org's approved category ids (those with `approved = 1`), sorted. */
@@ -288,6 +314,8 @@ export class LedgerFactSource implements AuthoritativeFactSource {
       escalationThreshold: limits.escalationThreshold,
       vendorRiskTier: this.getVendorRiskTier(req.vendorId),
       budgets: this.getBudgetsFor(req.category, req.vendorId, req.requestingAgent),
+      recentTxnCount: this.getRecentTxnCount(req.requestingAgent, limits.velocityWindowMinutes),
+      velocityLimit: limits.velocityLimit,
     };
   }
 
@@ -381,6 +409,28 @@ export class LedgerFactSource implements AuthoritativeFactSource {
           table: "vendors",
           query: LEDGER_QUERIES.vendorRiskTier,
           params: [req.vendorId],
+        },
+      },
+      {
+        fact: "recent_txn_count",
+        value: facts.recentTxnCount,
+        source: "ledger_db",
+        derivation: {
+          kind: "sql",
+          table: "ledger_entries",
+          query: LEDGER_QUERIES.recentTxnCount,
+          params: [req.requestingAgent, `-<velocity_window> minutes`],
+        },
+      },
+      {
+        fact: "velocity_limit",
+        value: facts.velocityLimit,
+        source: "policy_config",
+        derivation: {
+          kind: "sql",
+          table: "policy_limits",
+          query: LEDGER_QUERIES.limits,
+          params: [],
         },
       },
       {

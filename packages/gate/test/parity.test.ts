@@ -33,6 +33,8 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
   escalation_threshold: 400,
   vendor_risk_tier: "standard",
   budgets: [],
+  recent_txn_count: 0,
+  velocity_limit: 6,
   };
   return { ...base, ...overrides };
 }

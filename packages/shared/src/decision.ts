@@ -102,7 +102,17 @@ export type RuleId =
    * impersonation setup, and exactly the case where a human glance is cheap and
    * a mistake is not.
    */
-  | "escalate/elevated_risk_vendor";
+  | "escalate/elevated_risk_vendor"
+  /**
+   * The agent has already settled `velocity_limit` payments inside the org's
+   * velocity window — the next one needs a human.
+   *
+   * A rate control, not an amount control. The caps stop one big theft; velocity
+   * stops the death-of-a-thousand-cuts a compromised agent actually uses. Escalate
+   * not deny: a legitimate batch run also bursts, and refusing real work outright
+   * is how a control gets switched off.
+   */
+  | "escalate/velocity_exceeded";
 
 export interface Decision {
   /** Final outcome. `"deny"` if any deny rule fired, else `"allow"`. */

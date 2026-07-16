@@ -216,6 +216,13 @@ function evaluate(f) {
         `"${f.vendor_risk_tier}" — a human must approve`,
     ]);
   }
+  if (f.recent_txn_count >= f.velocity_limit) {
+    escalations.push([
+      "escalate/velocity_exceeded",
+      `velocity_exceeded: agent "${f.requesting_agent}" has settled ${f.recent_txn_count} ` +
+        `payment(s) in the velocity window (limit ${f.velocity_limit}) — a human must approve the next`,
+    ]);
+  }
 
   // deny > escalate > allow. Deny first: an escalation must never hand a human a
   // request that policy already rejected.
@@ -265,6 +272,8 @@ const FACT_SOURCES = {
   escalation_threshold: "policy_config",
   vendor_risk_tier: "vendor_registry",
   budgets: "ledger_db",
+  recent_txn_count: "ledger_db",
+  velocity_limit: "policy_config",
 };
 
 // ---------------------------------------------------------------------------

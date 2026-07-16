@@ -93,6 +93,21 @@ export interface Facts {
    * because only one of them ever speaks about that scope.
    */
   readonly budgets: readonly BudgetLine[];
+  /**
+   * How many payments this agent has already settled inside the org's velocity
+   * window (from the ledger). A rate signal, not an amount signal.
+   *
+   * Velocity is a different fraud shape than any cap: a compromised agent draining
+   * an account does it not with one giant payment (the cap stops that) but with a
+   * flurry of small ones under every limit. Counting the flurry is the control.
+   */
+  readonly recent_txn_count: number;
+  /**
+   * The count at/above which the next payment needs a human (org policy). A burst
+   * is not necessarily fraud — a batch run is legitimate — so this ESCALATES
+   * rather than denies: hold it, let a person look, don't refuse a real workload.
+   */
+  readonly velocity_limit: number;
 }
 
 /**
@@ -146,4 +161,6 @@ export const FACT_SOURCES: { readonly [K in keyof Facts]: FactSource } = {
   escalation_threshold: "policy_config",
   vendor_risk_tier: "vendor_registry",
   budgets: "ledger_db",
+  recent_txn_count: "ledger_db",
+  velocity_limit: "policy_config",
 };

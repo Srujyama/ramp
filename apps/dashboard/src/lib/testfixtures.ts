@@ -25,6 +25,8 @@ export function mkFacts(over: Partial<Facts> = {}): Facts {
     // additional budgets is a real, common case, and D7 is exercised properly in
     // @ramp/gate's tests.
     budgets: [],
+    recent_txn_count: 0,
+    velocity_limit: 6,
     ...over,
   };
 }

@@ -22,6 +22,7 @@
  * ...then, only if NO deny fired:
  *   7. escalate/over_escalation_threshold (policy.dl E1)
  *   8. escalate/elevated_risk_vendor      (policy.dl E2)
+ *   9. escalate/velocity_exceeded         (policy.dl E3)
  *
  * The lattice is **deny > escalate > allow**. Order within a tier affects only
  * the reason list; the tiers themselves are the semantics. Deny dominates
@@ -203,6 +204,17 @@ export class ReferenceKernel implements PolicyKernel {
         reason:
           `elevated_risk_vendor: vendor "${facts.vendor}" is verified but carries risk tier ` +
           `"${facts.vendor_risk_tier}" — a human must approve`,
+      });
+    }
+
+    // E3: the agent is spending FAST. Not big — fast. The count is the signal.
+    if (facts.recent_txn_count >= facts.velocity_limit) {
+      escalations.push({
+        id: "escalate/velocity_exceeded",
+        reason:
+          `velocity_exceeded: agent "${facts.requesting_agent}" has settled ` +
+          `${facts.recent_txn_count} payment(s) in the velocity window (limit ` +
+          `${facts.velocity_limit}) — a human must approve the next`,
       });
     }
 

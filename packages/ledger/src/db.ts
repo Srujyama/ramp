@@ -193,6 +193,16 @@ const ADDITIVE_COLUMNS: ReadonlyArray<{
     ddl: "ALTER TABLE vendors ADD COLUMN risk_tier TEXT NOT NULL DEFAULT 'standard'",
   },
   {
+    table: "policy_limits",
+    column: "velocity_limit",
+    ddl: "ALTER TABLE policy_limits ADD COLUMN velocity_limit INTEGER NOT NULL DEFAULT 2147483647",
+  },
+  {
+    table: "policy_limits",
+    column: "velocity_window_minutes",
+    ddl: "ALTER TABLE policy_limits ADD COLUMN velocity_window_minutes INTEGER NOT NULL DEFAULT 60",
+  },
+  {
     table: "decisions",
     column: "prev_chain_hash",
     ddl: "ALTER TABLE decisions ADD COLUMN prev_chain_hash TEXT",

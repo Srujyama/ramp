@@ -16,7 +16,10 @@
 -- who this is" (which now throws UnknownAgentError instead of reading as zero).
 INSERT INTO agents (agent_id, display_name) VALUES
   ('agent_47', 'Procurement Agent 47'),
-  ('agent_12', 'Ops Agent 12');
+  ('agent_12', 'Ops Agent 12'),
+  -- A busy automation agent: already at the velocity limit this hour, so its next
+  -- payment escalates on rate even though every amount is tiny and within cap.
+  ('agent_burst', 'Batch Agent');
 
 -- Vendor registry: one verified vendor + two unverified (for the spoof/deny beats).
 INSERT INTO vendors (vendor_id, display_name, verified, registry_domain, registry_verified_at, registry_method, risk_tier) VALUES
@@ -33,6 +36,7 @@ INSERT INTO categories (category_id, display_name, approved) VALUES
   ('office_supplies', 'Office Supplies', 1),
   ('software',        'Software',        1),
   ('travel',          'Travel',          1),
+  ('automation',      'Automation',      1),
   ('crypto',          'Crypto',          0);
 
 -- agent_47 is cleared for office_supplies + software (NOT travel -> demoable
@@ -40,18 +44,28 @@ INSERT INTO categories (category_id, display_name, approved) VALUES
 INSERT INTO agent_category_clearances (agent_id, category_id) VALUES
   ('agent_47', 'office_supplies'),
   ('agent_47', 'software'),
-  ('agent_12', 'office_supplies');
+  ('agent_12', 'office_supplies'),
+  ('agent_burst', 'automation');
 
 -- Prior spend today for agent_47 totalling 1140 (600 + 540) so 340 more still allows.
 INSERT INTO ledger_entries (agent_id, vendor_id, category_id, amount, currency, request_id, ts) VALUES
   ('agent_47', 'acme_corp', 'office_supplies', 600, 'USD', 'req_seed_01', datetime('now')),
-  ('agent_47', 'acme_corp', 'software',        540, 'USD', 'req_seed_02', datetime('now'));
+  ('agent_47', 'acme_corp', 'software',        540, 'USD', 'req_seed_02', datetime('now')),
+  ('agent_burst', 'acme_corp', 'automation', 5, 'USD', 'req_burst_01', datetime('now')),
+  ('agent_burst', 'acme_corp', 'automation', 5, 'USD', 'req_burst_02', datetime('now')),
+  ('agent_burst', 'acme_corp', 'automation', 5, 'USD', 'req_burst_03', datetime('now')),
+  ('agent_burst', 'acme_corp', 'automation', 5, 'USD', 'req_burst_04', datetime('now')),
+  ('agent_burst', 'acme_corp', 'automation', 5, 'USD', 'req_burst_05', datetime('now')),
+  ('agent_burst', 'acme_corp', 'automation', 5, 'USD', 'req_burst_06', datetime('now'));
 
 -- Org policy limits.
 -- escalation_threshold 400 sits between the hero 340 (ALLOW, unattended) and the
 -- 500 hard cap: 340 allows, 450 escalates to a human, 600 denies outright.
-INSERT INTO policy_limits (id, per_txn_cap, daily_limit, escalation_threshold, currency) VALUES
-  (1, 500, 1500, 400, 'USD');
+-- velocity_limit 6 over a 60-min window: agent_47 has 2 recent settled payments,
+-- so the hero and every existing beat are untouched; a 7th payment from a busy
+-- agent escalates. Chosen above the seeded counts so nothing pre-existing trips.
+INSERT INTO policy_limits (id, per_txn_cap, daily_limit, escalation_threshold, velocity_limit, velocity_window_minutes, currency) VALUES
+  (1, 500, 1500, 400, 6, 60, 'USD');
 
 -- Additional budgets (policy.dl D7). Numbers chosen so every demo beat lands
 -- where PITCH.md says, which is NOT automatic — the first attempt set

@@ -75,6 +75,11 @@ CREATE TABLE IF NOT EXISTS policy_limits (
   -- without inventing a policy: a threshold equal to the cap escalates nothing,
   -- which is exactly the behaviour a pre-escalate ledger already had.
   escalation_threshold INTEGER NOT NULL DEFAULT 2147483647,
+  -- Velocity: count at/above which the next payment escalates, over a rolling
+  -- window. A rate control, not an amount control. Defaulted effectively-infinite
+  -- so a migrated ledger behaves exactly as before — a migration invents no policy.
+  velocity_limit          INTEGER NOT NULL DEFAULT 2147483647,
+  velocity_window_minutes INTEGER NOT NULL DEFAULT 60,
   currency    TEXT NOT NULL DEFAULT 'USD'
 );
 
