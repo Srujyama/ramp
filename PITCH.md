@@ -83,6 +83,7 @@ suggestion. Nobody gets asked to approve something policy already refused.
 | **allow** | $340, under the $400 threshold | Pays, unattended |
 | **escalate** | $450 — within the $500 cap, over the threshold | **Held.** A human is asked |
 | **escalate** | verified vendor, onboarded yesterday | **Held.** Verified ≠ familiar |
+| **escalate** | 7th payment in an hour — tiny amounts, every cap fine | **Held.** Fraud is *fast*, not big |
 | **deny** | $600 — over the cap | Refused. Nobody is asked |
 | **deny** | $300 software — under every cap, over the *category* budget | Refused |
 
@@ -100,6 +101,16 @@ per-vendor caps for Acme and NewCo. Demo beat 7 is `$300` of software: under the
 category budget** (540 already spent + 300 > 800). Deliberately a budget beat that
 *isn't* the daily limit, or D7 would only ever be demoed by something D5 already
 catches.
+
+### Velocity: the fraud a cap cannot see
+
+Every limit so far is about *amount*. But a compromised agent doesn't drain an
+account with one giant payment — the cap stops that — it does it with a **flurry of
+small ones**, each individually fine. So the kernel counts the flurry: past the
+org's velocity limit for the window, the next payment **escalates** (rate, not
+amount). Held for a human, not refused, because a legitimate batch run bursts too.
+Demo beat 8: `agent_burst`'s 7th $5 payment in an hour is held while the hero,
+with 2, sails through.
 
 This is what lets `per_txn_cap` mean *one* thing again. It used to be both "the most
 an agent may spend unattended" and "the most an agent may spend" — two different
@@ -333,7 +344,7 @@ workspaces: `@ramp/shared` (frozen contract), `@ramp/gate` (kernel + real Souffl
 **`@ramp/quarantine`**, **`@ramp/attestation`**, **`@ramp/provenance`**, `@ramp/payments-mcp`
 (self-enforcing tool), `@ramp/dashboard` (the audit console). CI, branch protection, 4 collaborators.
 
-**461 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
+**464 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 

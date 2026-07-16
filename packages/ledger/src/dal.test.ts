@@ -86,7 +86,7 @@ test("org limits are per_txn_cap 500 / daily_limit 1500 USD", () => {
 test("approved categories exclude crypto", () => {
   withSeededDb((fs) => {
     const approved = fs.getApprovedCategories();
-    assert.deepEqual(approved, ["office_supplies", "software", "travel"]);
+    assert.deepEqual(approved, ["automation", "office_supplies", "software", "travel"]);
     assert.ok(!approved.includes("crypto"));
   });
 });
@@ -108,6 +108,7 @@ test("contextFor assembles the authoritative context for the hero request", () =
     assert.equal(ctx.perTxnCap, 500);
     assert.equal(ctx.dailyLimit, 1500);
     assert.deepEqual(ctx.approvedCategories, [
+      "automation",
       "office_supplies",
       "software",
       "travel",

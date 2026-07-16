@@ -78,6 +78,10 @@ export interface AuthoritativeFacts {
   readonly vendorRiskTier: string;
   /** Additional budgets this spend must fit under. Sorted by (scope, key). */
   readonly budgets: readonly import("./facts.js").BudgetLine[];
+  /** The agent's settled-payment count within the velocity window (ledger read). */
+  readonly recentTxnCount: number;
+  /** Count at/above which the next payment escalates (policy_config). */
+  readonly velocityLimit: number;
 }
 
 /**
@@ -139,6 +143,8 @@ export function translateToFacts(
     escalation_threshold: authoritative.escalationThreshold,
     vendor_risk_tier: authoritative.vendorRiskTier,
     budgets: authoritative.budgets,
+    recent_txn_count: authoritative.recentTxnCount,
+    velocity_limit: authoritative.velocityLimit,
   };
 }
 

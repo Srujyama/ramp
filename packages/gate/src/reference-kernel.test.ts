@@ -40,6 +40,8 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
   escalation_threshold: 400,
   vendor_risk_tier: "standard",
   budgets: [],
+  recent_txn_count: 0,
+  velocity_limit: 6,
   };
   return { ...base, ...overrides };
 }
@@ -162,6 +164,30 @@ test("deny: no verified attestation (pillar 4, D6)", () => {
   assert.equal(d.decision, "deny");
   assert.deepEqual(d.firedRules, ["deny/attestation_invalid"]);
   assert.ok(d.reasons[0]?.includes("unattested document"));
+});
+
+test("escalate: velocity — the agent is spending fast (E3)", () => {
+  // A rate signal, not an amount signal: tiny amount, every cap fine, but the
+  // agent has already hit the velocity limit this window.
+  const d = referenceKernel.evaluate(
+    baseFacts({ amount: 10, daily_total_so_far: 0, recent_txn_count: 6, velocity_limit: 6 }),
+  );
+  assert.equal(d.decision, "escalate");
+  assert.deepEqual(d.firedRules, ["escalate/velocity_exceeded"]);
+});
+
+test("velocity: exactly AT the limit escalates, one below allows", () => {
+  const base = { amount: 10, daily_total_so_far: 0, velocity_limit: 6 } as const;
+  assert.equal(referenceKernel.evaluate(baseFacts({ ...base, recent_txn_count: 5 })).decision, "allow");
+  assert.equal(referenceKernel.evaluate(baseFacts({ ...base, recent_txn_count: 6 })).decision, "escalate");
+});
+
+test("velocity escalate still loses to a deny (lattice holds)", () => {
+  const d = referenceKernel.evaluate(
+    baseFacts({ recent_txn_count: 99, velocity_limit: 6, vendor_verified: false }),
+  );
+  assert.equal(d.decision, "deny");
+  assert.ok(!d.firedRules.some((r) => r.startsWith("escalate/")));
 });
 
 test("D6 is appended LAST in the fixed evaluation order", () => {

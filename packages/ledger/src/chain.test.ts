@@ -45,6 +45,8 @@ const FACTS: Facts = {
 escalation_threshold: 400,
 vendor_risk_tier: "standard",
 budgets: [],
+recent_txn_count: 0,
+velocity_limit: 6,
 };
 
 const ALLOW: Decision = {

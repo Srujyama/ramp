@@ -33,6 +33,8 @@ struct Facts {
     attestation_present: bool,
     escalation_threshold: i64,
     vendor_risk_tier: String,
+    recent_txn_count: i64,
+    velocity_limit: i64,
     #[serde(default)]
     budgets: Vec<BudgetLine>,
 }
@@ -174,6 +176,14 @@ fn evaluate_facts(f: &Facts) -> Decision {
         esc_reasons.push(format!(
             "elevated_risk_vendor: vendor \"{}\" is verified but carries risk tier \"{}\" — a human must approve",
             f.vendor, f.vendor_risk_tier
+        ));
+    }
+    // E3: spending fast — a rate signal, not an amount signal.
+    if f.recent_txn_count >= f.velocity_limit {
+        esc_fired.push("escalate/velocity_exceeded".to_string());
+        esc_reasons.push(format!(
+            "velocity_exceeded: agent \"{}\" has settled {} payment(s) in the velocity window (limit {}) — a human must approve the next",
+            f.requesting_agent, f.recent_txn_count, f.velocity_limit
         ));
     }
 

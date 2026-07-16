@@ -83,6 +83,8 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     escalation_threshold: 400,
     vendor_risk_tier: "standard",
     budgets: [],
+    recent_txn_count: 0,
+    velocity_limit: 6,
     ...overrides,
   };
 }
@@ -174,6 +176,8 @@ test("PARITY: the two agree across 5000 randomized fact sets", () => {
       attestation_present: rng() > 0.5,
       escalation_threshold: pick([Math.floor(rng() * 1000), 400]) as number,
       vendor_risk_tier: pick(["standard", "elevated", "trusted", "unknown"]),
+      recent_txn_count: pick([0, 3, 6, Math.floor(rng() * 20)]) as number,
+      velocity_limit: pick([6, 2147483647, Math.floor(rng() * 10)]) as number,
       // Randomised budget lists, INCLUDING the awkward shapes: empty, several at
       // once, zero limits, already overspent. A loop over a list is far easier to
       // get subtly different between two hand-written kernels than a scalar

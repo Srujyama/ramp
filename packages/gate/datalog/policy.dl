@@ -89,6 +89,15 @@
 .decl budget_applies(r: symbol, scope: symbol, key: symbol)
 .input budget_applies
 
+// recent_txn_count(Agent, N): settled-payment count for the agent inside the
+// velocity window. From the ledger. One row per agent under evaluation.
+.decl recent_txn_count(agent: symbol, n: number)
+.input recent_txn_count
+
+// velocity_limit(L): count at/above which the next payment escalates. Policy config.
+.decl velocity_limit(l: number)
+.input velocity_limit
+
 // escalation_threshold(T): org amount above which a human must approve, even
 // though the spend is within every hard cap. From policy_config. One row.
 .decl escalation_threshold(t: number)
@@ -159,6 +168,16 @@ escalate(R) :-
   request(R),
   vendor(R, V),
   vendor_risk_tier(V, "elevated").
+
+// E3: the agent is spending FAST — a rate signal, not an amount signal. The caps
+// stop one big theft; this stops the flurry of small ones a compromised agent
+// actually uses. Escalate, because a legitimate batch run also bursts.
+escalate(R) :-
+  request(R),
+  requesting_agent(R, Ag),
+  recent_txn_count(Ag, N),
+  velocity_limit(L),
+  N >= L.
 
 // ---- DENY: any single trigger is enough (deny dominates) --------------------
 .decl deny(r: symbol)

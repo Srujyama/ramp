@@ -101,6 +101,12 @@ export const RULE_META: Record<RuleId, { title: string; blurb: string }> = {
       "Within every hard cap, but above the amount the org wants a person to see. " +
       "Held — not denied, and not paid.",
   },
+  "escalate/velocity_exceeded": {
+    title: "Too many, too fast",
+    blurb:
+      "The agent has hit its payment-rate limit for the window. A burst isn't " +
+      "necessarily fraud — a batch run bursts too — so it's held for a human, not refused.",
+  },
   "escalate/elevated_risk_vendor": {
     title: "Elevated-risk vendor",
     blurb:
@@ -219,6 +225,7 @@ const RULE_PHRASE: Record<RuleId, string> = {
   "escalate/over_escalation_threshold":
     "it is within the caps but large enough that a person should approve it",
   "escalate/elevated_risk_vendor": "the vendor is verified but was onboarded recently",
+  "escalate/velocity_exceeded": "the agent has made too many payments too quickly",
 };
 
 /** Oxford-comma join: [] → "", [a] → "a", [a,b] → "a and b", [a,b,c] → "a, b, and c". */
