@@ -126,9 +126,10 @@ try {
   }
 
   const money = (n) => `$${Number(n).toLocaleString()}`;
+  const isAllow = explanation.outcome === "allow";
   const L = [];
   L.push("");
-  L.push("  WHY DID THE GATE STOP THIS?");
+  L.push(isAllow ? "  HOW CLOSE WAS THIS ALLOW TO BEING STOPPED?" : "  WHY DID THE GATE STOP THIS?");
   L.push("  " + "─".repeat(64));
   L.push(`  decision   ${record.decisionId}`);
   L.push(`  request    ${record.agentId} → ${record.vendorId}  ${money(record.amount)}  (${record.category})`);
@@ -146,21 +147,34 @@ try {
     }
   }
 
+  // For a STOPPED decision: what would have flipped it to allow.
   const cf = explanation.counterfactual;
-  L.push("");
-  L.push("  COUNTERFACTUAL  (kernel-confirmed — the gate re-ran itself to check)");
-  if (cf.maxAllowAmount !== null && cf.maxAllowAmount < record.amount) {
-    L.push(`    would have SETTLED UNATTENDED at any amount ≤ ${money(cf.maxAllowAmount)}`);
-    L.push(`    (it asked for ${money(record.amount)} — ${money(record.amount - cf.maxAllowAmount)} too much)`);
-  } else if (cf.maxNonDenyAmount !== null && cf.maxNonDenyAmount < record.amount) {
-    L.push(`    at ≤ ${money(cf.maxNonDenyAmount)} it would be HELD for a human rather than denied outright`);
-    if (cf.categoricalBlockers.length) {
-      L.push(`    but it still needs a person because: ${cf.categoricalBlockers.join(", ")}`);
+  if (!isAllow) {
+    L.push("");
+    L.push("  COUNTERFACTUAL  (kernel-confirmed — the gate re-ran itself to check)");
+    if (cf.maxAllowAmount !== null && cf.maxAllowAmount < record.amount) {
+      L.push(`    would have SETTLED UNATTENDED at any amount ≤ ${money(cf.maxAllowAmount)}`);
+      L.push(`    (it asked for ${money(record.amount)} — ${money(record.amount - cf.maxAllowAmount)} too much)`);
+    } else if (cf.maxNonDenyAmount !== null && cf.maxNonDenyAmount < record.amount) {
+      L.push(`    at ≤ ${money(cf.maxNonDenyAmount)} it would be HELD for a human rather than denied outright`);
+      if (cf.categoricalBlockers.length) {
+        L.push(`    but it still needs a person because: ${cf.categoricalBlockers.join(", ")}`);
+      }
+    } else {
+      L.push("    no amount clears this — it is blocked on a categorical fact, not a number:");
+      for (const b of cf.categoricalBlockers) L.push(`      · ${b}`);
+      if (!cf.categoricalBlockers.length) L.push("      · policy requires a human review");
     }
-  } else {
-    L.push("    no amount clears this — it is blocked on a categorical fact, not a number:");
-    for (const b of cf.categoricalBlockers) L.push(`      · ${b}`);
-    if (!cf.categoricalBlockers.length) L.push("      · policy requires a human review");
+  }
+
+  // For a NOT-denied decision: how close it came to the nearest limit.
+  const ns = explanation.nearestStop;
+  if (ns) {
+    const verb = ns.outcome === "deny" ? "DENIED" : "HELD for a human";
+    L.push("");
+    L.push("  SAFETY MARGIN  (kernel-confirmed — the nearest limit above this amount)");
+    L.push(`    at ${money(ns.amount)} it would be ${verb} — only ${money(ns.margin)} more than it asked for`);
+    L.push(`    first rule to fire: ${ns.rule}`);
   }
 
   L.push("");

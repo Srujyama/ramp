@@ -480,12 +480,29 @@ beat(
       // Kernel-confirm the flip: allow at `max`, NOT allow at `max + 1`.
       const allowsAtMax = kernel.evaluate({ ...deny.facts, amount: max }).decision === "allow";
       const deniesAbove = kernel.evaluate({ ...deny.facts, amount: max + 1 }).decision !== "allow";
-      const ok = max === room && allowsAtMax && deniesAbove;
+      // The mirror direction: explain an ALLOW and confirm its safety margin — the
+      // smallest amount that would stop it — is also kernel-confirmed at the boundary.
+      const allow = listDecisions(db, { status: "allowed", limit: 1 }).decisions[0];
+      let marginOk = false;
+      let marginMsg = "no allow recorded";
+      if (allow?.facts && allow.decision) {
+        const ax = explainDecision(allow.facts, allow.decision, kernel);
+        const ns = ax.nearestStop;
+        if (ns) {
+          const okAtStop = kernel.evaluate({ ...allow.facts, amount: ns.amount }).decision === ns.outcome;
+          const stillAllowJustBelow =
+            kernel.evaluate({ ...allow.facts, amount: ns.amount - 1 }).decision === "allow";
+          marginOk = okAtStop && stillAllowJustBelow && ns.margin === ns.amount - allow.facts.amount;
+          marginMsg = `allow ${allow.facts.amount} → ${ns.outcome} at ${ns.amount} (margin ${ns.margin})`;
+        }
+      }
+      const ok = max === room && allowsAtMax && deniesAbove && marginOk;
       if (!ok) failures++;
-      console.log(`${ok ? "  PASS" : "! FAIL"}  Beat 11: explainer's counterfactual is kernel-confirmed`);
+      console.log(`${ok ? "  PASS" : "! FAIL"}  Beat 11: explainer's counterfactual AND safety margin are kernel-confirmed`);
       console.log(`         -> ${ex.headline}`);
       console.log(`         -> maxAllowAmount ${max} == daily headroom ${room}; ` +
-        `kernel allows at ${max}: ${allowsAtMax}, refuses at ${max + 1}: ${deniesAbove}\n`);
+        `kernel allows at ${max}: ${allowsAtMax}, refuses at ${max + 1}: ${deniesAbove}`);
+      console.log(`         -> safety margin: ${marginMsg}; kernel-confirmed: ${marginOk}\n`);
     }
   } finally {
     closeLedger(db);

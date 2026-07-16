@@ -66,12 +66,36 @@ export interface Counterfactual {
   readonly categoricalBlockers: readonly RuleId[];
 }
 
+/**
+ * For a decision that was NOT denied, the nearest amount that would make it worse —
+ * "how close was this to being stopped?". The mirror image of the counterfactual:
+ * the counterfactual probes DOWN (what would allow a stopped payment); this probes
+ * UP (what would stop an allowed/held one). Kernel-confirmed the same way.
+ */
+export interface NearestStop {
+  /** The smallest amount (> the requested amount) whose verdict is worse. */
+  readonly amount: number;
+  /** The worse verdict at that amount — `escalate` (held) or `deny`. */
+  readonly outcome: DecisionOutcome;
+  /** How much more than the requested amount that is (the safety margin). */
+  readonly margin: number;
+  /** The first rule that fires at that amount. */
+  readonly rule: RuleId;
+}
+
 /** A full, provable explanation of one decision. */
 export interface Explanation {
   readonly outcome: DecisionOutcome;
   /** Every rule the kernel fired, each with its concrete fix. */
   readonly firedRules: readonly RuleExplanation[];
   readonly counterfactual: Counterfactual;
+  /**
+   * For an `allow` (nearest stop = escalate or deny) or an `escalate` (nearest
+   * deny), the smallest amount that would make the verdict worse — the safety
+   * margin. `null` for a `deny` (nothing worse to reach) or when no amount-governed
+   * rule can worsen it within a sane bound.
+   */
+  readonly nearestStop: NearestStop | null;
   /** A one-line, operator-facing summary that leads with the money. */
   readonly headline: string;
 }
@@ -232,6 +256,46 @@ function largestAmountSuchThat(
   return lo;
 }
 
+/** Severity of a verdict on the deny > escalate > allow lattice (higher = worse). */
+function severity(o: DecisionOutcome): number {
+  return o === "deny" ? 2 : o === "escalate" ? 1 : 0;
+}
+
+/**
+ * The smallest amount ABOVE `facts.amount` whose verdict is strictly WORSE than
+ * the current one — the mirror of {@link largestAmountSuchThat}, probing up. Relies
+ * on the same monotonicity (raising the amount never improves a verdict), so
+ * "is worse than baseline" is monotone and binary-searchable. `null` for a `deny`
+ * (nothing worse to reach). Kernel-confirmed at the boundary.
+ */
+function nearestStopFor(facts: Facts, kernel: PolicyKernel, baseline: DecisionOutcome): NearestStop | null {
+  const baseSev = severity(baseline);
+  if (baseSev === 2) return null; // already denied — nothing worse
+  // An amount above the per-txn cap always denies (D2), so cap+1 is a guaranteed
+  // "worse" ceiling to bracket the search. (allow/escalate imply amount ≤ cap.)
+  const ceiling = facts.per_txn_cap + 1;
+  const worseAt = (amt: number) =>
+    severity(kernel.evaluate({ ...facts, amount: amt }).decision) > baseSev;
+  if (!worseAt(ceiling)) return null; // defensive; should not happen for valid facts
+  let lo = facts.amount; // not worse (this is the baseline)
+  let hi = ceiling; // worse
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (worseAt(mid)) hi = mid;
+    else lo = mid;
+  }
+  const at = kernel.evaluate({ ...facts, amount: hi });
+  // A worse-than-allow verdict always has at least one fired rule; guard anyway.
+  const rule = at.firedRules.find((id) => id !== "allow/all_conditions_met") ?? at.firedRules[0];
+  if (rule === undefined) return null;
+  return {
+    amount: hi,
+    outcome: at.decision,
+    margin: hi - facts.amount,
+    rule,
+  };
+}
+
 /**
  * Explain one decision: annotate every fired rule with its fix, and compute the
  * kernel-confirmed counterfactual (the largest amount that would flip the verdict,
@@ -283,25 +347,47 @@ export function explainDecision(
     categoricalBlockers,
   };
 
+  // How close was this to being stopped? Meaningful only when it was NOT denied.
+  const nearestStop =
+    decision.decision === "deny" ? null : nearestStopFor(facts, kernel, decision.decision);
+
   return {
     outcome: decision.decision,
     firedRules,
     counterfactual,
-    headline: buildHeadline(facts, decision, counterfactual),
+    nearestStop,
+    headline: buildHeadline(facts, decision, counterfactual, nearestStop),
   };
 }
 
+/** How a nearest-stop reads in prose. */
+function stopVerb(outcome: DecisionOutcome): string {
+  return outcome === "deny" ? "denied" : "held for a human";
+}
+
 /** The one-line, money-first summary. */
-function buildHeadline(facts: Facts, decision: Decision, cf: Counterfactual): string {
+function buildHeadline(
+  facts: Facts,
+  decision: Decision,
+  cf: Counterfactual,
+  nearestStop: NearestStop | null,
+): string {
   if (decision.decision === "allow") {
+    if (nearestStop) {
+      return `Allowed at ${facts.amount} — ${nearestStop.margin} short of being ${stopVerb(nearestStop.outcome)} (that starts at ${nearestStop.amount}).`;
+    }
     return `Allowed: settled unattended at ${facts.amount}.`;
   }
   const asked = facts.amount;
   if (decision.decision === "escalate") {
+    const tail =
+      nearestStop && nearestStop.outcome === "deny"
+        ? ` (and ${nearestStop.margin} short of being denied outright, at ${nearestStop.amount})`
+        : "";
     if (cf.maxAllowAmount !== null && cf.maxAllowAmount < asked) {
-      return `Held for a human. Would have settled unattended at any amount ≤ ${cf.maxAllowAmount} (it asked for ${asked}).`;
+      return `Held for a human. Would have settled unattended at any amount ≤ ${cf.maxAllowAmount} (it asked for ${asked})${tail}.`;
     }
-    return `Held for a human — no smaller amount settles it unattended (${cf.categoricalBlockers.join(", ") || "policy requires review"}).`;
+    return `Held for a human — no smaller amount settles it unattended (${cf.categoricalBlockers.join(", ") || "policy requires review"})${tail}.`;
   }
   // deny
   if (cf.maxAllowAmount !== null && cf.maxAllowAmount < asked) {
