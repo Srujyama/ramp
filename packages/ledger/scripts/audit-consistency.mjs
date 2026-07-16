@@ -42,16 +42,34 @@ import { referenceKernel } from "@ramp/gate";
 // ---------------------------------------------------------------------------
 // The derivation under audit.
 // ---------------------------------------------------------------------------
-// Verbatim from SETTLED_SPEND_TODAY in src/dal.ts. It is repeated here ON PURPOSE
-// rather than imported: this file's job is to be an INDEPENDENT check on that
-// query, and a check that imports the thing it checks agrees with it by
-// construction. Check B additionally cross-examines the shipped DAL through its
-// public API, so if this copy ever drifts from the real one, B says so.
+// Spend is `ledger_entries` now, not the decision log: the DAL sums that table for
+// every windowed total it reads (src/dal.ts LEDGER_QUERIES — dailyTotalSoFar,
+// recentTxnCount, duplicateCount, #spentFor). A settled+allow decision AUTOMATICALLY
+// projects one `ledger_entries` row (recordExecution, src/decision-log.ts), and the
+// base seed writes a handful of direct fixture rows (agent_47's calibrated 1140, the
+// burst/travel/dup demo rows) that have NO decision behind them on purpose.
+//
+// So this audit's job splits in two: (1) the DAL's spend reads reconcile with an
+// independent JS walk of the SAME table, and (2) `ledger_entries` is a FAITHFUL
+// PROJECTION of the decision log — every settled+allow decision has exactly one row,
+// and every row is either such a projection or a base-seed fixture. The `FROM`
+// fragment below is the DAL's today-window, repeated ON PURPOSE rather than imported:
+// a check that imports the query it checks agrees with it by construction. Check B4
+// additionally cross-examines the shipped DAL through its public API, so if this copy
+// ever drifts from the real one, B4 says so.
 const SETTLED_SPEND_TODAY = `
-  FROM decisions d
-  JOIN decision_executions e ON e.decision_id = d.decision_id
-  WHERE d.outcome = 'allow' AND e.status = 'settled' AND date(d.ts) = date('now')
+  FROM ledger_entries
+  WHERE date(ts) = date('now')
 `;
+
+/**
+ * A `ledger_entries` row is a base-seed demo FIXTURE (no decision behind it) iff its
+ * request_id carries the seed's `req_` prefix — req_seed_* (agent_47's calibrated
+ * 1140), req_burst_*, req_trav_*, req_dup_seed. Every PROJECTED row instead carries
+ * the request_id of the decision it came from (`inv_h*` from the history seeder,
+ * `inv_*` from the enforcement path), so this prefix can never mask a real projection.
+ */
+const isSeedFixture = (requestId) => typeof requestId === "string" && requestId.startsWith("req_");
 
 // ---------------------------------------------------------------------------
 // Reporting
@@ -152,6 +170,14 @@ const executions = all(`
 const execByDecision = new Map(executions.map((e) => [e.decision_id, e]));
 for (const d of decisions) d.execution = execByDecision.get(d.decision_id) ?? null;
 
+// `ledger_entries` is the spend table the dashboard sums (src/dal.ts). Loaded once
+// into plain JS so the walks below can aggregate it themselves and never ask SQLite
+// to do it for them.
+const ledgerEntries = all(`
+  SELECT entry_id, agent_id, vendor_id, category_id, amount, request_id, ts
+    FROM ledger_entries
+`).map((r) => ({ ...r, amount: Number(r.amount) }));
+
 /** The single definition of "this decision moved money", used by every walk below. */
 const isSettled = (d) => d.outcome === "allow" && d.execution?.status === "settled";
 
@@ -198,26 +224,28 @@ check("A2", "No settled execution on a decision recorded as an error", {
 });
 
 // ===========================================================================
-section("B", "Spend derivation reconciles (SQL vs an independent JS walk)");
+section("B", "Spend derivation reconciles (ledger_entries: SQL vs walk vs shipped DAL)");
 // ===========================================================================
-// The dal sums today's spend in SQLite. Here we sum it again in JS, from rows
-// SQLite was never asked to aggregate, and compare. They must agree exactly —
-// not approximately: money is integer whole units precisely so that "close" is
-// never a passing answer.
+// The dal sums today's spend from `ledger_entries` in SQLite. Here we sum the SAME
+// table again in JS, from rows SQLite was never asked to aggregate, and compare.
+// They must agree exactly — not approximately: money is integer whole units precisely
+// so that "close" is never a passing answer.
+
+const entriesToday = ledgerEntries.filter((e) => e.ts.slice(0, 10) === today);
 
 /** Compare a SQL-derived map against a JS-derived one, keyed by scope value. */
 function reconcile(id, title, scopeColumn, keyOf) {
   const sqlRows = all(`
-    SELECT d.${scopeColumn} AS k, COALESCE(SUM(d.amount), 0) AS total
+    SELECT ${scopeColumn} AS k, COALESCE(SUM(amount), 0) AS total
     ${SETTLED_SPEND_TODAY}
-    GROUP BY d.${scopeColumn}
+    GROUP BY ${scopeColumn}
   `);
   const fromSql = new Map(sqlRows.map((r) => [r.k, Number(r.total)]));
 
   const fromWalk = new Map();
-  for (const d of settledToday) {
-    const k = keyOf(d);
-    fromWalk.set(k, (fromWalk.get(k) ?? 0) + d.amount);
+  for (const e of entriesToday) {
+    const k = keyOf(e);
+    fromWalk.set(k, (fromWalk.get(k) ?? 0) + e.amount);
   }
 
   const keys = [...new Set([...fromSql.keys(), ...fromWalk.keys()])].sort();
@@ -228,15 +256,15 @@ function reconcile(id, title, scopeColumn, keyOf) {
   check(id, title, {
     pass: mismatches.length === 0,
     detail:
-      `${keys.length} ${scopeColumn.replace("_id", "")}(s) with settled spend today; ` +
+      `${keys.length} ${scopeColumn.replace("_id", "")}(s) with spend today; ` +
       `total ${sum([...fromWalk.values()])}.`,
     rows: mismatches,
   });
 }
 
-reconcile("B1", "Per-agent spend today: dal query == independent walk", "agent_id", (d) => d.agent_id);
-reconcile("B2", "Per-category spend today: dal query == independent walk", "category", (d) => d.category);
-reconcile("B3", "Per-vendor spend today: dal query == independent walk", "vendor_id", (d) => d.vendor_id);
+reconcile("B1", "Per-agent spend today: dal query == independent walk", "agent_id", (e) => e.agent_id);
+reconcile("B2", "Per-category spend today: dal query == independent walk", "category_id", (e) => e.category_id);
+reconcile("B3", "Per-vendor spend today: dal query == independent walk", "vendor_id", (e) => e.vendor_id);
 
 // The check above proves the auditor's COPY of the query agrees with the walk.
 // It cannot notice that the copy has drifted from the query the enforcement path
@@ -248,10 +276,10 @@ reconcile("B3", "Per-vendor spend today: dal query == independent walk", "vendor
   const mismatches = [];
   for (const agentId of registered) {
     const fromDal = source.getDailyTotalSoFar(agentId);
-    const fromWalk = sum(settledToday.filter((d) => d.agent_id === agentId).map((d) => d.amount));
+    const fromWalk = sum(entriesToday.filter((e) => e.agent_id === agentId).map((e) => e.amount));
     if (fromDal !== fromWalk) mismatches.push(`${agentId}: dal=${fromDal} walk=${fromWalk}`);
   }
-  check("B4", "The SHIPPED dal (getDailyTotalSoFar) agrees with the walk", {
+  check("B4", "The SHIPPED dal (getDailyTotalSoFar) agrees with the ledger walk", {
     pass: mismatches.length === 0,
     detail: `${registered.length} registered agent(s) queried through LedgerFactSource.`,
     rows: mismatches,
@@ -259,13 +287,77 @@ reconcile("B3", "Per-vendor spend today: dal query == independent walk", "vendor
 
   // An agent that spends but is not in the registry would be summed by the walk
   // and REFUSED by the DAL (UnknownAgentError) — the two disagree, and the DAL is
-  // right to. Surfaced separately so B4 stays a clean equality check.
+  // right to. Surfaced separately so B4 stays a clean equality check. Both the
+  // decision log AND the spend table are scanned: a ledger row for a ghost agent is
+  // spend the dashboard would show and the DAL would refuse to explain.
   const known = new Set(registered);
-  const ghosts = [...new Set(decisions.filter((d) => !known.has(d.agent_id)).map((d) => d.agent_id))];
-  check("B5", "Every decision names an agent in the registry", {
+  const ghosts = [
+    ...new Set(
+      [
+        ...decisions.filter((d) => !known.has(d.agent_id)).map((d) => d.agent_id),
+        ...ledgerEntries.filter((e) => !known.has(e.agent_id)).map((e) => e.agent_id),
+      ],
+    ),
+  ];
+  check("B5", "Every decision and ledger row names an agent in the registry", {
     pass: ghosts.length === 0,
-    detail: `${ghosts.length} unregistered agent(s) appear in the decision log.`,
-    rows: ghosts.map((a) => `${a}: decisions exist, no row in \`agents\` — the DAL refuses to serve it facts`),
+    detail: `${ghosts.length} unregistered agent(s) appear in the decision log or ledger.`,
+    rows: ghosts.map((a) => `${a}: rows exist, no row in \`agents\` — the DAL refuses to serve it facts`),
+  });
+}
+
+// ---- The projection is faithful: ledger_entries <-> settled+allow decisions ------
+// Spend is `ledger_entries`, but the CLAIM is that a row lands there if and only if
+// the kernel allowed a decision and the executor settled it — the projection
+// recordExecution performs (src/decision-log.ts). B4 proves the totals add up; it is
+// blind to a ledger row conjured with no decision behind it, or a settled decision
+// that never made it into spend. So match the two sets row for row on the fields the
+// projection copies (agent, vendor, category, amount, request_id), counting
+// multiplicity so a duplicated row cannot hide behind an equal sum.
+{
+  const projKey = (agent, vendor, category, amount, requestId) =>
+    `${agent}|${vendor}|${category}|${amount}|${requestId ?? ""}`;
+
+  const settledAllow = decisions.filter(isSettled);
+  const decCounts = new Map();
+  for (const d of settledAllow) {
+    const k = projKey(d.agent_id, d.vendor_id, d.category, d.amount, d.request_id);
+    decCounts.set(k, (decCounts.get(k) ?? 0) + 1);
+  }
+
+  // Base-seed fixtures (req_*) are decision-less demo data by design — exempt.
+  const projectedEntries = ledgerEntries.filter((e) => !isSeedFixture(e.request_id));
+  const fixtureCount = ledgerEntries.length - projectedEntries.length;
+  const entryCounts = new Map();
+  for (const e of projectedEntries) {
+    const k = projKey(e.agent_id, e.vendor_id, e.category_id, e.amount, e.request_id);
+    entryCounts.set(k, (entryCounts.get(k) ?? 0) + 1);
+  }
+
+  const missing = [];
+  for (const [k, n] of decCounts) {
+    const m = entryCounts.get(k) ?? 0;
+    if (m < n) missing.push(`${k} — ${n} settled decision(s) but only ${m} ledger row(s)`);
+  }
+  check("B6", "Every settled+allow decision projects a matching ledger_entries row", {
+    pass: missing.length === 0,
+    detail:
+      `${settledAllow.length} settled+allow decision(s) vs ${projectedEntries.length} projected ledger ` +
+      `row(s) (${fixtureCount} base-seed fixture(s) exempt).`,
+    rows: missing,
+  });
+
+  const orphans = [];
+  for (const [k, n] of entryCounts) {
+    const m = decCounts.get(k) ?? 0;
+    if (n > m) orphans.push(`${k} — ${n} ledger row(s) but only ${m} settled decision(s)`);
+  }
+  check("B7", "No ledger_entries row without a settled+allow decision (base-seed fixtures exempt)", {
+    pass: orphans.length === 0,
+    detail:
+      `${projectedEntries.length} projected row(s) checked; a row with no decision behind it is spend ` +
+      `nothing authorised.`,
+    rows: orphans,
   });
 }
 
@@ -319,21 +411,27 @@ check("C2", "Every excluded decision has exactly one named reason for not counti
   rows: unclassified.map((d) => `${d.decision_id} outcome=${d.outcome} exec=${d.execution?.status ?? "none"}`),
 });
 
-// The direct form of the claim: no excluded amount appears in any spend total.
-// Recompute today's totals from the settled set alone and confirm the excluded
-// rows for today were nowhere in it.
+// The direct form of the claim: today's spend total (the dashboard's number, summed
+// from `ledger_entries`) accounts for exactly two legitimate sources — the settled
+// decisions projected today and the base-seed fixtures — and no excluded decision
+// leaked into it. Recompute all three independently and confirm they close.
 {
   const excludedToday = decisions.filter((d) => !isSettled(d) && d.ts.slice(0, 10) === today);
-  const sqlToday = Number(one(`SELECT COALESCE(SUM(d.amount), 0) AS total ${SETTLED_SPEND_TODAY}`).total);
-  const walkToday = sum(settledToday.map((d) => d.amount));
-  const wouldBeToday = walkToday + sum(excludedToday.map((d) => d.amount));
-  check("C3", "Today's total counts settled spend and nothing else", {
-    pass: sqlToday === walkToday,
+  const sqlToday = Number(one(`SELECT COALESCE(SUM(amount), 0) AS total ${SETTLED_SPEND_TODAY}`).total);
+  const ledgerToday = sum(entriesToday.map((e) => e.amount));
+  const fixturesToday = sum(entriesToday.filter((e) => isSeedFixture(e.request_id)).map((e) => e.amount));
+  const settledDecToday = sum(settledToday.map((d) => d.amount));
+  const excludedTodayAmt = sum(excludedToday.map((d) => d.amount));
+  const closes = sqlToday === ledgerToday && ledgerToday === settledDecToday + fixturesToday;
+  check("C3", "Today's total counts settled spend + base-seed fixtures and nothing else", {
+    pass: closes,
     detail:
-      `today: ${sqlToday} settled from ${settledToday.length} decision(s); ` +
-      `${excludedToday.length} excluded decision(s) worth ${wouldBeToday - walkToday} units are NOT in it ` +
-      `(a total that counted them would read ${wouldBeToday}).`,
-    rows: sqlToday === walkToday ? [] : [`sql=${sqlToday} walk=${walkToday}`],
+      `today: ${ledgerToday} = ${settledDecToday} settled-decision projection + ${fixturesToday} base-seed ` +
+      `fixture(s); ${excludedToday.length} excluded decision(s) worth ${excludedTodayAmt} units are NOT in it ` +
+      `(a total that counted them would read ${ledgerToday + excludedTodayAmt}).`,
+    rows: closes
+      ? []
+      : [`sql=${sqlToday} ledger=${ledgerToday} settled=${settledDecToday} fixtures=${fixturesToday}`],
   });
 }
 

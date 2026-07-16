@@ -20,18 +20,21 @@
  *
  * WHY THIS DOES NOT DISTURB THE DEMO — THE INVARIANT THAT MATTERS
  * --------------------------------------------------------------
- * Spend is DERIVED (src/dal.ts) by summing today's allowed-and-settled decisions:
+ * Spend is read from `ledger_entries` (src/dal.ts LEDGER_QUERIES) by summing today's
+ * rows for an agent / category / vendor:
  *
- *     FROM decisions d JOIN decision_executions e ON e.decision_id = d.decision_id
- *     WHERE d.outcome='allow' AND e.status='settled' AND date(d.ts) = date('now')
+ *     SELECT SUM(amount) FROM ledger_entries WHERE agent_id = ? AND date(ts) = date('now')
  *
- * The demo's calibrated prior spend (agent_47: 287+313 office_supplies, 295+245
- * software = 1140) is seeded as settled rows dated today by the base seed, and every
- * beat's arithmetic depends on those exact totals. Category and vendor budgets are
- * ORG-WIDE — `categorySpentToday` / `vendorSpentToday` in src/dal.ts carry no agent
- * filter — so a settled row dated today for ANY agent moves a total some beat is
- * standing on. Past days are never at risk: `date(d.ts) = date('now')` excludes them
- * tomorrow as surely as it does today.
+ * A settled execution AUTOMATICALLY projects one such row from its decision
+ * (recordExecution, src/decision-log.ts), so a settled decision this script records
+ * today ALSO writes a `ledger_entries` row — we never insert that table by hand.
+ * The demo's calibrated prior spend (agent_47: 600 office_supplies + 540 software =
+ * 1140) is seeded as DIRECT `ledger_entries` rows dated today by the base seed
+ * (req_seed_01/02), NOT as settled decisions, and every beat's arithmetic depends on
+ * those exact totals. Category and vendor budgets are ORG-WIDE — `#spentFor` in
+ * src/dal.ts carries no agent filter — so a settled row dated today for ANY agent
+ * moves a total some beat is standing on. Past days are never at risk:
+ * `date(ts) = date('now')` excludes them tomorrow as surely as it does today.
  *
  * An earlier cut banned settled rows dated today outright. That was stricter than the
  * arithmetic requires, and it showed: three of the four agent cards read "N
@@ -120,6 +123,13 @@ const KERNEL_ID = "ts-reference";
 const PER_TXN_CAP = 500;
 const DAILY_LIMIT = 1500;
 const ESCALATION_THRESHOLD = 400;
+// Velocity + duplicate escalation (policy.dl E3/E4) landed on main after this
+// seeder was written. History carries recent_txn_count 0 and duplicate_recent_count
+// 0 so those rules never fire retroactively — the synthetic escalations come from
+// elevated-risk vendors and over-threshold amounts, which is realism enough. VELOCITY
+// mirrors policy_limits.velocity_limit in sql/seed.sql; a recorded fact must match the
+// policy the console shows or the re-derive button disagrees with the log.
+const VELOCITY_LIMIT = 6;
 const APPROVED_CATEGORIES = ["office_supplies", "software", "travel"];
 const ALL_CATEGORIES = [...APPROVED_CATEGORIES, "crypto"];
 
@@ -591,6 +601,9 @@ function record(ev, idSuffix, dailyTotals, allowSettles) {
     // vendor_daily). Passing today's budget arithmetic to a row dated in April
     // would judge history against a limit that did not apply to it.
     budgets: [],
+    recent_txn_count: 0,
+    velocity_limit: VELOCITY_LIMIT,
+    duplicate_recent_count: 0,
   };
 
   // The real kernel decides. We never write a verdict we did not derive.
@@ -708,21 +721,28 @@ for (let dayIdx = 0; dayIdx < DAYS; dayIdx++) {
 // 1140). We READ it rather than assume it, so today's `daily_total_so_far` stays
 // coherent with the DB even while another workstream is changing the seed.
 //
-// `AND d.decision_id NOT LIKE 'dec_hist_%'` is load-bearing, and it is the
-// idempotency rule on `record()` one level up. Now that this script settles rows
-// today, its OWN output lands in exactly the total this query measures: run 2 would
-// open agent_12 at run 1's closing balance, every later `daily_total_so_far` would
-// shift, and the same deterministic ids would come back carrying different facts —
-// a DecisionConflictError, not a no-op. Excluding our own prefix makes the baseline
-// a function of the base seed alone, which is what "baseline" was always meant to
-// mean, and keeps it identical against an empty DB and an already-seeded one.
+// SPEND IS `ledger_entries` NOW, not the decision log. A settled execution projects
+// a `ledger_entries` row (recordExecution, src/decision-log.ts), and every windowed
+// total the kernel reads — daily_total_so_far, velocity, dedup, budgets — sums that
+// table (src/dal.ts LEDGER_QUERIES). So the baseline is read from `ledger_entries`,
+// and agent_47's calibrated 1140 lives there as the base seed's direct rows
+// (req_seed_01/02), never as settled decisions.
+//
+// `AND request_id NOT LIKE 'inv_h%'` is load-bearing, and it is the idempotency rule
+// on `record()` one level up. Now that this script settles rows today, its OWN
+// projected `ledger_entries` rows (request_id `inv_h<day>_<i>`, see `record()`) land
+// in exactly the total this query measures: run 2 would open agent_12 at run 1's
+// closing balance, every later `daily_total_so_far` would shift, and the same
+// deterministic ids would come back carrying different facts — a DecisionConflictError,
+// not a no-op. Excluding our own `inv_h` prefix leaves the base seed's rows
+// (req_seed_*) in and this run's own rows out, making the baseline a function of the
+// base seed alone — identical against an empty DB and an already-seeded one.
 const SETTLED_TODAY_BASE = `
-  SELECT COALESCE(SUM(d.amount), 0) AS total
-  FROM decisions d
-  JOIN decision_executions e ON e.decision_id = d.decision_id
-  WHERE d.outcome = 'allow' AND e.status = 'settled' AND date(d.ts) = date('now')
-    AND d.agent_id = ?
-    AND d.decision_id NOT LIKE 'dec_hist_%'
+  SELECT COALESCE(SUM(amount), 0) AS total
+  FROM ledger_entries
+  WHERE date(ts) = date('now')
+    AND agent_id = ?
+    AND request_id NOT LIKE 'inv_h%'
 `;
 const todayTotals = Object.fromEntries(
   AGENT_IDS.map((a) => [a, Number(db.prepare(SETTLED_TODAY_BASE).get(a)?.total ?? 0)]),
@@ -833,6 +853,9 @@ todayEvents.forEach((ev, i) => {
     escalation_threshold: ESCALATION_THRESHOLD,
     vendor_risk_tier: VENDORS[ev.vendorId].tier,
     budgets: [],
+    recent_txn_count: 0,
+    velocity_limit: VELOCITY_LIMIT,
+    duplicate_recent_count: 0,
   });
 
   // THE HEADROOM RULE (header). All three conditions, or the row does not settle.
@@ -888,21 +911,22 @@ if (future.n > 0) problems.push(`${future.n} decision(s) are dated in the future
 
 // 3. THE demo invariants. Today's ORG-WIDE settled totals are what every beat's
 //    arithmetic stands on, so they are measured against the ceilings, not assumed to
-//    have landed under them. These queries count EVERY source — base seed and this
-//    script — because that is exactly what the kernel will see when a beat runs.
+//    have landed under them. `ledger_entries` is the source of truth the kernel reads
+//    (src/dal.ts), so these sum THAT table. They count EVERY source — the base seed's
+//    direct rows AND this script's projected rows — because that is exactly what the
+//    kernel will see when a beat runs: the ceiling caps base + this run combined.
 const SETTLED_TODAY_BY = (column) => `
-  SELECT COALESCE(SUM(d.amount), 0) AS total
-  FROM decisions d
-  JOIN decision_executions e ON e.decision_id = d.decision_id
-  WHERE d.outcome='allow' AND e.status='settled' AND date(d.ts)=date('now')
-    AND d.${column} = ?
+  SELECT COALESCE(SUM(amount), 0) AS total
+  FROM ledger_entries
+  WHERE date(ts) = date('now')
+    AND ${column} = ?
 `;
 const sumToday = (column, key) =>
   Number(db.prepare(SETTLED_TODAY_BY(column)).get(key)?.total ?? 0);
 
 const agentSettledToday = Object.fromEntries(AGENT_IDS.map((a) => [a, sumToday("agent_id", a)]));
 const categorySettledToday = Object.fromEntries(
-  Object.keys(CATEGORY_CEILING_TODAY).map((c) => [c, sumToday("category", c)]),
+  Object.keys(CATEGORY_CEILING_TODAY).map((c) => [c, sumToday("category_id", c)]),
 );
 
 // 3a. The calibrated agent must not have moved AT ALL. Every beat is written against
