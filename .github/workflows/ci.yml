@@ -82,6 +82,10 @@ jobs:
           cd /tmp/auditor-ci
           node verify-ramp-proof.mjs bundles
 
+      # Smoke-check the operator view against the demo-populated ledger.
+      - name: Operator stats
+        run: pnpm stats --json
+
   # OPTIONAL job: only does real work where souffle + wasm-pack exist. It never gates
   # the build — the TS reference kernel is always present, so the `build` job above is
   # green with no souffle/wasm-pack. continue-on-error keeps a red X here non-blocking.
