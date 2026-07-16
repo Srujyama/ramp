@@ -31,6 +31,7 @@
 import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import path from "node:path";
 import { createPublicKey } from "node:crypto";
 import { demoGatePublicKey, DEMO_GATE_KEY_ID } from "@ramp/provenance";
 
@@ -152,13 +153,14 @@ const GATE_KEY_ID = ${JSON.stringify(DEMO_GATE_KEY_ID)};
 
 const receipt = `${verifierSrc}\n${driver}`;
 
-let target = outPath;
-if (!target) {
-  if (!existsSync(RECEIPT_DIR)) mkdirSync(RECEIPT_DIR, { recursive: true });
-  target = join(RECEIPT_DIR, `ramp-receipt-${safeId}.mjs`);
-}
+const target = outPath ?? join(RECEIPT_DIR, `ramp-receipt-${safeId}.mjs`);
+// Always ensure the destination directory exists — a caller-supplied `--out` may
+// point into a directory that does not exist yet (e.g. a fresh CI checkout has no
+// .ramp/receipts/), and writeFileSync would otherwise throw ENOENT.
+const targetDir = dirname(target);
+if (!existsSync(targetDir)) mkdirSync(targetDir, { recursive: true });
 // Replace the basename placeholder in the banner now that we know the path.
-const basename = target.split("/").pop();
+const basename = path.basename(target);
 writeFileSync(target, receipt.replace("__RECEIPT_BASENAME__", basename), "utf8");
 
 process.stdout.write(

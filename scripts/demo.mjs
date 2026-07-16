@@ -596,7 +596,11 @@ beat(
   if (!ok) failures++;
   console.log(`${ok ? "  PASS" : "! FAIL"}  Beat 14: a generated receipt verifies with plain node, and tampering is caught`);
   console.log(`         -> generated: ${gen.status === 0}; clean receipt VERIFIED: ${ranOk}; ` +
-    `tampered receipt REJECTED: ${tamperCaught}\n`);
+    `tampered receipt REJECTED: ${tamperCaught}`);
+  if (!ok && gen.status !== 0) {
+    console.log(`         -> generator stderr: ${(gen.stderr ?? "").trim() || "(none)"}`);
+  }
+  console.log("");
 }
 
 console.log("=".repeat(72));
