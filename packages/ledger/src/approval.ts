@@ -30,17 +30,19 @@
  * ============================================================================
  * WHAT THIS IS NOT
  * ============================================================================
- * This does not authenticate the human. `approvedBy` is a string this module
- * trusts its caller about, and in the demo that caller is a CLI anyone can run.
- * A real deployment puts an authenticated identity there (SSO, a signed approval,
- * a hardware token) and this module's shape does not change — it already treats
- * the approver as data to be recorded rather than a claim to be believed.
+ * The approver's identity is now ESTABLISHED, not claimed: `resolveEscalation`
+ * takes a SIGNED approval and derives who approved from whichever trusted key
+ * verifies it. There is no `approvedBy` parameter to lie in.
  *
- * Saying so matters: an approval trail that looks authoritative and is actually
- * "whoever ran the command" is exactly the kind of thing that gets mistaken for
- * a control. It is a RECORD here, not an authentication.
+ * The remaining limit, stated plainly: whoever holds alice's key IS alice, as far
+ * as this code can tell. That is what a key means. Key custody — an HSM, a
+ * hardware token, an SSO-minted short-lived key — is a deployment decision, and
+ * the demo keys are derived from published constants and therefore worthless. The
+ * MECHANISM is real; swap the keyring for one whose private halves live in an HSM
+ * and the claim becomes true with no change here. See approver.ts.
  */
 import { sha256OfJson, type Json } from "./canonical-hash.js";
+import { checkApprover, type Approver, type SignedApproval } from "./approver.js";
 import type { LedgerDb } from "./db.js";
 
 /** How an escalation was resolved. */
@@ -73,7 +75,9 @@ export class ApprovalError extends Error {
     | "not_found"
     | "not_escalated"
     | "already_resolved"
-    | "self_approval";
+    | "self_approval"
+    | "unauthenticated"
+    | "stale_approval";
   constructor(code: ApprovalError["code"], message: string) {
     super(message);
     this.name = "ApprovalError";
@@ -83,13 +87,20 @@ export class ApprovalError extends Error {
 
 /** Inputs for {@link resolveEscalation}. */
 export interface ResolveEscalationInput {
-  readonly decisionId: string;
-  readonly verdict: ApprovalVerdict;
-  /** The human resolving it. Must not be the requesting agent. */
-  readonly approvedBy: string;
-  readonly note?: string;
-  /** Injected clock for deterministic tests. */
-  readonly resolvedAt?: string;
+  /**
+   * The approver's SIGNED statement. Their identity is derived from whichever
+   * trusted key verifies it — there is deliberately no `approvedBy` parameter.
+   *
+   * This used to be a string. Anyone who could run the CLI could type
+   * `--by alice` and the ledger recorded "alice" forever, with nothing able to
+   * tell it wasn't her. The docs called that out honestly, which did not make the
+   * trail any less false — it just meant the lie was documented.
+   *
+   * You do not tell the ledger who you are. You prove it, or you do not approve.
+   */
+  readonly approval: unknown;
+  /** Trusted approvers, supplied OUT OF BAND. A keyring from the approval proves nothing. */
+  readonly keyring: ReadonlyMap<string, Approver>;
 }
 
 /**
@@ -111,17 +122,26 @@ export function resolveEscalation(
   db: LedgerDb,
   input: ResolveEscalationInput,
 ): ApprovalRecord {
+  // WHO, established before anything else. We never reason about an approval we
+  // have not established came from a registered approver — and the identity comes
+  // from the KEYRING entry that verified, not from anything the signer wrote.
+  const who = checkApprover(input.approval, input.keyring);
+  if (!who.ok) {
+    throw new ApprovalError("unauthenticated", `approval rejected: ${who.detail}`);
+  }
+  const statement = (input.approval as SignedApproval).statement;
+
   const row = db
     .prepare(
       `SELECT decision_id, status, agent_id, content_digest
          FROM decisions WHERE decision_id = ?`,
     )
-    .get(input.decisionId) as
+    .get(statement.decisionId) as
     | { decision_id: string; status: string; agent_id: string; content_digest: string }
     | undefined;
 
   if (!row) {
-    throw new ApprovalError("not_found", `no decision "${input.decisionId}"`);
+    throw new ApprovalError("not_found", `no decision "${statement.decisionId}"`);
   }
   if (row.status !== "escalated") {
     // Approving a deny would be the loudest possible failure: a human overriding
@@ -129,7 +149,7 @@ export function resolveEscalation(
     // or the whole ordering is decorative.
     throw new ApprovalError(
       "not_escalated",
-      `decision "${input.decisionId}" is "${row.status}", not "escalated" — ` +
+      `decision "${statement.decisionId}" is "${row.status}", not "escalated" — ` +
         `there is nothing being held. A deny is not a thing a human may approve.`,
     );
   }
@@ -140,7 +160,7 @@ export function resolveEscalation(
   // function at all, so an agent has no way to call it. This check is the
   // backstop for the day somebody wires one up anyway, or an operator account
   // shares a name with an agent id.
-  if (input.approvedBy === row.agent_id) {
+  if (who.identity === row.agent_id) {
     throw new ApprovalError(
       "self_approval",
       `agent "${row.agent_id}" cannot approve its own escalation. An escalation ` +
@@ -150,25 +170,35 @@ export function resolveEscalation(
 
   const existing = db
     .prepare("SELECT verdict FROM decision_approvals WHERE decision_id = ?")
-    .get(input.decisionId) as { verdict: string } | undefined;
+    .get(statement.decisionId) as { verdict: string } | undefined;
   if (existing) {
     throw new ApprovalError(
       "already_resolved",
-      `decision "${input.decisionId}" was already ${existing.verdict}. Approvals ` +
+      `decision "${statement.decisionId}" was already ${existing.verdict}. Approvals ` +
         `are append-only — a changed mind is a new decision, not a rewritten one.`,
     );
   }
 
+  // The approver signed a specific facts digest. If the decision's facts are not
+  // the ones they signed for, they approved something else — refuse rather than
+  // silently bind their signature to facts they never saw.
+  if (statement.factsDigest !== row.content_digest) {
+    throw new ApprovalError(
+      "stale_approval",
+      `the approval was signed for facts ${statement.factsDigest.slice(0, 16)}… but the ` +
+        `decision's facts are ${row.content_digest.slice(0, 16)}…. Whatever was approved, ` +
+        `it was not this.`,
+    );
+  }
+
   const record: ApprovalRecord = {
-    decisionId: input.decisionId,
-    verdict: input.verdict,
-    approvedBy: input.approvedBy,
-    // Bind to the decision's content digest, read from the row itself — never
-    // from the caller. A caller-supplied digest would let the approver claim to
-    // have approved facts they never saw.
+    decisionId: statement.decisionId,
+    verdict: statement.verdict,
+    // From the KEYRING, not the statement. A signer cannot rename themselves.
+    approvedBy: who.identity,
     factsDigest: row.content_digest,
-    note: input.note ?? null,
-    resolvedAt: input.resolvedAt ?? new Date().toISOString(),
+    note: statement.note ?? null,
+    resolvedAt: statement.at,
   };
 
   db.prepare(
