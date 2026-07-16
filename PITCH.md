@@ -7,7 +7,7 @@
 > detection, signed approvals, `pnpm stats` (money stopped), the `@ramp/client` SDK, and the
 > operator/auditor CLIs `pnpm explain` (kernel-confirmed counterfactuals), `pnpm simulate`
 > (pre-flight a batch), `pnpm policy-diff` (policy what-if), and `pnpm receipt` (a self-verifying
-> portable proof). 508 tests, 18 demo beats. Both HTML artifacts are propagated and in sync.
+> portable proof). 512 tests, 18 demo beats. Both HTML artifacts are propagated and in sync.
 >
 > **Published artifact URLs (republish to these; don't mint new ones):**
 > - Plan: https://claude.ai/code/artifact/30f5b98e-903f-4f8d-80f6-aaab5d80a2de
@@ -365,6 +365,13 @@ says so plainly: *no amount clears this.* Same discipline as everything else her
 — the kernel is the authority; the explainer only asks it. `pnpm explain -- --list`
 shows every stopped payment to choose from.
 
+It answers the mirror question too. Point it at an **allowed** payment and it
+reports the **safety margin** — how close it came to being stopped: *"Allowed at
+$340 — $21 short of being denied (that starts at $361)."* Same kernel-confirmed
+probe, run upward instead of down. An allow that squeaked under the daily limit by
+$21 looks identical to one with $1,000 of room in a plain log; the gate tells you
+which is which.
+
 ### Know before you send (`pnpm simulate`)
 
 `explain` answers *after* a payment is stopped. `simulate` answers *before you send
@@ -514,7 +521,7 @@ console, and a policy simulator. **9 workspaces:** `@ramp/shared`, `@ramp/gate` 
 `@ramp/provenance`, `@ramp/payments-mcp` (self-enforcing tool + 4 read-only agent tools),
 **`@ramp/client`** (typed SDK), `@ramp/dashboard`. CI, branch protection, 4 collaborators.
 
-**508 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 18 demo beats above
+**512 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 18 demo beats above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 
