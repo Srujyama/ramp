@@ -18,7 +18,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { heroAttestation, mintAttestation, HERO_INVOICE } from "./notary.mjs";
-import { openLedgerStrict, closeLedger, listDecisions } from "@ramp/ledger";
+import { openLedgerStrict, closeLedger, listDecisions, simulateBatch } from "@ramp/ledger";
 import { getKernel, explainDecision } from "@ramp/gate";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -486,6 +486,45 @@ beat(
       console.log(`         -> maxAllowAmount ${max} == daily headroom ${room}; ` +
         `kernel allows at ${max}: ${allowsAtMax}, refuses at ${max + 1}: ${deniesAbove}\n`);
     }
+  } finally {
+    closeLedger(db);
+  }
+}
+
+// -- Beat 12: pre-flight — `pnpm simulate` previews a batch, ZERO side effects --
+// Also not a hook beat: a read-only batch preview. It asserts the two things that
+// make the preview trustworthy — (1) it writes NOTHING, and (2) it is honest about
+// compounding: three $200 allows for agent_47 (360 headroom) each fit alone but
+// bust together, and the run is flagged OVERCOMMITTED rather than shown "all clear".
+{
+  console.log("--- Beat 12: `pnpm simulate` — pre-flight a batch, nothing is sent ---\n");
+  const db = openLedgerStrict();
+  try {
+    const { kernel } = getKernel();
+    const before = db.prepare("SELECT COUNT(*) AS n FROM decisions").get().n;
+    const { aggregate, items } = simulateBatch(
+      db,
+      [200, 200, 200].map((amount) => ({
+        agent: "agent_47",
+        vendor: "acme_corp",
+        amount,
+        category: "office_supplies",
+      })),
+      kernel,
+    );
+    const after = db.prepare("SELECT COUNT(*) AS n FROM decisions").get().n;
+    const wroteNothing = before === after;
+    const allFitAlone = items.every((it) => it.result.outcome === "allow");
+    const flagged =
+      aggregate.overcommitted.length === 1 &&
+      aggregate.overcommitted[0].agent === "agent_47" &&
+      aggregate.overcommitted[0].allowedSum === 600 &&
+      aggregate.overcommitted[0].remainingToday === 360;
+    const ok = wroteNothing && allFitAlone && flagged;
+    if (!ok) failures++;
+    console.log(`${ok ? "  PASS" : "! FAIL"}  Beat 12: batch preview is side-effect-free AND honest about compounding`);
+    console.log(`         -> wrote nothing: ${wroteNothing}; each $200 fits alone: ${allFitAlone}; ` +
+      `flagged overcommit ($600 allowed > $360 headroom): ${flagged}\n`);
   } finally {
     closeLedger(db);
   }

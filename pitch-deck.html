@@ -1297,6 +1297,33 @@
     </div>
   </section>
 
+  <!-- ===================================================== SLIDE 15d — PRE-FLIGHT -->
+  <section class="slide" data-note="Explain answers after a payment is stopped. Simulate answers before you send the batch — with zero side effects. It previews every payment through the real kernel, annotates each stopped one with its counterfactual, and rolls up the money: what would flow, what would be held, what would be denied. And it states its own limit out loud: each item is previewed against current ledger state and does not compound earlier items in the batch. Instead of faking that compounding, it flags the honest thing — when an agent's allowed amounts sum past their headroom, the run is overcommitted and later payments will deny once earlier ones settle. A preview that overstated what clears would be worse than none.">
+    <div class="stage">
+      <p class="eyebrow green">Save time. Save money.</p>
+      <h1 class="headline">Know what the gate will do — before you send.</h1>
+      <div class="cols">
+        <div class="card">
+          <span class="stamp green">pnpm simulate — a batch, nothing sent</span>
+          <div class="mono" style="font-size:clamp(11px,1.15vw,15px);margin:16px 0 0;line-height:1.7;color:var(--ink-2);">
+            <div><span class="tag-green">ALLOW</span> $300 &nbsp; agent_47 → acme_corp</div>
+            <div><span class="tag-red">DENY</span> &nbsp;$900 &nbsp; over_per_txn_cap · ≤ $360 clears</div>
+            <div><span class="tag-amber">HOLD</span> &nbsp;$450 &nbsp; over threshold · ≤ $400 clears</div>
+            <div style="margin-top:10px;">flow <span class="tag-green">$620</span> · held <span class="tag-amber">$450</span> · stopped <span class="tag-red">$950</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <span class="stamp">Honest about compounding</span>
+          <div style="font-size:clamp(13px,1.35vw,16px);margin:16px 0 0;line-height:1.75;color:var(--ink-2);">
+            <div><span class="tag-amber">⚠ overcommitted</span> — 3 allowed items sum to <b>$620</b>, but only <b>$360</b> of daily headroom remains.</div>
+            <div style="margin-top:12px;color:var(--muted);">Preview doesn't compound intra-batch — so instead of faking it, it <b>flags</b> it. Later payments deny once earlier ones settle.</div>
+          </div>
+        </div>
+      </div>
+      <p class="footnote green">Zero side effects — asserted in CI. A preview that overstated what clears would be worse than none.</p>
+    </div>
+  </section>
+
   <!-- ===================================================== SLIDE 15 -->
   <section class="slide" data-note="This is not a slide-deck idea — the backbone is built and green. Five workspaces, CI, branch protection, twenty-five tests passing, the gate allows and denies live today. Everyone else scopes the card. We prove the decision — and here's the receipt.">
     <div class="stage">
@@ -1313,7 +1340,7 @@
         <div class="status-row"><span class="ws">@ramp/client</span><span class="desc">typed SDK — build a spending agent in 5 lines</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/dashboard</span><span class="desc">the audit console — re-derives decisions in your browser</span><span class="ck">✓</span></div>
       </div>
-      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">494 tests PASS</span> · <span class="tag-green">15 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
+      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">500 tests PASS</span> · <span class="tag-green">16 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
       <p class="heroline">Everyone else scopes the card. <span class="tag-green">We prove the decision</span> — and here's the receipt.</p>
     </div>
   </section>

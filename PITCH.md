@@ -3,9 +3,10 @@
 > **Single source of truth for the pitch.** The plan (`hackathon-plan.html`) and the slide
 > deck (`pitch-deck.html`) both derive from this file. **If you change the pitch, change it
 > HERE first, then propagate to both artifacts** (see `CLAUDE.md` → "Keeping the pitch in sync").
-> Last substantive update: 2026-07-16 — five fraud/ops features added (velocity, windowed budgets,
-> console, policy simulator, and decision log merged in. Both HTML artifacts are propagated and
-> in sync as of this date.
+> Last substantive update: 2026-07-16 — overnight run: velocity, windowed budgets, duplicate
+> detection, signed approvals, `pnpm stats` (money stopped), the `@ramp/client` SDK, `pnpm explain`
+> (kernel-confirmed counterfactuals), and `pnpm simulate` (pre-flight a batch). 500 tests, 16 demo
+> beats. Both HTML artifacts are propagated and in sync as of this date.
 >
 > **Published artifact URLs (republish to these; don't mint new ones):**
 > - Plan: https://claude.ai/code/artifact/30f5b98e-903f-4f8d-80f6-aaab5d80a2de
@@ -308,8 +309,12 @@ asserts the **exit code** on every beat. It runs in CI, so these are not claims:
 11. **Explain** — the gate reads back the daily-limit deny and proves the counterfactual: it
     would settle unattended at `≤ $360`, confirmed by re-running the kernel at `360` (allows) and
     `361` (does not). *The explainer can never be more permissive than the gate.*
+12. **Pre-flight** — `pnpm simulate` previews a batch through the real kernel with **zero side
+    effects** (asserted: the `decisions` row count is unchanged), and is honest about compounding —
+    three `$200` allows that each fit `agent_47`'s `$360` headroom are flagged **overcommitted**
+    because together they sum to `$600`. *A preview that overstated what clears would be worse than none.*
 
-**15 beats, all asserted in CI.** Plus **fail-closed**: an unreachable ledger → deny, exit 2.
+**16 beats, all asserted in CI.** Plus **fail-closed**: an unreachable ledger → deny, exit 2.
 
 ### The money it stops (`pnpm stats`)
 
@@ -352,6 +357,30 @@ When the blocker is categorical (an unverified vendor, a missing attestation) it
 says so plainly: *no amount clears this.* Same discipline as everything else here
 — the kernel is the authority; the explainer only asks it. `pnpm explain -- --list`
 shows every stopped payment to choose from.
+
+### Know before you send (`pnpm simulate`)
+
+`explain` answers *after* a payment is stopped. `simulate` answers *before you send
+the batch* — with zero side effects. Hand it a run of payments and it previews each
+one through the **real kernel**, annotates every stopped item with its
+counterfactual, and rolls up the money: what would **flow**, what would be **held**,
+what would be **denied**.
+
+```
+  ALLOW  $300  agent_47  acme_corp    office_supplies
+  DENY   $900  agent_47  acme_corp    office_supplies   └ over_per_txn_cap — would clear at ≤ $360
+  HOLD   $450  agent_12  acme_corp    office_supplies   └ over threshold — would clear at ≤ $400
+  would FLOW $620 · HELD $450 · STOPPED $950
+  ⚠ agent_47: 3 allowed items sum to $620, but only $360 of daily headroom remains.
+```
+
+It **states its own limit out loud**: each item is previewed against current
+ledger state and does *not* compound earlier items in the batch. Rather than fake
+the compounding (which would mean re-implementing the ledger's accounting outside
+the ledger — a second source of truth), it computes the honest, checkable thing:
+when an agent's previewed-allow amounts sum past their headroom, the run is flagged
+**overcommitted** — later payments will deny once earlier ones settle. A preview
+that quietly overstated what clears would be worse than no preview.
 
 ### Build on it in five lines (`@ramp/client`)
 
@@ -437,7 +466,7 @@ console, and a policy simulator. **9 workspaces:** `@ramp/shared`, `@ramp/gate` 
 `@ramp/provenance`, `@ramp/payments-mcp` (self-enforcing tool + 4 read-only agent tools),
 **`@ramp/client`** (typed SDK), `@ramp/dashboard`. CI, branch protection, 4 collaborators.
 
-**494 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 15 demo beats above
+**500 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 16 demo beats above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 

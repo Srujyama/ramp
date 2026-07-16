@@ -35,6 +35,7 @@ pnpm install            # installs the whole workspace
 | `pnpm head`             | Publish a signed head receipt. **Put it somewhere the operator can't rewrite.** |
 | `pnpm stats`            | Read-only operator view of gate activity (money stopped, top rules, integrity). |
 | `pnpm explain [<id>]`   | Read-only "why was this stopped, and what would flip it" — the **kernel-confirmed** counterfactual. `-- --list` to browse stopped payments, `-- --json` for machine output. |
+| `pnpm simulate [<f>]`   | Read-only **pre-flight** for a batch: preview every payment through the real kernel (zero side effects), roll up money flow, flag per-agent overcommitment. Pass a JSON batch file, or omit for a demo batch. `-- --json` for machine output. |
 | `pnpm approve`          | **The HUMAN channel** — `--as <approver>` SIGNS the approval; identity is proven, not typed. Never an MCP tool. |
 | `pnpm notary`           | Mint a demo attestation (`--spoof` / `--stale` for the deny beats). |
 | `pnpm dev`              | Start the dashboard shell (Vite dev server).                       |
