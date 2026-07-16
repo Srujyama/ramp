@@ -26,6 +26,7 @@
     "head": "node scripts/head.mjs",
     "stats": "node scripts/stats.mjs",
     "explain": "node scripts/explain.mjs",
+    "simulate": "node scripts/simulate.mjs",
     "sdk-example": "node scripts/sdk-example.mjs"
   },
   "dependencies": {

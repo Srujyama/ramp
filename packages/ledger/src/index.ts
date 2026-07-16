@@ -88,6 +88,13 @@ export type { PolicyDocument } from "./policy-digest.js";
 // Side-effect free — never persists a decision, proof, or execution.
 export { simulate } from "./simulate.js";
 export type { SimulationInput, SimulationResult } from "./simulate.js";
+export { simulateBatch } from "./simulate-batch.js";
+export type {
+  BatchSimulation,
+  BatchItemResult,
+  BatchAggregate,
+  Overcommit,
+} from "./simulate-batch.js";
 
 // The audit trail: persist every gate decision and read it back (read-only API).
 export {
