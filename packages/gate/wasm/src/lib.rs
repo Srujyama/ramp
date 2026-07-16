@@ -186,6 +186,14 @@ fn evaluate_facts(f: &Facts) -> Decision {
             f.requesting_agent, f.recent_txn_count, f.velocity_limit
         ));
     }
+    // E4: looks like a double payment.
+    if f.duplicate_recent_count >= 1 {
+        esc_fired.push("escalate/possible_duplicate".to_string());
+        esc_reasons.push(format!(
+            "possible_duplicate: {} settled payment(s) already match vendor \"{}\", amount {}, category \"{}\" in the dedup window — a human must confirm this is not a repeat",
+            f.duplicate_recent_count, f.vendor, f.amount, f.category
+        ));
+    }
 
     // DENY DOMINATES — including over escalate. An escalation must never hand a
     // human a request policy already rejected, or every deny rule is a suggestion.

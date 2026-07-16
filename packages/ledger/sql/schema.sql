@@ -80,6 +80,9 @@ CREATE TABLE IF NOT EXISTS policy_limits (
   -- so a migrated ledger behaves exactly as before — a migration invents no policy.
   velocity_limit          INTEGER NOT NULL DEFAULT 2147483647,
   velocity_window_minutes INTEGER NOT NULL DEFAULT 60,
+  -- Window a duplicate payment is looked for over. Defaulted so a migrated ledger
+  -- keeps its behaviour; the seed sets a real value.
+  dedup_window_minutes    INTEGER NOT NULL DEFAULT 1440,
   currency    TEXT NOT NULL DEFAULT 'USD'
 );
 

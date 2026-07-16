@@ -23,6 +23,7 @@
  *   7. escalate/over_escalation_threshold (policy.dl E1)
  *   8. escalate/elevated_risk_vendor      (policy.dl E2)
  *   9. escalate/velocity_exceeded         (policy.dl E3)
+ *  10. escalate/possible_duplicate        (policy.dl E4)
  *
  * The lattice is **deny > escalate > allow**. Order within a tier affects only
  * the reason list; the tiers themselves are the semantics. Deny dominates
@@ -215,6 +216,18 @@ export class ReferenceKernel implements PolicyKernel {
           `velocity_exceeded: agent "${facts.requesting_agent}" has settled ` +
           `${facts.recent_txn_count} payment(s) in the velocity window (limit ` +
           `${facts.velocity_limit}) — a human must approve the next`,
+      });
+    }
+
+    // E4: this looks like a DOUBLE PAYMENT — same vendor, amount, category already
+    // settled recently. No cap or budget sees it; every copy is individually fine.
+    if (facts.duplicate_recent_count >= 1) {
+      escalations.push({
+        id: "escalate/possible_duplicate",
+        reason:
+          `possible_duplicate: ${facts.duplicate_recent_count} settled payment(s) already ` +
+          `match vendor "${facts.vendor}", amount ${facts.amount}, category ` +
+          `"${facts.category}" in the dedup window — a human must confirm this is not a repeat`,
       });
     }
 

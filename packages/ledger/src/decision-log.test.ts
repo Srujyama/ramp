@@ -53,6 +53,7 @@ function facts(over: Partial<Facts> = {}): Facts {
     budgets: [],
     recent_txn_count: 0,
     velocity_limit: 6,
+    duplicate_recent_count: 0,
     ...over,
   };
 }

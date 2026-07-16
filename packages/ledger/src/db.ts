@@ -203,6 +203,11 @@ const ADDITIVE_COLUMNS: ReadonlyArray<{
     ddl: "ALTER TABLE policy_limits ADD COLUMN velocity_window_minutes INTEGER NOT NULL DEFAULT 60",
   },
   {
+    table: "policy_limits",
+    column: "dedup_window_minutes",
+    ddl: "ALTER TABLE policy_limits ADD COLUMN dedup_window_minutes INTEGER NOT NULL DEFAULT 1440",
+  },
+  {
     table: "decisions",
     column: "prev_chain_hash",
     ddl: "ALTER TABLE decisions ADD COLUMN prev_chain_hash TEXT",

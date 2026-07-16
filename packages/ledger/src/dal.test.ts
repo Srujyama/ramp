@@ -86,7 +86,7 @@ test("org limits are per_txn_cap 500 / daily_limit 1500 USD", () => {
 test("approved categories exclude crypto", () => {
   withSeededDb((fs) => {
     const approved = fs.getApprovedCategories();
-    assert.deepEqual(approved, ["automation", "office_supplies", "software", "travel"]);
+    assert.deepEqual(approved, ["automation", "office_supplies", "software", "subscriptions", "travel"]);
     assert.ok(!approved.includes("crypto"));
   });
 });
@@ -111,6 +111,7 @@ test("contextFor assembles the authoritative context for the hero request", () =
       "automation",
       "office_supplies",
       "software",
+      "subscriptions",
       "travel",
     ]);
     assert.deepEqual(ctx.agentClearedCategories, [
@@ -304,4 +305,32 @@ test("an unmeasurable PERIOD throws, same as an unmeasurable subject", () => {
   } finally {
     closeLedger(db);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Duplicate detection (E4).
+// ---------------------------------------------------------------------------
+
+test("a matching settled payment is counted as a possible duplicate", () => {
+  // The seed has agent_12 -> acme_corp -> subscriptions -> 120 half an hour ago.
+  withSeededDb((fs) => {
+    const dup = fs.getDuplicateCount("acme_corp", 120, "subscriptions", 1440);
+    assert.equal(dup, 1, "the identical prior payment must be seen");
+  });
+});
+
+test("a different amount/vendor/category is NOT a duplicate", () => {
+  withSeededDb((fs) => {
+    assert.equal(fs.getDuplicateCount("acme_corp", 121, "subscriptions", 1440), 0, "amount differs");
+    assert.equal(fs.getDuplicateCount("newco_ltd", 120, "subscriptions", 1440), 0, "vendor differs");
+    assert.equal(fs.getDuplicateCount("acme_corp", 120, "office_supplies", 1440), 0, "category differs");
+  });
+});
+
+test("a duplicate outside the window is not counted", () => {
+  withSeededDb((fs) => {
+    // The seed payment is 30 min old; a 10-minute window excludes it.
+    assert.equal(fs.getDuplicateCount("acme_corp", 120, "subscriptions", 10), 0);
+    assert.equal(fs.getDuplicateCount("acme_corp", 120, "subscriptions", 60), 1);
+  });
 });

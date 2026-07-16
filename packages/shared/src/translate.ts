@@ -82,6 +82,8 @@ export interface AuthoritativeFacts {
   readonly recentTxnCount: number;
   /** Count at/above which the next payment escalates (policy_config). */
   readonly velocityLimit: number;
+  /** Count of matching settled payments in the dedup window (ledger read). */
+  readonly duplicateRecentCount: number;
 }
 
 /**
@@ -145,6 +147,7 @@ export function translateToFacts(
     budgets: authoritative.budgets,
     recent_txn_count: authoritative.recentTxnCount,
     velocity_limit: authoritative.velocityLimit,
+    duplicate_recent_count: authoritative.duplicateRecentCount,
   };
 }
 

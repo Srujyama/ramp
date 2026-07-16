@@ -112,7 +112,16 @@ export type RuleId =
    * not deny: a legitimate batch run also bursts, and refusing real work outright
    * is how a control gets switched off.
    */
-  | "escalate/velocity_exceeded";
+  | "escalate/velocity_exceeded"
+  /**
+   * A settled payment with the SAME vendor, amount, and category already exists
+   * inside the dedup window — this looks like a double-payment.
+   *
+   * Escalate, not deny: legitimate repeats happen (a $5 daily coffee subscription,
+   * two identical licences). A human confirms "yes, both are real" once; the
+   * gate holds it until they do.
+   */
+  | "escalate/possible_duplicate";
 
 export interface Decision {
   /** Final outcome. `"deny"` if any deny rule fired, else `"allow"`. */

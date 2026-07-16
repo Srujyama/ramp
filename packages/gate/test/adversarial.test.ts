@@ -33,6 +33,7 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     budgets: [],
     recent_txn_count: 0,
     velocity_limit: 6,
+    duplicate_recent_count: 0,
     ...overrides,
   };
 }
@@ -79,6 +80,7 @@ function randomFacts(rng: () => number): Facts {
   budgets: [],
   recent_txn_count: 0,
   velocity_limit: 6,
+  duplicate_recent_count: 0,
   };
 }
 

@@ -89,6 +89,7 @@ vendor_risk_tier: "standard",
 budgets: [],
 recent_txn_count: 0,
 velocity_limit: 6,
+duplicate_recent_count: 0,
 };
 
 /** Complete, honest provenance for HERO_FACTS — one entry per Facts field. */
@@ -110,6 +111,7 @@ function heroProvenance(facts: Facts = HERO_FACTS): FactProvenance[] {
     { fact: "vendor_risk_tier", value: facts.vendor_risk_tier, source: "vendor_registry", derivation: { kind: "sql", table: "vendors", query: "SELECT risk_tier FROM vendors WHERE vendor_id = ?", params: ["acme_corp"] } },
     { fact: "recent_txn_count", value: facts.recent_txn_count, source: "ledger_db", derivation: { kind: "sql", table: "ledger_entries", query: "SELECT COUNT(*) FROM ledger_entries WHERE agent_id = ? AND ts >= datetime('now', ?)", params: ["agent_47", "-60 minutes"] } },
     { fact: "velocity_limit", value: facts.velocity_limit, source: "policy_config", derivation: { kind: "sql", table: "policy_limits", query: "SELECT velocity_limit FROM policy_limits WHERE id = 1", params: [] } },
+    { fact: "duplicate_recent_count", value: facts.duplicate_recent_count, source: "ledger_db", derivation: { kind: "sql", table: "ledger_entries", query: "SELECT COUNT(*) FROM ledger_entries WHERE vendor_id = ? AND amount = ? AND category_id = ? AND ts >= datetime('now', ?)", params: ["acme_corp", "340", "office_supplies", "-1440 minutes"] } },
     { fact: "budgets", value: facts.budgets, source: "ledger_db", derivation: { kind: "sql", table: "budgets", query: "SELECT scope, key, limit_amount FROM budgets WHERE key IN (?, ?, ?) ORDER BY scope, key", params: ["office_supplies", "acme_corp", "agent_47"] } },
   ];
 }
@@ -189,6 +191,7 @@ test("factsDigest is key-order independent (canonical encoding)", () => {
   budgets: [],
   recent_txn_count: 0,
   velocity_limit: 6,
+  duplicate_recent_count: 0,
   } as Facts;
   assert.equal(digestFacts(reordered), digestFacts(HERO_FACTS));
 });

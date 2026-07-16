@@ -42,6 +42,7 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
   budgets: [],
   recent_txn_count: 0,
   velocity_limit: 6,
+  duplicate_recent_count: 0,
   };
   return { ...base, ...overrides };
 }
@@ -188,6 +189,16 @@ test("velocity escalate still loses to a deny (lattice holds)", () => {
   );
   assert.equal(d.decision, "deny");
   assert.ok(!d.firedRules.some((r) => r.startsWith("escalate/")));
+});
+
+test("escalate: possible duplicate (E4)", () => {
+  const d = referenceKernel.evaluate(baseFacts({ amount: 250, daily_total_so_far: 0, duplicate_recent_count: 1 }));
+  assert.equal(d.decision, "escalate");
+  assert.deepEqual(d.firedRules, ["escalate/possible_duplicate"]);
+});
+
+test("no duplicate (count 0) allows", () => {
+  assert.equal(referenceKernel.evaluate(baseFacts({ amount: 250, daily_total_so_far: 0, duplicate_recent_count: 0 })).decision, "allow");
 });
 
 test("D6 is appended LAST in the fixed evaluation order", () => {

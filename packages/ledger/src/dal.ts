@@ -44,7 +44,11 @@ export const LEDGER_QUERIES = {
   vendorVerified: "SELECT verified FROM vendors WHERE vendor_id = ?",
   vendorDomain: "SELECT registry_domain FROM vendors WHERE vendor_id = ?",
   limits:
-    "SELECT per_txn_cap, daily_limit, escalation_threshold, velocity_limit, velocity_window_minutes, currency FROM policy_limits WHERE id = 1",
+    "SELECT per_txn_cap, daily_limit, escalation_threshold, velocity_limit, velocity_window_minutes, dedup_window_minutes, currency FROM policy_limits WHERE id = 1",
+  // Settled payments that MATCH this one (vendor + amount + category) in the dedup
+  // window. The double-payment signal — every copy is individually within limits.
+  duplicateCount:
+    "SELECT COUNT(*) AS n FROM ledger_entries WHERE vendor_id = ? AND amount = ? AND category_id = ? AND ts >= datetime('now', ?)",
   // Count of the agent's SETTLED payments inside the velocity window. Counts
   // ledger_entries (real spend), not decisions — a held or denied attempt is not
   // a payment, and velocity is about money that actually moved.
@@ -108,6 +112,8 @@ export interface Limits {
   readonly velocityLimit: number;
   /** Rolling window (minutes) the velocity count is measured over. */
   readonly velocityWindowMinutes: number;
+  /** Window (minutes) a duplicate is looked for over. */
+  readonly dedupWindowMinutes: number;
   readonly currency: string;
 }
 
@@ -284,6 +290,7 @@ export class LedgerFactSource implements AuthoritativeFactSource {
           escalation_threshold: number;
           velocity_limit: number;
           velocity_window_minutes: number;
+          dedup_window_minutes: number;
           currency: string;
         }
       | undefined;
@@ -298,8 +305,27 @@ export class LedgerFactSource implements AuthoritativeFactSource {
       escalationThreshold: Number(row.escalation_threshold),
       velocityLimit: Number(row.velocity_limit),
       velocityWindowMinutes: Number(row.velocity_window_minutes),
+      dedupWindowMinutes: Number(row.dedup_window_minutes),
       currency: row.currency,
     };
+  }
+
+  /**
+   * How many already-settled payments match this one — same vendor, amount, and
+   * category — inside the dedup window. A double-payment signal no cap can see.
+   */
+  getDuplicateCount(
+    vendorId: string,
+    amount: number,
+    category: string,
+    windowMinutes: number,
+  ): number {
+    const row = this.#db
+      .prepare(LEDGER_QUERIES.duplicateCount)
+      .get(vendorId, amount, category, `-${windowMinutes} minutes`) as
+      | { n: number }
+      | undefined;
+    return row ? Number(row.n) : 0;
   }
 
   /**
@@ -356,6 +382,12 @@ export class LedgerFactSource implements AuthoritativeFactSource {
       budgets: this.getBudgetsFor(req.category, req.vendorId, req.requestingAgent),
       recentTxnCount: this.getRecentTxnCount(req.requestingAgent, limits.velocityWindowMinutes),
       velocityLimit: limits.velocityLimit,
+      duplicateRecentCount: this.getDuplicateCount(
+        req.vendorId,
+        req.amount,
+        req.category,
+        limits.dedupWindowMinutes,
+      ),
     };
   }
 
@@ -471,6 +503,17 @@ export class LedgerFactSource implements AuthoritativeFactSource {
           table: "policy_limits",
           query: LEDGER_QUERIES.limits,
           params: [],
+        },
+      },
+      {
+        fact: "duplicate_recent_count",
+        value: facts.duplicateRecentCount,
+        source: "ledger_db",
+        derivation: {
+          kind: "sql",
+          table: "ledger_entries",
+          query: LEDGER_QUERIES.duplicateCount,
+          params: [req.vendorId, String(req.amount), req.category, `-<dedup_window> minutes`],
         },
       },
       {

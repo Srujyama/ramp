@@ -84,6 +84,7 @@ suggestion. Nobody gets asked to approve something policy already refused.
 | **escalate** | $450 — within the $500 cap, over the threshold | **Held.** A human is asked |
 | **escalate** | verified vendor, onboarded yesterday | **Held.** Verified ≠ familiar |
 | **escalate** | 7th payment in an hour — tiny amounts, every cap fine | **Held.** Fraud is *fast*, not big |
+| **escalate** | re-paying an identical settled invoice | **Held.** The oldest AP fraud: the double-payment |
 | **deny** | $600 — over the cap | Refused. Nobody is asked |
 | **deny** | $300 software — under every cap, over the *category* budget | Refused |
 
@@ -349,7 +350,7 @@ workspaces: `@ramp/shared` (frozen contract), `@ramp/gate` (kernel + real Souffl
 **`@ramp/quarantine`**, **`@ramp/attestation`**, **`@ramp/provenance`**, `@ramp/payments-mcp`
 (self-enforcing tool), `@ramp/dashboard` (the audit console). CI, branch protection, 4 collaborators.
 
-**467 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
+**472 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 
