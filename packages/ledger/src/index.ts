@@ -27,6 +27,22 @@ export type {
 // ONLY — no MCP tool may reach it, or the requesting agent approves itself and
 // escalation becomes theatre. Agent-facing code gets the read-only helpers.
 export {
+  signApproval,
+  checkApprover,
+  approvalSigningBytes,
+  demoApproverKeyring,
+  demoApproverPrivateKey,
+  DEMO_APPROVERS,
+  APPROVAL_DOMAIN,
+} from "./approver.js";
+export type {
+  Approver,
+  ApprovalStatement,
+  SignedApproval,
+  ApproverCheck,
+  ApproverFailure,
+} from "./approver.js";
+export {
   resolveEscalation,
   approvalFor,
   isApprovedForPayment,

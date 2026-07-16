@@ -33,7 +33,7 @@ pnpm install            # installs the whole workspace
 | `pnpm demo`             | **Drive every PITCH.md beat through the real hook; assert exit codes.** |
 | `pnpm proof`            | **Independently re-verify the sealed bundles + walk the chain.** `--receipt <f>` also checks an earlier published head. |
 | `pnpm head`             | Publish a signed head receipt. **Put it somewhere the operator can't rewrite.** |
-| `pnpm approve`          | **The HUMAN channel** — list held payments; approve/reject one. Never an MCP tool. |
+| `pnpm approve`          | **The HUMAN channel** — `--as <approver>` SIGNS the approval; identity is proven, not typed. Never an MCP tool. |
 | `pnpm notary`           | Mint a demo attestation (`--spoof` / `--stale` for the deny beats). |
 | `pnpm dev`              | Start the dashboard shell (Vite dev server).                       |
 | `pnpm mcp`              | Start the stub payments MCP server over stdio.                     |
@@ -133,6 +133,12 @@ Things that look like bugs but are not — read before "fixing":
 - **An approval binds to `content_digest`.** Never accept an approval verdict from a caller, and
   never look one up by agent or vendor — only by decision id, with the digest checked. Otherwise a
   $1 approval can be presented against a $50,000 payment.
+- **The approver's identity is DERIVED FROM A SIGNATURE, never a parameter.** `resolveEscalation`
+  takes a signed approval; who approved comes from whichever registered key verifies, read from the
+  keyring — never from the statement or a `--by` flag. A string parameter is a lie waiting to be
+  typed. The facts digest is inside the signature, so an approval can't be replayed against different
+  facts. Demo approver keys are derived from published constants (worthless); a real keyring's private
+  halves live in an HSM/SSO and the verification code is unchanged.
 
 - **Budgets are ONE generic rule (D7), not one rule per scope.** A category budget, a vendor cap and
   a monthly limit are the same arithmetic; N near-duplicate rules across four kernels is the

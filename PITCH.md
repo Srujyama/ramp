@@ -138,12 +138,22 @@ escalation is not payable — stated positively, because a `!rejected` check wou
 treat "nobody looked yet" as permission), and **a deny cannot be approved** (the
 lattice holds here too, or every deny rule is negotiable).
 
-*Stated honestly:* `--by alice` is **recorded, not authenticated**. In the demo,
-whoever runs the CLI can write any name. A real deployment puts an authenticated
-identity there and the ledger's shape doesn't change — it already treats the
-approver as data to record, not a claim to believe. An approval trail that looks
-authoritative and is really "whoever ran the command" is exactly what gets
-mistaken for a control.
+**The approver's identity is proven, not claimed.** It used to be `--by alice`, a
+string the ledger recorded verbatim — anyone who ran the CLI could be "alice". Now
+approval requires a **signature**: `--as alice` selects alice's signing key, and
+the ledger derives who approved from whichever *registered* key verifies. There is
+no parameter to lie in. Sign with your own key while labelling it alice's, and it
+is rejected — you cannot be alice without alice's key. The approval also **signs
+the facts digest**, so a signed "I approve X" cannot be replayed against whatever
+X's facts later became.
+
+*The one honest limit:* whoever holds alice's key **is** alice, as far as the code
+can tell — that is what a key means. In the demo the keys are derived from published
+constants and are therefore worthless (anyone can be alice, by using the published
+key). Key custody — an HSM, a hardware token, an SSO-minted short-lived key — is a
+deployment decision. **The mechanism is real**; swap the keyring for one whose
+private halves live in an HSM and `--as alice` genuinely requires being alice, with
+no code change.
 
 ## The hero: hook, not tool (non-bypassable, fail-closed)
 
@@ -323,7 +333,7 @@ workspaces: `@ramp/shared` (frozen contract), `@ramp/gate` (kernel + real Souffl
 **`@ramp/quarantine`**, **`@ramp/attestation`**, **`@ramp/provenance`**, `@ramp/payments-mcp`
 (self-enforcing tool), `@ramp/dashboard` (the audit console). CI, branch protection, 4 collaborators.
 
-**422 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
+**461 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 

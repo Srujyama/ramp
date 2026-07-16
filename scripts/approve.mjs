@@ -2,33 +2,32 @@
 /**
  * The HUMAN channel — scripts/approve.mjs
  *
- *   pnpm approve                          # list what's being held
- *   pnpm approve <decisionId> --by alice  # approve it
- *   pnpm approve <decisionId> --by alice --reject --note "wrong vendor"
+ *   pnpm approve                              # list what's being held
+ *   pnpm approve <decisionId> --as alice      # approve, signing as alice
+ *   pnpm approve <decisionId> --as bob --reject --note "wrong vendor"
  *
  * ============================================================================
  * WHY THIS IS A CLI AND NOT AN MCP TOOL
  * ============================================================================
- * This is the only thing in the repo that can resolve an escalation, and it is
- * deliberately somewhere the agent cannot reach.
+ * This is the only thing that resolves an escalation, and it is deliberately
+ * somewhere the agent cannot reach. If approving were an MCP tool, the agent that
+ * requested the payment could grant it — and the audit trail would show a
+ * human-in-the-loop that never had a human in it. The agent's tools READ approval
+ * state; only a person here WRITES it. See packages/payments-mcp/agent-tools.ts.
  *
- * If approving were an MCP tool, the agent that requested the payment could call
- * it. It would ask for permission, grant itself permission, and proceed — and
- * the audit trail would show a beautifully documented human-in-the-loop that
- * never had a human in it. That is strictly worse than having no escalation at
- * all, because it manufactures evidence of a control that does not exist.
+ * ============================================================================
+ * `--as alice` IS NOT A CLAIM. IT SELECTS A KEY.
+ * ============================================================================
+ * This used to be `--by alice`, a string the ledger recorded verbatim — anyone
+ * who ran the command could be "alice". Now `--as alice` selects alice's signing
+ * KEY, and the ledger derives the identity from whichever registered key verifies.
+ * You cannot be alice without alice's key.
  *
- * So: the agent's tools can READ approval state (`check_approval`). Only a person
- * at a terminal can WRITE it. The separation is the control — not the wording of
- * a tool description, which the model is free to ignore.
- *
- * WHAT THIS DOES NOT DO: authenticate you. `--by` is recorded, not verified;
- * anyone who can run this command can write any name. In a real deployment this
- * is an authenticated identity (SSO, a signed approval, a hardware token). The
- * ledger's shape does not change — it already treats the approver as data to be
- * recorded rather than a claim to be believed. It is a RECORD, not an
- * authentication, and calling it anything else would be the exact overclaim this
- * project exists to avoid.
+ * The honest limit: in the DEMO, alice's key is derived from a published constant
+ * (see approver.ts) — so anyone can still be alice, by using the published key.
+ * The MECHANISM is real; a real deployment holds each approver's private key in an
+ * HSM or mints it from SSO, and then `--as alice` genuinely requires being alice,
+ * with no change to any of this code.
  */
 import {
   openLedgerStrict,
@@ -36,6 +35,10 @@ import {
   resolveEscalation,
   listPendingEscalations,
   approvalFor,
+  signApproval,
+  demoApproverKeyring,
+  demoApproverPrivateKey,
+  DEMO_APPROVERS,
   ApprovalError,
 } from "@ramp/ledger";
 
@@ -48,61 +51,84 @@ const has = (name) => argv.includes(`--${name}`);
 const positional = argv.filter((a, i) => {
   if (a.startsWith("--")) return false;
   const prev = argv[i - 1];
-  return !(prev === "--by" || prev === "--note");
+  return !(prev === "--as" || prev === "--note");
 });
 
 const db = openLedgerStrict();
 try {
   const decisionId = positional[0];
 
-  // No id → show the queue. The default is deliberately read-only: the common
-  // case is "what needs me?", not "approve something".
   if (!decisionId) {
     const pending = listPendingEscalations(db);
     if (pending.length === 0) {
       process.stdout.write("\nNothing is being held. No escalations await a human.\n\n");
       process.exit(0);
     }
+    const who = DEMO_APPROVERS.map((a) => a.identity).join(", ");
     process.stdout.write(`\n${pending.length} payment(s) HELD, awaiting a human:\n\n`);
     for (const p of pending) {
       process.stdout.write(
         `  ${p.decisionId}\n` +
           `    ${p.agentId} -> ${p.vendorId}  ${p.amount} (${p.category})  ${p.ts}\n` +
-          `    approve: pnpm approve ${p.decisionId} --by <you>\n` +
-          `    reject:  pnpm approve ${p.decisionId} --by <you> --reject\n\n`,
+          `    approve: pnpm approve ${p.decisionId} --as <${who}>\n` +
+          `    reject:  pnpm approve ${p.decisionId} --as <${who}> --reject\n\n`,
       );
     }
     process.exit(0);
   }
 
-  const approvedBy = flag("by");
-  if (!approvedBy) {
+  const identity = flag("as");
+  if (!identity) {
     process.stderr.write(
-      "--by <name> is required: an approval with nobody's name on it is not an approval.\n",
+      "--as <name> is required, and it selects a signing KEY, not a claim.\n" +
+        `known demo approvers: ${DEMO_APPROVERS.map((a) => a.identity).join(", ")}\n`,
+    );
+    process.exit(2);
+  }
+  const entry = DEMO_APPROVERS.find((a) => a.identity === identity);
+  if (!entry) {
+    process.stderr.write(
+      `no demo approver "${identity}". This is the demo keyring; a real one comes from ` +
+        `your identity provider. Known: ${DEMO_APPROVERS.map((a) => a.identity).join(", ")}\n`,
     );
     process.exit(2);
   }
 
+  // The digest the approver is signing for — read from the row, so the signature
+  // binds to the exact facts under review.
+  const row = db
+    .prepare("SELECT content_digest AS d FROM decisions WHERE decision_id = ?")
+    .get(decisionId);
+  if (!row) {
+    process.stderr.write(`no decision "${decisionId}".\n`);
+    process.exit(1);
+  }
+
   const verdict = has("reject") ? "rejected" : "approved";
-  const record = resolveEscalation(db, {
-    decisionId,
-    verdict,
-    approvedBy,
-    note: flag("note"),
-  });
+  const approval = signApproval(
+    {
+      schema: "ramp/approval-v1",
+      decisionId,
+      verdict,
+      factsDigest: row.d,
+      note: flag("note") ?? null,
+      at: new Date().toISOString(),
+    },
+    demoApproverPrivateKey(entry.keyId),
+    entry.keyId,
+  );
+
+  const record = resolveEscalation(db, { approval, keyring: demoApproverKeyring() });
 
   process.stdout.write(
     `\n${verdict.toUpperCase()} ${record.decisionId}\n` +
-      `  by:    ${record.approvedBy}\n` +
+      `  by:    ${record.approvedBy}  (established from the signing key, not the flag)\n` +
       `  bound: ${record.factsDigest.slice(0, 24)}…\n` +
       (record.note ? `  note:  ${record.note}\n` : "") +
-      `\nThis approval is valid for THESE facts only. If the request changes, it is\n` +
-      `worthless — a $1 approval cannot be presented against a $50,000 payment.\n\n`,
-  );
-  // Show the resulting state, so the operator sees what the system now believes.
-  const check = approvalFor(db, decisionId);
-  process.stdout.write(
-    `  payable now: ${check?.verdict === "approved" ? "yes" : "no"}\n\n`,
+      `\nThis approval was SIGNED by ${record.approvedBy}'s key, for THESE facts only.\n` +
+      `It is not transferable to a different request, and nobody can record it under\n` +
+      `a name they cannot sign for.\n\n` +
+      `  payable now: ${approvalFor(db, decisionId)?.verdict === "approved" ? "yes" : "no"}\n\n`,
   );
 } catch (err) {
   if (err instanceof ApprovalError) {
