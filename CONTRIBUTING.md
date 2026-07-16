@@ -33,6 +33,7 @@ pnpm install            # installs the whole workspace
 | `pnpm demo`             | **Drive every PITCH.md beat through the real hook; assert exit codes.** |
 | `pnpm proof`            | **Independently re-verify the sealed bundles + walk the chain.** `--receipt <f>` also checks an earlier published head. |
 | `pnpm head`             | Publish a signed head receipt. **Put it somewhere the operator can't rewrite.** |
+| `pnpm stats`            | Read-only operator view of gate activity (money stopped, top rules, integrity). |
 | `pnpm approve`          | **The HUMAN channel** — `--as <approver>` SIGNS the approval; identity is proven, not typed. Never an MCP tool. |
 | `pnpm notary`           | Mint a demo attestation (`--spoof` / `--stale` for the deny beats). |
 | `pnpm dev`              | Start the dashboard shell (Vite dev server).                       |

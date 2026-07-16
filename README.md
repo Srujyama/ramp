@@ -137,6 +137,7 @@ pnpm test            # run every workspace's node:test suite (472 tests)
 
 pnpm demo            # drive EVERY pitch beat through the real hook, assert exit codes
 pnpm proof           # independently re-verify the bundles the gate just sealed
+pnpm stats           # operator view: allow/hold/deny rates, money stopped, what's catching
 pnpm dev             # dashboard (Vite) — the Audit page re-verifies in your browser
 pnpm mcp             # (separately) run the stub payments MCP server
 ```
