@@ -375,6 +375,35 @@ beat(
   "escalate/velocity_exceeded",
 );
 
+// -- Beat 9: A MONTHLY BUDGET CATCHES WHAT A DAILY ONE CANNOT ------------------
+// agent_12 has spent 1700 on travel earlier this month (nothing today, nothing
+// this week). A $400 travel payment: within the cap, at the threshold (allows),
+// daily and weekly travel budgets fine — but monthly travel (1700 + 400 > 2000)
+// denies. Same generic rule (D7), a different time window. One rule, many periods.
+const travelInvoice = "ACME CORP\nInvoice inv_trav_now\nConference travel\nTotal: USD 400\n";
+beat(
+  9,
+  "WINDOW — $400 travel: daily/weekly fine, over the MONTHLY budget",
+  {
+    vendorId: "acme_corp",
+    amount: 400,
+    currency: "USD",
+    category: "travel",
+    invoiceRef: "inv_trav_now",
+    requestingAgent: "agent_12",
+    invoiceDocument: travelInvoice,
+    attestation: mintAttestation({
+      invoiceDocument: travelInvoice,
+      serverDomain: "acme.example.com",
+      amount: 400,
+      currency: "USD",
+      invoiceRef: "inv_trav_now",
+    }),
+  },
+  "deny",
+  "deny/budget_exceeded",
+);
+
 // -- Fail-closed: the ledger is gone ----------------------------------------
 {
   const prior = process.env.RAMP_DB_PATH;

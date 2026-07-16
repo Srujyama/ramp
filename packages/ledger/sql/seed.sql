@@ -45,6 +45,7 @@ INSERT INTO agent_category_clearances (agent_id, category_id) VALUES
   ('agent_47', 'office_supplies'),
   ('agent_47', 'software'),
   ('agent_12', 'office_supplies'),
+  ('agent_12', 'travel'),
   ('agent_burst', 'automation');
 
 -- Prior spend today for agent_47 totalling 1140 (600 + 540) so 340 more still allows.
@@ -56,7 +57,12 @@ INSERT INTO ledger_entries (agent_id, vendor_id, category_id, amount, currency, 
   ('agent_burst', 'acme_corp', 'automation', 5, 'USD', 'req_burst_03', datetime('now')),
   ('agent_burst', 'acme_corp', 'automation', 5, 'USD', 'req_burst_04', datetime('now')),
   ('agent_burst', 'acme_corp', 'automation', 5, 'USD', 'req_burst_05', datetime('now')),
-  ('agent_burst', 'acme_corp', 'automation', 5, 'USD', 'req_burst_06', datetime('now'));
+  ('agent_burst', 'acme_corp', 'automation', 5, 'USD', 'req_burst_06', datetime('now')),
+  -- agent_12 travel earlier THIS MONTH (not today, not this week): monthly window
+  -- sees 1700, daily and weekly see 0. Set up so a monthly budget catches spend a
+  -- daily budget cannot — the whole point of windowed budgets.
+  ('agent_12', 'acme_corp', 'travel', 850, 'USD', 'req_trav_01', datetime('now', '-12 days')),
+  ('agent_12', 'acme_corp', 'travel', 850, 'USD', 'req_trav_02', datetime('now', '-20 days'));
 
 -- Org policy limits.
 -- escalation_threshold 400 sits between the hero 340 (ALLOW, unattended) and the
@@ -94,5 +100,11 @@ INSERT INTO budgets (scope, key, limit_amount) VALUES
   -- crypto is approved=0 already; a zero budget is the belt to that braces —
   -- two independent reasons it can never be paid.
   ('category_daily', 'crypto',             0),
+  ('category_daily', 'automation',     10000),
+  -- Windowed budgets (policy.dl D7, SAME rule): travel accumulates over longer
+  -- periods. agent_12 spent 1700 on travel earlier this month; the monthly window
+  -- catches spend the daily/weekly windows cannot see. One rule, many periods.
+  ('category_weekly',  'travel',         5000),
+  ('category_monthly', 'travel',         2000),
   ('vendor_daily',   'acme_corp',       2500),
   ('vendor_daily',   'newco_ltd',        200);

@@ -96,7 +96,12 @@ kind is **a row in a table**, not an edit to four kernels.
 
 Seeded: `office_supplies` 1200/day, `software` 800/day, `crypto` **0** (belt to
 the braces of `approved = 0` — two independent reasons it can never be paid),
-per-vendor caps for Acme and NewCo. Demo beat 7 is `$300` of software: under the
+per-vendor caps, **and weekly/monthly windows** for travel. Windows are free: a
+budget scope is `<subject>_<period>` (`category_daily`, `vendor_monthly`,
+`agent_weekly`…), and each half maps to a fixed SQL fragment — a new period is one
+line, not a new rule. Demo beat 9: a $400 travel payment is fine daily and weekly
+but breaks the **monthly** budget (1700 already spent this month), which a daily
+budget is structurally blind to. Demo beat 7 is `$300` of software: under the
 `$500` cap, under the `$400` threshold, daily limit fine — and it **dies on the
 category budget** (540 already spent + 300 > 800). Deliberately a budget beat that
 *isn't* the daily limit, or D7 would only ever be demoed by something D5 already
@@ -344,7 +349,7 @@ workspaces: `@ramp/shared` (frozen contract), `@ramp/gate` (kernel + real Souffl
 **`@ramp/quarantine`**, **`@ramp/attestation`**, **`@ramp/provenance`**, `@ramp/payments-mcp`
 (self-enforcing tool), `@ramp/dashboard` (the audit console). CI, branch protection, 4 collaborators.
 
-**464 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
+**467 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 

@@ -257,3 +257,51 @@ test("a budget with an UNMEASURABLE scope throws — it must not be silently ign
     closeLedger(db);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Windowed budgets (D7 generalised over periods).
+// ---------------------------------------------------------------------------
+
+test("a monthly budget sees spend that the daily/weekly windows cannot", () => {
+  // agent_12 spent 1700 on travel 12 and 20 days ago (this rolling month, but not
+  // this week, not today). The whole point of windows: a monthly budget catches
+  // accumulation a daily one is blind to.
+  withSeededDb((fs) => {
+    const b = fs.getBudgetsFor("travel", "acme_corp", "agent_12");
+    const daily = b.find((x) => x.scope === "category_daily")!;
+    const weekly = b.find((x) => x.scope === "category_weekly")!;
+    const monthly = b.find((x) => x.scope === "category_monthly")!;
+    assert.equal(daily.spent, 0, "nothing today");
+    assert.equal(weekly.spent, 0, "nothing in the last 7 days");
+    assert.equal(monthly.spent, 1700, "but 1700 in the last 30 days");
+  });
+});
+
+test("windowed scopes are still generic — no new rule, just a period fragment", () => {
+  // The same getBudgetsFor path returns weekly and monthly lines with no
+  // per-period code; the kernel compares them like any other budget.
+  withSeededDb((fs) => {
+    const scopes = fs
+      .getBudgetsFor("travel", "acme_corp", "agent_12")
+      .map((b) => b.scope)
+      .sort();
+    assert.ok(scopes.includes("category_weekly"));
+    assert.ok(scopes.includes("category_monthly"));
+  });
+});
+
+test("an unmeasurable PERIOD throws, same as an unmeasurable subject", () => {
+  // 'category_quarterly' has no period fragment. It must not read as zero spend —
+  // an unlimited budget nobody configured.
+  const db = openLedger(IN_MEMORY_PATH, { provisionIfEmpty: true, seed: true });
+  try {
+    db.exec("INSERT INTO budgets (scope, key, limit_amount) VALUES ('category_quarterly', 'travel', 10)");
+    const fs = new LedgerFactSource(db);
+    assert.throws(
+      () => fs.getBudgetsFor("travel", "acme_corp", "agent_12"),
+      /no spend query for budget scope "category_quarterly"/,
+    );
+  } finally {
+    closeLedger(db);
+  }
+});

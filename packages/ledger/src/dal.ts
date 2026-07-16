@@ -66,15 +66,37 @@ export const LEDGER_QUERIES = {
   // passing quietly.
   budgets:
     "SELECT scope, key, limit_amount FROM budgets WHERE key IN (?, ?, ?) ORDER BY scope, key",
-  categorySpentToday:
-    "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE category_id = ? AND date(ts) = date('now')",
-  vendorSpentToday:
-    "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE vendor_id = ? AND date(ts) = date('now')",
+  // Budget spend is built generically from the scope (see #spentFor): a scope is
+  // `<subject>_<period>`, and each half maps to a fixed, allow-listed SQL fragment.
+  // No scope string is ever interpolated into SQL — only the mapped fragments —
+  // so an operator-set scope cannot become an injection.
   approvedCategories:
     "SELECT category_id FROM categories WHERE approved = 1 ORDER BY category_id",
   agentClearances:
     "SELECT category_id FROM agent_category_clearances WHERE agent_id = ? ORDER BY category_id",
 } as const;
+
+/**
+ * Budget-scope building blocks. A scope `<subject>_<period>` picks one from each.
+ * ALLOW-LISTED on purpose — only these fragments ever reach SQL, so an
+ * operator-configured scope string cannot inject. Adding a period (e.g. quarterly)
+ * is one line here; the kernel rule is unchanged.
+ */
+const SUBJECT_COLUMN: Readonly<Record<string, string>> = {
+  category: "category_id",
+  vendor: "vendor_id",
+  agent: "agent_id",
+};
+const PERIOD_WINDOW: Readonly<Record<string, string>> = {
+  // daily = calendar day; weekly/monthly = ROLLING windows. Rolling is chosen over
+  // calendar boundaries deliberately: "spend in the last 30 days" is well-defined
+  // on every run date, where "this calendar month" silently shrinks to almost
+  // nothing on the 1st. A demo seeded 25 days back must not fall out of "monthly"
+  // just because the run happened early in a month.
+  daily: "date(ts) = date('now')",
+  weekly: "ts >= datetime('now', '-7 days')",
+  monthly: "ts >= datetime('now', '-30 days')",
+};
 
 /** Org policy limits, read from the single-row `policy_limits` table. */
 export interface Limits {
@@ -191,25 +213,43 @@ export class LedgerFactSource implements AuthoritativeFactSource {
     }));
   }
 
-  /** Spend counted against one budget scope. Authoritative read, never a claim. */
+  /**
+   * Spend counted against one budget scope. Authoritative read, never a claim.
+   *
+   * A scope is `<subject>_<period>` and each half maps to a FIXED SQL fragment:
+   *   subject → which column the budget's key matches (category / vendor / agent)
+   *   period  → the time window (daily = today, weekly = rolling 7 days,
+   *             monthly = this calendar month)
+   *
+   * This is where "one generic rule" (policy.dl D7) pays off: weekly and monthly
+   * budgets are not new rules or new code paths — they are new period fragments,
+   * and the kernel already compares numbers it does not need to understand. A new
+   * period is one line in SUBJECT_COLUMN / PERIOD_WINDOW below.
+   *
+   * SECURITY: only the MAPPED fragments reach SQL, never the scope string itself,
+   * so an operator-set scope cannot become an injection. And a scope whose subject
+   * or period we do not recognise THROWS rather than reading as zero spend — an
+   * unmeasurable budget must never be silently unlimited.
+   */
   #spentFor(scope: string, key: string): number {
-    const q =
-      scope === "category_daily"
-        ? LEDGER_QUERIES.categorySpentToday
-        : scope === "vendor_daily"
-          ? LEDGER_QUERIES.vendorSpentToday
-          : null;
-    if (q === null) {
-      // A scope we cannot measure must NOT read as zero spend — that would make
-      // any budget we don't understand infinitely permissive, which is the exact
-      // fail-open shape this repo keeps finding. Refuse loudly instead; the hook
-      // turns the throw into a deny.
+    const us = scope.lastIndexOf("_");
+    const subject = us > 0 ? scope.slice(0, us) : "";
+    const period = us > 0 ? scope.slice(us + 1) : "";
+
+    const column = SUBJECT_COLUMN[subject];
+    const window = PERIOD_WINDOW[period];
+    if (!column || !window) {
       throw new Error(
         `@ramp/ledger: no spend query for budget scope "${scope}". A scope we cannot ` +
-          `measure must not read as zero spend — that is an unlimited budget.`,
+          `measure must not read as zero spend — that is an unlimited budget. ` +
+          `Known subjects: ${Object.keys(SUBJECT_COLUMN).join(", ")}; periods: ${Object.keys(PERIOD_WINDOW).join(", ")}.`,
       );
     }
-    const row = this.#db.prepare(q).get(key) as { total: number } | undefined;
+    const row = this.#db
+      .prepare(
+        `SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE ${column} = ? AND ${window}`,
+      )
+      .get(key) as { total: number } | undefined;
     return row ? Number(row.total) : 0;
   }
 
