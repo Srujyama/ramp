@@ -30,7 +30,14 @@ INSERT INTO vendors (vendor_id, display_name, verified, registry_domain, registr
   -- check is green and a human still gets asked.
   ('newco_ltd',    'NewCo Ltd',    1, 'newco.example.com', '2026-07-15T00:00:00Z', 'tlsnotary', 'elevated'),
   ('sketchy_llc',  'Sketchy LLC',  0, NULL, NULL, NULL, 'standard'),
-  ('unknown_labs', 'Unknown Labs', 0, NULL, NULL, NULL, 'standard');
+  ('unknown_labs', 'Unknown Labs', 0, NULL, NULL, NULL, 'standard'),
+  -- Long-standing, unremarkable suppliers. They exist so the realistic history
+  -- (scripts/seed-history.mjs) and the console have more than one vendor that can
+  -- actually settle: acme_corp is the only other `trusted` vendor, and with
+  -- newco_ltd escalating on tier and the two unverified vendors denying, every
+  -- vendor breakdown collapsed to "Acme 100%, everyone else $0". Additive only.
+  ('globex_inc',   'Globex Inc',   1, 'globex.example.com',  '2026-04-02T00:00:00Z', 'tlsnotary', 'trusted'),
+  ('initech',      'Initech',      1, 'initech.example.com', '2026-05-18T00:00:00Z', 'tlsnotary', 'standard');
 
 -- Approved category list (+ one explicitly-unapproved, "crypto", to demo the deny).
 INSERT INTO categories (category_id, display_name, approved) VALUES

@@ -75,6 +75,56 @@ function withDb<T>(fn: (db: ReturnType<typeof openLedger>) => T): T {
   }
 }
 
+// --- the proof must be a proof about THIS row -------------------------------
+
+test("RED TEAM: rewriting facts_json while leaving the proof alone is caught", () => {
+  withDb((db) => {
+    const id = "tampered_facts";
+    const real = facts();
+    const proof = buildProof({ decisionId: id, request: req, decision: ALLOW, facts: real, producedAt: 1 });
+    recordDecision(db, { decisionId: id, request: req, facts: real, decision: ALLOW, proof });
+
+    // Sanity: the honest record verifies. Without this the test could pass by
+    // rejecting everything.
+    assert.equal(verifyDecisionProof(getDecision(db, id)!).reason, "ok");
+
+    // THE TAMPER. Rewrite the facts this payment was judged on and DO NOT touch the
+    // proof. This used to pass BOTH shipped verifiers: verifyChain links on
+    // H(prev || proof_id || decision_id) and never reads row content, while
+    // verifyProof recomputes this proof's id from this proof's bytes — which the
+    // tamper does not change. The console rendered "Proof valid" over a lie.
+    const lie = { ...real, daily_total_so_far: 0, amount: 99_999 };
+    db.prepare("UPDATE decisions SET facts_json = ? WHERE decision_id = ?").run(JSON.stringify(lie), id);
+
+    const after = verifyDecisionProof(getDecision(db, id)!);
+    assert.equal(after.proofVerified, false);
+    assert.equal(after.reason, "mismatch");
+  });
+});
+
+test("a proof that commits NO factsDigest is not reported as tampered", () => {
+  withDb((db) => {
+    // A claim never made cannot be broken. Reporting these as tampered would bury
+    // real tampering in false positives. Safe: factsDigest is inside the proof's
+    // hashed content, so nulling it to reach here fails verifyProof first.
+    const id = "proof_without_facts";
+    const proof = buildProof({ decisionId: id, request: req, decision: ALLOW, producedAt: 1 });
+    recordDecision(db, { decisionId: id, request: req, facts: facts(), decision: ALLOW, proof });
+    assert.equal(verifyDecisionProof(getDecision(db, id)!).reason, "ok");
+  });
+});
+
+test("deleting facts_json from a proof that DID commit them is caught", () => {
+  withDb((db) => {
+    const id = "facts_deleted";
+    const real = facts();
+    const proof = buildProof({ decisionId: id, request: req, decision: ALLOW, facts: real, producedAt: 1 });
+    recordDecision(db, { decisionId: id, request: req, facts: real, decision: ALLOW, proof });
+    db.prepare("UPDATE decisions SET facts_json = NULL WHERE decision_id = ?").run(id);
+    assert.equal(verifyDecisionProof(getDecision(db, id)!).reason, "mismatch");
+  });
+});
+
 // --- verifyDecisionProof (the helper) ---------------------------------------
 
 test("valid proof → proofVerified true, reason ok", () => {
