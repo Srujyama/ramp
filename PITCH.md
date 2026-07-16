@@ -4,9 +4,10 @@
 > deck (`pitch-deck.html`) both derive from this file. **If you change the pitch, change it
 > HERE first, then propagate to both artifacts** (see `CLAUDE.md` → "Keeping the pitch in sync").
 > Last substantive update: 2026-07-16 — overnight run: velocity, windowed budgets, duplicate
-> detection, signed approvals, `pnpm stats` (money stopped), the `@ramp/client` SDK, `pnpm explain`
-> (kernel-confirmed counterfactuals), and `pnpm simulate` (pre-flight a batch). 508 tests, 17 demo
-> beats. Both HTML artifacts are propagated and in sync as of this date.
+> detection, signed approvals, `pnpm stats` (money stopped), the `@ramp/client` SDK, and the
+> operator/auditor CLIs `pnpm explain` (kernel-confirmed counterfactuals), `pnpm simulate`
+> (pre-flight a batch), `pnpm policy-diff` (policy what-if), and `pnpm receipt` (a self-verifying
+> portable proof). 508 tests, 18 demo beats. Both HTML artifacts are propagated and in sync.
 >
 > **Published artifact URLs (republish to these; don't mint new ones):**
 > - Plan: https://claude.ai/code/artifact/30f5b98e-903f-4f8d-80f6-aaab5d80a2de
@@ -316,8 +317,11 @@ asserts the **exit code** on every beat. It runs in CI, so these are not claims:
 13. **Policy what-if** — `pnpm policy-diff` replays the log under a changed dial: raising the daily
     limit flips the recorded daily-limit deny back to **allow**, while the same dial leaves a
     categorical (unverified-vendor) deny **untouched**. *The what-if turns exactly the dial it claims.*
+14. **Portable receipt** — `pnpm receipt` emits a self-contained `.mjs`; CI generates it, runs it
+    with **plain node** (VERIFIED), then **tampers** the embedded decision and confirms the receipt
+    now rejects it. *A proof you hand someone and they check themselves — no install, no trust.*
 
-**17 beats, all asserted in CI.** Plus **fail-closed**: an unreachable ledger → deny, exit 2.
+**18 beats, all asserted in CI.** Plus **fail-closed**: an unreachable ledger → deny, exit 2.
 
 ### The money it stops (`pnpm stats`)
 
@@ -404,6 +408,28 @@ categorical facts (an unverified vendor, a missing attestation) are not dials an
 are left exactly as recorded, so a categorical deny stays denied no matter how you
 turn the caps. Read-only: it previews a policy edit, it doesn't make one.
 
+### Hand an auditor the receipt (`pnpm receipt`)
+
+The strongest version of "don't trust us" is a file you run yourself. `pnpm
+receipt` emits **one self-contained `.mjs`** for a decision — and it verifies with
+nothing but `node`:
+
+```
+$ node ramp-receipt-inv_2026_07_0043.mjs
+  decision: DENY   reason: attestation_invalid …
+  RESULT: VERIFIED ✓  — re-derived from its own facts; digests + gate signature check out.
+```
+
+No install, no network, no database, nothing from this repo. Inside, it re-derives
+the decision from its recorded facts, checks every digest, and verifies the gate's
+Ed25519 signature against an **embedded public key** (public keys verify signatures;
+they can't forge them). The verifier body is the repo's **real** `verify-ramp-proof.mjs`
+inlined verbatim — the same file whose parity with the production kernel is
+cross-checked in CI on thousands of randomized fact sets — so the receipt inherits
+that guarantee rather than re-implementing the rules. **Tampering is caught**: edit
+the embedded decision or a single fact and it fails with a digest mismatch (demo
+beat 14 asserts exactly this — a clean receipt verifies, a tampered one is rejected).
+
 ### Build on it in five lines (`@ramp/client`)
 
 The whole gate is one typed SDK call for an agent author:
@@ -488,7 +514,7 @@ console, and a policy simulator. **9 workspaces:** `@ramp/shared`, `@ramp/gate` 
 `@ramp/provenance`, `@ramp/payments-mcp` (self-enforcing tool + 4 read-only agent tools),
 **`@ramp/client`** (typed SDK), `@ramp/dashboard`. CI, branch protection, 4 collaborators.
 
-**508 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 17 demo beats above
+**508 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 18 demo beats above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 
