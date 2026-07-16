@@ -18,7 +18,8 @@
  * the decision": an audit log is a claim by the system about the system, and you
  * must already trust the system to believe it.
  *
- *   pnpm proof                 # verify every bundle, print the full graph
+ *   pnpm proof                        # verify every bundle + walk the chain
+ *   pnpm proof --receipt r.json       # ALSO check against an earlier published head
  *   pnpm proof --summary       # one line each
  *   pnpm proof <file.json>     # verify one bundle
  */
@@ -27,14 +28,22 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { verifyBundle, renderBundle, summarizeBundle } from "@ramp/provenance";
 import { referenceKernel } from "@ramp/gate";
-import { openLedger, closeLedger, verifyChain, chainHead } from "@ramp/ledger";
+import { openLedger, closeLedger, verifyChain, chainHead, verifyAgainstReceipt } from "@ramp/ledger";
+import { demoGateKeyring } from "@ramp/provenance";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BUNDLE_DIR = process.env.RAMP_BUNDLE_DIR ?? join(HERE, "..", ".ramp", "bundles");
 
 const args = process.argv.slice(2);
 const summaryOnly = args.includes("--summary");
-const explicitFile = args.find((a) => !a.startsWith("--"));
+// `--receipt <path>` takes a VALUE, so the path must not be mistaken for a
+// bundle to verify — the same arg-parsing bug the standalone verifier had with
+// --gate-key, where it confidently failed to verify a public key as a bundle.
+const explicitFile = args.find(
+  (a, i) => !a.startsWith("--") && args[i - 1] !== "--receipt",
+);
+const receiptIdx = args.indexOf("--receipt");
+const receiptPath = receiptIdx >= 0 ? args[receiptIdx + 1] : undefined;
 
 function loadBundles() {
   if (explicitFile) return [explicitFile];
@@ -94,19 +103,50 @@ console.log("=".repeat(72));
 try {
   const db = openLedger(process.env.RAMP_DB_PATH, { provisionIfEmpty: false });
   const { head, length } = chainHead(db);
-  const chain = verifyChain(db, process.env.RAMP_EXPECTED_HEAD);
+  const chain = verifyChain(db);
   console.log(`\nDECISION CHAIN — ${length} decision(s), head ${head.slice(0, 16)}…`);
   if (chain.valid) {
-    console.log("  INTACT — no decision was deleted, reordered, or inserted.");
-    if (!process.env.RAMP_EXPECTED_HEAD) {
-      console.log("  NOTE: set $RAMP_EXPECTED_HEAD to a head you published earlier to also");
-      console.log("        catch a full-suffix rewrite. Without it, a forged-but-consistent");
-      console.log("        chain passes — see packages/ledger/src/chain.ts.");
-    }
+    console.log("  INTACT — no decision was edited, deleted, reordered, or inserted.");
   } else {
     invalid++;
     console.log(`  TAMPERED — ${chain.defects.length} defect(s):`);
     for (const d of chain.defects) console.log(`    [${d.kind}] seq ${d.seq}: ${d.detail}`);
+  }
+
+  // ---- the external witness --------------------------------------------
+  // The chain above is blind to ONE thing: a full-suffix rewrite. Recompute every
+  // link from the edit point and it is internally perfect. Only a receipt you
+  // published EARLIER, somewhere the operator cannot rewrite, catches that.
+  //
+  // The two are complementary and neither is sufficient alone. Both run here.
+  if (receiptPath) {
+    let receipt = null;
+    try {
+      receipt = JSON.parse(readFileSync(receiptPath, "utf8"));
+    } catch (err) {
+      invalid++;
+      console.log(`\nRECEIPT — unreadable (${receiptPath}): ${err.message}`);
+    }
+    if (receipt) {
+      const c = verifyAgainstReceipt(db, receipt, demoGateKeyring());
+      console.log(
+        `\nEXTERNAL WITNESS — receipt from ${receipt.statement?.at} ` +
+          `(${receipt.statement?.length} decision(s))`,
+      );
+      if (c.consistent) {
+        console.log(`  CONSISTENT — ${c.detail}`);
+        console.log(`  The history you were shown before is still a prefix of this one.`);
+      } else {
+        invalid++;
+        console.log(`  INCONSISTENT [${c.code}] — ${c.detail}`);
+      }
+    }
+  } else {
+    console.log("\nEXTERNAL WITNESS — none supplied.");
+    console.log("  The chain above cannot see a full-suffix rewrite: recompute every link");
+    console.log("  and it is internally perfect. Pass --receipt <file> with a receipt you");
+    console.log("  published EARLIER (`pnpm head`) to close that. Without one, this run");
+    console.log("  has NOT ruled out a rewritten history.");
   }
   closeLedger(db);
 } catch (err) {

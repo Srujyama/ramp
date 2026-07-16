@@ -31,7 +31,8 @@ pnpm install            # installs the whole workspace
 | `pnpm lint`             | Type-level lint (`tsc --noEmit`) across the graph.                  |
 | `pnpm db:reset`         | Rebuild the ledger SQLite DB from `schema.sql` + `seed.sql`.        |
 | `pnpm demo`             | **Drive every PITCH.md beat through the real hook; assert exit codes.** |
-| `pnpm proof`            | **Independently re-verify the provenance bundles the gate sealed.** |
+| `pnpm proof`            | **Independently re-verify the sealed bundles + walk the chain.** `--receipt <f>` also checks an earlier published head. |
+| `pnpm head`             | Publish a signed head receipt. **Put it somewhere the operator can't rewrite.** |
 | `pnpm approve`          | **The HUMAN channel** — list held payments; approve/reject one. Never an MCP tool. |
 | `pnpm notary`           | Mint a demo attestation (`--spoof` / `--stale` for the deny beats). |
 | `pnpm dev`              | Start the dashboard shell (Vite dev server).                       |
@@ -144,6 +145,14 @@ Things that look like bugs but are not — read before "fixing":
   depending on SQLite's row order — invisible until a bundle fails to re-verify elsewhere.
 - **A provenance `value` is the fact VERBATIM, never a prettified rendering.** Typed
   `Facts[keyof Facts]` for that reason. Rendering belongs in `render.ts`.
+
+- **The chain, the receipt, and re-derivation are COMPLEMENTARY. None is sufficient alone.**
+  `verifyChain` catches edits/deletions/reordering but is blind to a self-consistent full-suffix
+  rewrite. A head receipt catches exactly that, but checks ONE position — so it's blind to a sloppy
+  in-prefix edit. Re-derivation proves soundness and says nothing about what's missing. Don't delete
+  one because another "already covers it"; there's a test for each blind spot.
+- **`expectedHead == currentHead` is the wrong check** and is gone. The head moves on every honest
+  append, so it fired on normal operation. Use a receipt + consistency check.
 
 ## Optional: the Souffle → WASM kernel
 

@@ -11,6 +11,18 @@
  */
 export { migrateDecisionsChecks } from "./migrate.js";
 
+// The external witness. A receipt records (head, length); `verifyAgainstReceipt`
+// asks whether the history you saw is still a PREFIX of the chain today — which
+// is the question a growing chain can actually answer. Publish receipts somewhere
+// the operator cannot rewrite; a receipt stored beside the ledger proves nothing.
+export { publishHead, verifyAgainstReceipt } from "./head-receipt.js";
+export type {
+  HeadReceipt,
+  HeadStatement,
+  ConsistencyResult,
+  ConsistencyFailure,
+} from "./head-receipt.js";
+
 // Human resolution of an escalation. NOTE: `resolveEscalation` is HUMAN-CHANNEL
 // ONLY — no MCP tool may reach it, or the requesting agent approves itself and
 // escalation becomes theatre. Agent-facing code gets the read-only helpers.

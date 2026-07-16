@@ -174,6 +174,28 @@ So we prove **three** different things, because they are three different guarant
 | **Hash chain** | **Chain integrity** — "is any decision *missing*?" | A decision is deleted, reordered, or inserted |
 | **Provenance bundle** | **Soundness** — "does this decision *follow from* these facts?" | The decision was wrong when made |
 
+**And a chain alone still isn't enough.** An operator who rewrites the *entire
+suffix* — recomputing every link from the edit point — produces a chain that is
+internally flawless and a different history. So the gate publishes a signed
+**head receipt** `(head, length)`, and later asks the only question a growing log
+can answer: *"is the history you showed me before still a **prefix** of the one
+you're showing me now?"* That's certificate transparency's consistency proof, and
+it's why the naive version (compare today's head to yesterday's) doesn't work —
+**the head changes every time anyone spends**, so a bare comparison cries wolf on
+every honest payment.
+
+The three mechanisms are complementary and **none is sufficient alone**: the chain
+is blind to a self-consistent rewrite; the receipt checks one position, so it's
+blind to a sloppy in-prefix edit; re-derivation says nothing about what's missing.
+`pnpm proof` runs all of them, and **tells you what it hasn't ruled out** when you
+don't hand it a receipt.
+
+*The part that isn't code:* a receipt only works if it lives somewhere **the
+operator cannot rewrite** — a status page, a customer's inbox, a public commit, a
+transparency log. A receipt on the same disk is worthless; whoever rewrites the
+chain rewrites it in the same breath. And the signature isn't what makes it work
+(a compromised gate signs whatever it likes) — **the copy you don't control is.**
+
 **The middle one is the gap everyone else has.** Every proof-per-record scheme treats each record as
 an island, so `DELETE FROM decisions WHERE id = '<the one that embarrasses me>'` leaves an audit
 trail where **every remaining proof still verifies perfectly**. We demonstrated exactly that against
@@ -301,7 +323,7 @@ workspaces: `@ramp/shared` (frozen contract), `@ramp/gate` (kernel + real Souffl
 **`@ramp/quarantine`**, **`@ramp/attestation`**, **`@ramp/provenance`**, `@ramp/payments-mcp`
 (self-enforcing tool), `@ramp/dashboard` (the audit console). CI, branch protection, 4 collaborators.
 
-**411 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
+**422 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 
