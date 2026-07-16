@@ -18,6 +18,8 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { heroAttestation, mintAttestation, HERO_INVOICE } from "./notary.mjs";
+import { openLedgerStrict, closeLedger, listDecisions } from "@ramp/ledger";
+import { getKernel, explainDecision } from "@ramp/gate";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOOK = join(HERE, "..", "hook", "evaluate.mjs");
@@ -453,6 +455,40 @@ beat(
   );
   if (prior === undefined) delete process.env.RAMP_DB_PATH;
   else process.env.RAMP_DB_PATH = prior;
+}
+
+// -- Beat 11: the gate can say WHY — and PROVE the counterfactual -----------
+// Not a hook beat: a read-only view over what the beats above already recorded.
+// It takes the daily-limit deny, asks the explainer "what would have allowed
+// this?", and RE-RUNS THE KERNEL to confirm the answer — the same discipline as
+// everything else here: nothing is asserted that the kernel won't back.
+{
+  console.log("--- Beat 11: `pnpm explain` — why it was stopped, and what would flip it ---\n");
+  const db = openLedgerStrict();
+  try {
+    const { kernel } = getKernel();
+    const deny = listDecisions(db, { firedRule: "deny/daily_limit_exceeded", limit: 1 })
+      .decisions[0];
+    if (!deny || !deny.facts || !deny.decision) {
+      failures++;
+      console.log("! FAIL  Beat 11: no daily-limit deny with facts was recorded to explain.\n");
+    } else {
+      const ex = explainDecision(deny.facts, deny.decision, kernel);
+      const max = ex.counterfactual.maxAllowAmount;
+      const room = deny.facts.daily_limit - deny.facts.daily_total_so_far;
+      // Kernel-confirm the flip: allow at `max`, NOT allow at `max + 1`.
+      const allowsAtMax = kernel.evaluate({ ...deny.facts, amount: max }).decision === "allow";
+      const deniesAbove = kernel.evaluate({ ...deny.facts, amount: max + 1 }).decision !== "allow";
+      const ok = max === room && allowsAtMax && deniesAbove;
+      if (!ok) failures++;
+      console.log(`${ok ? "  PASS" : "! FAIL"}  Beat 11: explainer's counterfactual is kernel-confirmed`);
+      console.log(`         -> ${ex.headline}`);
+      console.log(`         -> maxAllowAmount ${max} == daily headroom ${room}; ` +
+        `kernel allows at ${max}: ${allowsAtMax}, refuses at ${max + 1}: ${deniesAbove}\n`);
+    }
+  } finally {
+    closeLedger(db);
+  }
 }
 
 console.log("=".repeat(72));

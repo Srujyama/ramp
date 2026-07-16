@@ -305,8 +305,11 @@ asserts the **exit code** on every beat. It runs in CI, so these are not claims:
 8. **Velocity** — the 7th tiny payment in an hour → **ask**. *Fraud is fast, not big; no cap sees it.*
 9. **Window** — `$400` travel: fine daily and weekly, over the **monthly** budget → **deny**.
 10. **Duplicate** — re-paying an identical settled invoice → **ask**. *The oldest AP fraud.*
+11. **Explain** — the gate reads back the daily-limit deny and proves the counterfactual: it
+    would settle unattended at `≤ $360`, confirmed by re-running the kernel at `360` (allows) and
+    `361` (does not). *The explainer can never be more permissive than the gate.*
 
-**14 beats, all asserted in CI.** Plus **fail-closed**: an unreachable ledger → deny, exit 2.
+**15 beats, all asserted in CI.** Plus **fail-closed**: an unreachable ledger → deny, exit 2.
 
 ### The money it stops (`pnpm stats`)
 
@@ -325,6 +328,30 @@ question is actually asking: **how much would have gone out the door that didn't
 That is not a slogan; it is a column. On the seeded demo the gate stops **$3,295**
 of wrong-or-fraudulent spend and lets **$340** of real spend through — and every
 one of those decisions is independently re-verifiable.
+
+### Why — and what would have flipped it (`pnpm explain`)
+
+"Denied" is half an answer. The half a finance lead actually acts on is the
+**counterfactual**: *at what amount would this have settled unattended? which
+single fact is the blocker — and can money even fix it?* Point `pnpm explain` at
+any stopped payment and the gate answers, in its own words:
+
+```
+  request    agent_47 → acme_corp  $400  (office_supplies)
+  verdict    DENY
+  Denied. Would have settled unattended at any amount ≤ $360 (it asked for $400 — $40 too much).
+  RULES THAT FIRED  (and the smallest fix for each)
+    • deny/daily_limit_exceeded — daily_total 1140 + 400 > daily_limit 1500
+        fix: request ≤ 360 (today's remaining daily headroom), or wait for tomorrow
+```
+
+The number is **not asserted — it is proven.** The explainer perturbs one fact,
+hands the new facts back to the *same deterministic kernel*, and reports the flip
+only when the kernel agrees — so it can never be more permissive than the gate.
+When the blocker is categorical (an unverified vendor, a missing attestation) it
+says so plainly: *no amount clears this.* Same discipline as everything else here
+— the kernel is the authority; the explainer only asks it. `pnpm explain -- --list`
+shows every stopped payment to choose from.
 
 ### Build on it in five lines (`@ramp/client`)
 
@@ -410,7 +437,7 @@ console, and a policy simulator. **9 workspaces:** `@ramp/shared`, `@ramp/gate` 
 `@ramp/provenance`, `@ramp/payments-mcp` (self-enforcing tool + 4 read-only agent tools),
 **`@ramp/client`** (typed SDK), `@ramp/dashboard`. CI, branch protection, 4 collaborators.
 
-**483 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
+**494 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 15 demo beats above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 

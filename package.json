@@ -25,6 +25,7 @@
     "approve": "node scripts/approve.mjs",
     "head": "node scripts/head.mjs",
     "stats": "node scripts/stats.mjs",
+    "explain": "node scripts/explain.mjs",
     "sdk-example": "node scripts/sdk-example.mjs"
   },
   "dependencies": {

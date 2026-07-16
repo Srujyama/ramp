@@ -20,6 +20,12 @@ import { WasmKernel, isWasmKernelAvailable } from "./wasm-kernel.js";
 
 export { ReferenceKernel, referenceKernel } from "./reference-kernel.js";
 export { WasmKernel, isWasmKernelAvailable } from "./wasm-kernel.js";
+export { explainDecision } from "./explain.js";
+export type {
+  Explanation,
+  RuleExplanation,
+  Counterfactual,
+} from "./explain.js";
 
 /** A `DescribedKernel` wrapping the always-available reference implementation. */
 const REFERENCE_DESCRIBED: DescribedKernel = {
