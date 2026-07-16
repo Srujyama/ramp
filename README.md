@@ -16,7 +16,7 @@ are true.
 decision.*
 
 ```bash
-pnpm install && pnpm db:reset && pnpm build && pnpm test   # 483 tests
+pnpm install && pnpm db:reset && pnpm build && pnpm test   # 494 tests
 pnpm demo     # drive every pitch beat through the REAL hook; assert exit codes
 pnpm proof    # independently re-verify the bundles the gate sealed
 ```
@@ -133,11 +133,12 @@ corepack enable
 pnpm install         # install the whole workspace
 pnpm db:reset        # build the demo ledger from schema.sql + seed.sql
 pnpm build           # tsc build every package
-pnpm test            # run every workspace's node:test suite (483 tests)
+pnpm test            # run every workspace's node:test suite (494 tests)
 
 pnpm demo            # drive EVERY pitch beat through the real hook, assert exit codes
 pnpm proof           # independently re-verify the bundles the gate just sealed
 pnpm stats           # operator view: allow/hold/deny rates, money stopped, what's catching
+pnpm explain [<id>]  # why a payment was stopped + the KERNEL-CONFIRMED counterfactual
 pnpm dev             # dashboard (Vite) — the Audit page re-verifies in your browser
 pnpm mcp             # (separately) run the stub payments MCP server
 ```

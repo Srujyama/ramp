@@ -1269,6 +1269,34 @@
     </div>
   </section>
 
+  <!-- ===================================================== SLIDE 15c — EXPLAIN -->
+  <section class="slide" data-note="A judge points at any stopped payment and asks why. The gate answers — and proves it. pnpm explain reads back the denied payment, shows every rule that fired with the concrete numbers, and computes the counterfactual: it would have settled unattended at 360 dollars or less, it asked for 400. The key line: that number is not asserted, it is proven — the explainer perturbs one fact, hands it back to the same deterministic kernel, and only reports the flip if the kernel agrees. So it can never be more permissive than the gate. When the blocker is categorical — an unverified vendor, a missing attestation — it says so: no amount fixes that.">
+    <div class="stage">
+      <p class="eyebrow green">Save time. Save money.</p>
+      <h1 class="headline">Ask it "why?" — and it proves the answer.</h1>
+      <div class="cols">
+        <div class="card">
+          <span class="stamp green">pnpm explain — the denied $400</span>
+          <div class="mono" style="font-size:clamp(12px,1.25vw,16px);margin:16px 0 0;line-height:1.85;color:var(--ink-2);">
+            <div>agent_47 → acme_corp &nbsp;<span class="tag-red">$400</span></div>
+            <div style="margin-top:6px;color:var(--muted);">deny/daily_limit_exceeded: 1140 + 400 &gt; 1500</div>
+            <div style="margin-top:14px;"><span class="tag-green">would settle unattended at ≤ $360</span></div>
+            <div style="color:var(--muted);font-size:13px;margin-top:6px;">it asked for $400 — $40 too much</div>
+          </div>
+        </div>
+        <div class="card">
+          <span class="stamp">The number is proven, not asserted</span>
+          <div style="font-size:clamp(13px,1.35vw,16px);margin:16px 0 0;line-height:1.75;color:var(--ink-2);">
+            <div>Perturb one fact → hand it back to the <b>same kernel</b> → report the flip <b>only if the kernel agrees</b>.</div>
+            <div style="margin-top:12px;"><span class="tag-green">allows at $360</span> &nbsp; <span class="tag-red">refuses at $361</span> — re-run live.</div>
+            <div style="margin-top:12px;color:var(--muted);">Categorical blocker (unverified vendor, missing attestation)? It says so: <b>no amount fixes that.</b></div>
+          </div>
+        </div>
+      </div>
+      <p class="footnote green">The explainer can never be more permissive than the gate — because the gate is the thing answering.</p>
+    </div>
+  </section>
+
   <!-- ===================================================== SLIDE 15 -->
   <section class="slide" data-note="This is not a slide-deck idea — the backbone is built and green. Five workspaces, CI, branch protection, twenty-five tests passing, the gate allows and denies live today. Everyone else scopes the card. We prove the decision — and here's the receipt.">
     <div class="stage">
@@ -1285,7 +1313,7 @@
         <div class="status-row"><span class="ws">@ramp/client</span><span class="desc">typed SDK — build a spending agent in 5 lines</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/dashboard</span><span class="desc">the audit console — re-derives decisions in your browser</span><span class="ck">✓</span></div>
       </div>
-      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">483 tests PASS</span> · <span class="tag-green">14 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
+      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">494 tests PASS</span> · <span class="tag-green">15 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
       <p class="heroline">Everyone else scopes the card. <span class="tag-green">We prove the decision</span> — and here's the receipt.</p>
     </div>
   </section>
