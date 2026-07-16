@@ -474,7 +474,43 @@ export function recordExecution(
       input.provider,
       input.executedAt ?? null,
     );
-  return { inserted: res.changes === 1 };
+  const inserted = res.changes === 1;
+
+  // A SETTLED execution is the moment spend actually moves — so this is where a
+  // `ledger_entries` row is born, projected from the decision's own recorded
+  // fields. `daily_total_so_far`, the velocity count, the duplicate check, and the
+  // windowed budgets all read `ledger_entries`, and NOTHING wrote it: only the seed
+  // ever inserted rows, so those totals were frozen at seed data and D5 was, in
+  // practice, unenforceable. This is that missing writer.
+  //
+  // Guarded on `inserted` so it fires exactly once per execution — a replayed
+  // receipt (INSERT OR IGNORE no-op) adds no spend, keeping this idempotent. Only
+  // `settled` counts: a `failed` receipt is a real, auditable executor outcome but
+  // no money moved, so it must never become spend. Reads the decision by id and
+  // requires `outcome='allow'`, so a settled row for a non-allow (which the
+  // lifecycle already forbids) still cannot inflate a total it should not.
+  if (inserted && input.status === "settled") {
+    const d = db
+      .prepare(
+        `SELECT agent_id, vendor_id, category, amount, request_id
+           FROM decisions WHERE decision_id = ? AND outcome = 'allow'`,
+      )
+      .get(input.decisionId) as
+      | { agent_id: string; vendor_id: string; category: string; amount: number; request_id: string }
+      | undefined;
+    if (d) {
+      // `ts` mirrors the execution time, not now: a backfilled/settled-in-the-past
+      // receipt must land on the day it settled, or "spent today" counts a payment
+      // that did not happen today. Currency defaults to USD in the schema (money is
+      // whole-unit USD everywhere), so it is intentionally omitted here.
+      db.prepare(
+        `INSERT INTO ledger_entries (agent_id, vendor_id, category_id, amount, request_id, ts)
+         VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`,
+      ).run(d.agent_id, d.vendor_id, d.category, d.amount, d.request_id, input.executedAt ?? null);
+    }
+  }
+
+  return { inserted };
 }
 
 // --- read path ---------------------------------------------------------------

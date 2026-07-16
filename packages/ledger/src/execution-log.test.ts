@@ -67,6 +67,63 @@ function withDb<T>(fn: (db: ReturnType<typeof openLedger>) => T): T {
   }
 }
 
+test("THE WRITER: a settled execution projects a ledger_entries row; failed/replay do not", () => {
+  withDb((db) => {
+    const dailyEntries = (agent: string) =>
+      (
+        db
+          .prepare(
+            "SELECT COALESCE(SUM(amount),0) AS t FROM ledger_entries WHERE agent_id = ? AND date(ts) = date('now')",
+          )
+          .get(agent) as { t: number }
+      ).t;
+    const before = dailyEntries("agent_47");
+
+    // recordDecision alone must NOT move spend — nothing has settled.
+    const { decisionId } = recordDecision(db, {
+      request: { ...req, amount: 200, invoiceRef: "inv_writer" },
+      facts: facts({ amount: 200 }),
+      decision: ALLOW,
+    });
+    assert.equal(dailyEntries("agent_47"), before, "unsettled decision moved spend");
+
+    // A settled execution is the ONLY thing that writes spend.
+    recordExecution(db, {
+      decisionId,
+      receiptId: "rcpt_w",
+      executionId: "exec_w",
+      status: "settled",
+      provider: "sandbox",
+    });
+    assert.equal(dailyEntries("agent_47"), before + 200, "settlement did not write ledger_entries");
+
+    // Replaying the receipt is an idempotent no-op — no double count.
+    recordExecution(db, {
+      decisionId,
+      receiptId: "rcpt_w",
+      executionId: "exec_w",
+      status: "settled",
+      provider: "sandbox",
+    });
+    assert.equal(dailyEntries("agent_47"), before + 200, "replayed settlement double-counted");
+
+    // A FAILED execution is a real executor outcome but moved no money.
+    const fail = recordDecision(db, {
+      request: { ...req, amount: 77, invoiceRef: "inv_fail_w" },
+      facts: facts({ amount: 77 }),
+      decision: ALLOW,
+    });
+    recordExecution(db, {
+      decisionId: fail.decisionId,
+      receiptId: "rcpt_f",
+      executionId: "exec_f",
+      status: "failed",
+      provider: "sandbox",
+    });
+    assert.equal(dailyEntries("agent_47"), before + 200, "a failed rail was counted as spend");
+  });
+});
+
 test("recordExecution: settled receipt reads back on the decision", () => {
   withDb((db) => {
     const { decisionId } = recordDecision(db, { request: req, facts: facts(), decision: ALLOW });
