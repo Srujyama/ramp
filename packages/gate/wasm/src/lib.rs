@@ -33,6 +33,18 @@ struct Facts {
     attestation_present: bool,
     escalation_threshold: i64,
     vendor_risk_tier: String,
+    #[serde(default)]
+    budgets: Vec<BudgetLine>,
+}
+
+/// One additional budget the spend must fit under (policy.dl D7). Generic over
+/// scope: a new budget kind is a row in a table, not a new rule here.
+#[derive(Deserialize)]
+struct BudgetLine {
+    scope: String,
+    key: String,
+    limit: i64,
+    spent: i64,
 }
 
 /// Mirror of the frozen `Decision` contract in `@ramp/shared`.
@@ -129,6 +141,18 @@ fn evaluate_facts(f: &Facts) -> Decision {
             "attestation_invalid: no verified attestation binds this invoice to vendor \"{}\" — refusing to pay on an unattested document",
             f.vendor
         ));
+    }
+
+    // D7: any additional budget this spend would break. The list arrives sorted
+    // by (scope, key); that ordering is load-bearing for byte-stable reasons.
+    for b in &f.budgets {
+        if b.spent + f.amount > b.limit {
+            fired.push("deny/budget_exceeded".to_string());
+            reasons.push(format!(
+                "budget_exceeded: {} budget for \"{}\" — {} + {} > {}",
+                b.scope, b.key, b.spent, f.amount, b.limit
+            ));
+        }
     }
 
     // ESCALATE triggers (policy.dl E1, E2). Collected here, consulted after the

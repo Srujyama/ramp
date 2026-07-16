@@ -52,3 +52,33 @@ INSERT INTO ledger_entries (agent_id, vendor_id, category_id, amount, currency, 
 -- 500 hard cap: 340 allows, 450 escalates to a human, 600 denies outright.
 INSERT INTO policy_limits (id, per_txn_cap, daily_limit, escalation_threshold, currency) VALUES
   (1, 500, 1500, 400, 'USD');
+
+-- Additional budgets (policy.dl D7). Numbers chosen so every demo beat lands
+-- where PITCH.md says, which is NOT automatic — the first attempt set
+-- vendor_daily/acme_corp to 1200 and broke the hero: agent_47 has already spent
+-- 1140 with Acme, so 1140 + 340 = 1480 > 1200 denied the happy path. `pnpm demo`
+-- caught it immediately. Arithmetic, given the seeded spend (agent_47: 600
+-- office_supplies + 540 software = 1140; agent_12: 0):
+--
+--   hero      $340 office_supplies a47 -> category 600+340=940 <=1200, vendor
+--                                         1140+340=1480 <=2500, daily 1480<=1500  ALLOW
+--   beat 2    $400 office_supplies a47 -> daily 1540>1500 DENY. Category 1000<=1200
+--                                         and vendor 1540<=2500 stay quiet, so the
+--                                         reason PITCH.md quotes verbatim
+--                                         ("1140 + 400 > 1500") is still the ONLY one.
+--   escalate  $450 office_supplies a12 -> category 600+450=1050 <=1200, so it
+--                                         reaches E1 instead of dying on a budget.
+--   budget    $300 software        a47 -> category 540+300=840 > 800 DENY
+--                                         budget_exceeded, while daily 1440<=1500 and
+--                                         cap 300<=500 stay quiet. A budget beat that
+--                                         is NOT the daily limit — otherwise D7 would
+--                                         only ever be demoed by something D5 catches.
+INSERT INTO budgets (scope, key, limit_amount) VALUES
+  ('category_daily', 'office_supplies', 1200),
+  ('category_daily', 'software',         800),
+  ('category_daily', 'travel',          5000),
+  -- crypto is approved=0 already; a zero budget is the belt to that braces —
+  -- two independent reasons it can never be paid.
+  ('category_daily', 'crypto',             0),
+  ('vendor_daily',   'acme_corp',       2500),
+  ('vendor_daily',   'newco_ltd',        200);

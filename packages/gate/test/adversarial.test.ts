@@ -30,6 +30,7 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     attestation_present: true,
     escalation_threshold: 400,
     vendor_risk_tier: "standard",
+    budgets: [],
     ...overrides,
   };
 }
@@ -73,6 +74,7 @@ function randomFacts(rng: () => number): Facts {
     attestation_present: rng() > 0.5,
   escalation_threshold: Math.floor(rng() * 1000),
   vendor_risk_tier: "standard",
+  budgets: [],
   };
 }
 

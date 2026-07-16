@@ -17,6 +17,8 @@
  *   4. deny/agent_uncleared_for_category (policy.dl D3)
  *   5. deny/daily_limit_exceeded         (policy.dl D5)
  *   6. deny/attestation_invalid          (policy.dl D6)
+ *   7. deny/budget_exceeded              (policy.dl D7), one per broken budget,
+ *      in the ledger's (scope, key) order
  * ...then, only if NO deny fired:
  *   7. escalate/over_escalation_threshold (policy.dl E1)
  *   8. escalate/elevated_risk_vendor      (policy.dl E2)
@@ -156,6 +158,26 @@ export class ReferenceKernel implements PolicyKernel {
           `attestation_invalid: no verified attestation binds this invoice to vendor ` +
           `"${facts.vendor}" — refusing to pay on an unattested document`,
       });
+    }
+
+    // D7 (policy.dl): any ADDITIONAL budget this spend would break.
+    //
+    // Generic over scope on purpose — see Facts.budgets. The list arrives sorted
+    // by (scope, key) from the ledger, and that ordering is load-bearing: reasons
+    // and firedRules are byte-stable across runs and kernels, and an unsorted
+    // list would make the SAME facts produce a different Decision depending on
+    // SQLite's row order. That is exactly the non-determinism the whole design
+    // exists to rule out, and it would be invisible until a bundle failed to
+    // re-verify on someone else's machine.
+    for (const b of facts.budgets) {
+      if (b.spent + facts.amount > b.limit) {
+        denies.push({
+          id: "deny/budget_exceeded",
+          reason:
+            `budget_exceeded: ${b.scope} budget for "${b.key}" — ` +
+            `${b.spent} + ${facts.amount} > ${b.limit}`,
+        });
+      }
     }
 
     // ---- ESCALATE triggers (policy.dl E1, E2) -------------------------------

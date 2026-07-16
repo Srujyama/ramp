@@ -42,6 +42,7 @@ const facts: Facts = {
   attestation_present: false,
 escalation_threshold: 400,
 vendor_risk_tier: "standard",
+budgets: [],
 };
 
 const decision: Decision = {

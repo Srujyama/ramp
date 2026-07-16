@@ -313,6 +313,38 @@ beat(
   "deny/vendor_not_verified",
 );
 
+// -- Beat 7: A BUDGET THAT ISN'T THE DAILY LIMIT ----------------------------
+// $300 of software from agent_47. Under the $500 cap, under the $400 escalation
+// threshold, and the daily limit is fine (1140 + 300 = 1440 <= 1500). It dies on
+// the software CATEGORY budget: 540 already spent + 300 > 800.
+//
+// Deliberately chosen so no other rule fires. A budget beat that also busts the
+// daily limit would demo nothing — D5 would catch it and D7 would be along for
+// the ride, and you could delete D7 without the demo noticing.
+const softwareInvoice = "ACME CORP\nInvoice inv_sw_001\nSeat licences\nTotal: USD 300\n";
+beat(
+  7,
+  "BUDGET — $300 software: under every cap, over the CATEGORY budget",
+  {
+    vendorId: "acme_corp",
+    amount: 300,
+    currency: "USD",
+    category: "software",
+    invoiceRef: "inv_sw_001",
+    requestingAgent: "agent_47",
+    invoiceDocument: softwareInvoice,
+    attestation: mintAttestation({
+      invoiceDocument: softwareInvoice,
+      serverDomain: "acme.example.com",
+      amount: 300,
+      currency: "USD",
+      invoiceRef: "inv_sw_001",
+    }),
+  },
+  "deny",
+  "deny/budget_exceeded",
+);
+
 // -- Fail-closed: the ledger is gone ----------------------------------------
 {
   const prior = process.env.RAMP_DB_PATH;

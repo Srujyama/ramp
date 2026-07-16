@@ -72,6 +72,23 @@
 .decl daily_total_so_far(agent: symbol, d: number)
 .input daily_total_so_far
 
+// budget(Scope, Key, Limit): an ADDITIONAL budget beyond the agent's daily limit
+// — a category's daily budget, a vendor cap, a monthly limit. Generic on purpose:
+// a new scope is a row, not a new rule. "agent_daily" is reserved and never
+// emitted here (it is daily_limit/daily_total_so_far; see D5).
+.decl budget(scope: symbol, key: symbol, limit: number)
+.input budget
+
+// budget_spent(Scope, Key, Spent): spend already counted against that budget.
+// From the ledger — never a claim.
+.decl budget_spent(scope: symbol, key: symbol, spent: number)
+.input budget_spent
+
+// budget_applies(R, Scope, Key): which budgets this request is measured against
+// (its category, its vendor, its agent). Emitted by the fact translator.
+.decl budget_applies(r: symbol, scope: symbol, key: symbol)
+.input budget_applies
+
 // escalation_threshold(T): org amount above which a human must approve, even
 // though the spend is within every hard cap. From policy_config. One row.
 .decl escalation_threshold(t: number)
@@ -167,6 +184,19 @@ deny(R) :-
   daily_total_so_far(Ag, D),
   daily_limit(L),
   D + A > L.
+
+// D7: this spend would break an additional budget. ONE rule, every scope.
+//
+// The same arithmetic as D5, generalised. A rule per scope would be N copies of
+// one idea across four kernels, drifting independently — the exact shape that has
+// already bitten this repo twice.
+deny(R) :-
+  request(R),
+  amount(R, A),
+  budget_applies(R, Scope, Key),
+  budget(Scope, Key, Limit),
+  budget_spent(Scope, Key, Spent),
+  Spent + A > Limit.
 
 // D6: no VERIFIED attestation accompanies this request (pillar 4).
 //

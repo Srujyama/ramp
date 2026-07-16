@@ -76,6 +76,8 @@ export interface AuthoritativeFacts {
   readonly escalationThreshold: number;
   /** The vendor's registry risk tier; `"unknown"` when unregistered. */
   readonly vendorRiskTier: string;
+  /** Additional budgets this spend must fit under. Sorted by (scope, key). */
+  readonly budgets: readonly import("./facts.js").BudgetLine[];
 }
 
 /**
@@ -136,6 +138,7 @@ export function translateToFacts(
     attestation_present: authoritative.attestationPresent ?? false,
     escalation_threshold: authoritative.escalationThreshold,
     vendor_risk_tier: authoritative.vendorRiskTier,
+    budgets: authoritative.budgets,
   };
 }
 

@@ -84,6 +84,22 @@ suggestion. Nobody gets asked to approve something policy already refused.
 | **escalate** | $450 — within the $500 cap, over the threshold | **Held.** A human is asked |
 | **escalate** | verified vendor, onboarded yesterday | **Held.** Verified ≠ familiar |
 | **deny** | $600 — over the cap | Refused. Nobody is asked |
+| **deny** | $300 software — under every cap, over the *category* budget | Refused |
+
+### Budgets: one rule, every scope
+
+A daily limit, a category budget, a vendor cap and a monthly limit are **the same
+arithmetic**: *spend so far + this amount vs a limit.* So there is **one generic
+rule** (`policy.dl` D7) over a budget list, not one rule per scope. A new budget
+kind is **a row in a table**, not an edit to four kernels.
+
+Seeded: `office_supplies` 1200/day, `software` 800/day, `crypto` **0** (belt to
+the braces of `approved = 0` — two independent reasons it can never be paid),
+per-vendor caps for Acme and NewCo. Demo beat 7 is `$300` of software: under the
+`$500` cap, under the `$400` threshold, daily limit fine — and it **dies on the
+category budget** (540 already spent + 300 > 800). Deliberately a budget beat that
+*isn't* the daily limit, or D7 would only ever be demoed by something D5 already
+catches.
 
 This is what lets `per_txn_cap` mean *one* thing again. It used to be both "the most
 an agent may spend unattended" and "the most an agent may spend" — two different
@@ -285,7 +301,7 @@ workspaces: `@ramp/shared` (frozen contract), `@ramp/gate` (kernel + real Souffl
 **`@ramp/quarantine`**, **`@ramp/attestation`**, **`@ramp/provenance`**, `@ramp/payments-mcp`
 (self-enforcing tool), `@ramp/dashboard` (the audit console). CI, branch protection, 4 collaborators.
 
-**405 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
+**411 tests pass** (1 expected wasm-parity skip). CI additionally drives **every demo beat above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 

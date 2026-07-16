@@ -93,8 +93,19 @@ export type Derivation =
 export interface FactProvenance {
   /** Which `Facts` field this explains. */
   readonly fact: keyof Facts;
-  /** The value as it appears in `Facts`. Cross-checked by verifyBundle. */
-  readonly value: string | number | boolean | readonly string[];
+  /**
+   * The value as it appears in `Facts`, VERBATIM. Cross-checked by verifyBundle.
+   *
+   * Typed as `Facts[keyof Facts]` rather than a hand-written union of primitives,
+   * because a provenance value IS a fact value — any gap between the two types is
+   * an invitation to "helpfully" reformat. That is not hypothetical: the budgets
+   * fact was first recorded here as a prettified string
+   * ("category_daily:office_supplies 600/1200") because the old union had no room
+   * for the objects, and the honesty check immediately caught the provenance
+   * disagreeing with the fact it claimed to explain. Rendering belongs in
+   * render.ts; this field is evidence, not display.
+   */
+  readonly value: Facts[keyof Facts];
   /** The broad category, from @ramp/shared's FACT_SOURCES. */
   readonly source: FactSource;
   /** The specific, independently checkable derivation. */

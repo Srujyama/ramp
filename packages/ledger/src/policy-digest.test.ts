@@ -28,6 +28,7 @@ const facts: Facts = {
   attestation_present: false,
 escalation_threshold: 400,
 vendor_risk_tier: "standard",
+budgets: [],
 };
 
 const digest = (f: Partial<Facts>): string => policyDigest({ ...facts, ...f });

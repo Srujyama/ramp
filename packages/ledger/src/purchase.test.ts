@@ -58,6 +58,7 @@ function authFacts(over: Partial<AuthoritativeFacts> = {}): AuthoritativeFacts {
     attestationPresent: false,
     escalationThreshold: 400,
     vendorRiskTier: "standard",
+    budgets: [],
     ...over,
   };
 }

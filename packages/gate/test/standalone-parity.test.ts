@@ -82,6 +82,7 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     attestation_present: true,
     escalation_threshold: 400,
     vendor_risk_tier: "standard",
+    budgets: [],
     ...overrides,
   };
 }
@@ -171,8 +172,20 @@ test("PARITY: the two agree across 5000 randomized fact sets", () => {
       approved_categories: CATEGORIES.filter(() => rng() > 0.5),
       agent_cleared_categories: CATEGORIES.filter(() => rng() > 0.5),
       attestation_present: rng() > 0.5,
-    escalation_threshold: pick([Math.floor(rng() * 1000), 400]) as number,
-    vendor_risk_tier: pick(["standard", "elevated", "trusted", "unknown"]),
+      escalation_threshold: pick([Math.floor(rng() * 1000), 400]) as number,
+      vendor_risk_tier: pick(["standard", "elevated", "trusted", "unknown"]),
+      // Randomised budget lists, INCLUDING the awkward shapes: empty, several at
+      // once, zero limits, already overspent. A loop over a list is far easier to
+      // get subtly different between two hand-written kernels than a scalar
+      // compare is — and the reasons must match byte for byte, IN ORDER.
+      budgets: Array.from({ length: Math.floor(rng() * 4) }, () => ({
+        scope: pick(["category_daily", "vendor_daily", "agent_monthly"]),
+        key: pick(["office_supplies", "acme_corp", "agent_47", ""]),
+        limit: pick([0, 100, 1000, Math.floor(rng() * 2000)]) as number,
+        spent: pick([0, 50, 999, Math.floor(rng() * 2000)]) as number,
+      })).sort((a, b) =>
+        a.scope === b.scope ? a.key.localeCompare(b.key) : a.scope.localeCompare(b.scope),
+      ),
     };
 
     const ref = referenceKernel.evaluate(facts);
