@@ -14,6 +14,7 @@ import {
   type SimField,
   type SimFormValues,
 } from "../../lib/simulator.js";
+import { settledSpendOn, todayKey } from "../../lib/spend.js";
 import type { DecisionView, Facts, SimulationResult } from "../../lib/types.js";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card.js";
 import { BridgeErrorState, StateCard } from "../../components/ui/state-card.js";
@@ -36,11 +37,20 @@ interface PolicyModel {
   clearances: Array<{ agent: string; categories: string[] }>;
 }
 
-function derivePolicy(decisions: DecisionView[]): PolicyModel | null {
+/**
+ * Caps/clearances come from recorded facts (policy CONFIG — correct to copy
+ * verbatim). `spentToday` does NOT: it is derived org-wide from the decision
+ * log with the same allow+settled+today rule the ledger uses, because
+ * `Facts.daily_total_so_far` is a per-decision snapshot taken BEFORE its own
+ * decision, not a current org aggregate.
+ */
+function derivePolicy(decisions: DecisionView[], now: Date = new Date()): PolicyModel | null {
   const withFacts = decisions.filter((d): d is DecisionView & { facts: Facts } => d.facts !== null);
   if (withFacts.length === 0) return null;
 
-  const latest = withFacts[0]!.facts;
+  // Don't assume the caller preserved the bridge's newest-first order.
+  const newestFirst = [...withFacts].sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0));
+  const latest = newestFirst[0]!.facts;
   const approved = new Set<string>();
   const clearanceMap = new Map<string, Set<string>>();
 
@@ -52,10 +62,11 @@ function derivePolicy(decisions: DecisionView[]): PolicyModel | null {
   }
 
   return {
-    currency: withFacts[0]!.request?.currency ?? "USD",
+    currency: newestFirst[0]!.request?.currency ?? "USD",
     perTxnCap: latest.per_txn_cap,
     dailyLimit: latest.daily_limit,
-    spentToday: latest.daily_total_so_far,
+    // Derived from every decision in the window, not just those with facts.
+    spentToday: settledSpendOn(decisions, todayKey(now)),
     approvedCategories: [...approved].sort(),
     clearances: [...clearanceMap.entries()]
       .map(([agent, cats]) => ({ agent, categories: [...cats].sort() }))
@@ -101,13 +112,13 @@ function PolicyOverview({ p }: { p: PolicyModel }): JSX.Element {
           <CardHeader>
             <div>
               <CardTitle>Spend vs. daily limit</CardTitle>
-              <CardDescription>Most recent recorded daily total against the org cap.</CardDescription>
+              <CardDescription>Settled spend today, summed from the decision log, against the org cap.</CardDescription>
             </div>
           </CardHeader>
           <CardContent>
             <Progress value={fill} tone={over ? "flag" : "lime"} />
             <p className="mt-2.5 text-[13px] text-ink-muted">
-              {formatMoney(p.spentToday, p.currency)} spent{over ? " — over limit" : ""} of{" "}
+              {formatMoney(p.spentToday, p.currency)} spent{over ? " (over limit)" : ""} of{" "}
               {formatMoney(p.dailyLimit, p.currency)}.
             </p>
           </CardContent>
@@ -140,7 +151,7 @@ function PolicyOverview({ p }: { p: PolicyModel }): JSX.Element {
         <CardHeader>
           <div>
             <CardTitle>Agent clearances</CardTitle>
-            <CardDescription>Which categories each agent may spend in — from the ledger, not model narration.</CardDescription>
+            <CardDescription>Which categories each agent may spend in, sourced from the ledger, not model narration.</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -190,10 +201,10 @@ type SimRun =
 
 function verdictChip(outcome: SimulationResult["outcome"]): StatusChipModel {
   if (outcome === "allow") {
-    return { label: "Allowed", tone: "accent", title: "The policy would allow this hypothetical spend — every condition held." };
+    return { label: "Allowed", tone: "accent", title: "The policy would allow this hypothetical spend: every condition held." };
   }
   if (outcome === "escalate") {
-    return { label: "Needs approval", tone: "warn", title: "The policy would hold this for a human — not denied, not paid." };
+    return { label: "Needs approval", tone: "warn", title: "The policy would hold this for a human: not denied, not paid." };
   }
   return { label: "Denied", tone: "deny", title: "The policy would deny this hypothetical spend." };
 }
@@ -255,7 +266,7 @@ function PolicySimulator(): JSX.Element {
         <div>
           <CardTitle>Policy simulator</CardTitle>
           <CardDescription>
-            Test a <strong>hypothetical</strong> purchase against the exact enforced policy. Side-effect free — no
+            Test a <strong>hypothetical</strong> purchase against the exact enforced policy. Side-effect free: no
             decision, proof, or payment.
           </CardDescription>
         </div>
@@ -266,7 +277,7 @@ function PolicySimulator(): JSX.Element {
             <button
               key={s.id}
               type="button"
-              title={`${s.note} (prefills the form — does not run)`}
+              title={`${s.note} (prefills the form, does not run)`}
               onClick={() => {
                 setForm(scenarioToForm(s));
                 setErrors({});
@@ -353,10 +364,10 @@ function SimOutput({ run, onRetry }: { run: SimRun; onRetry: () => void }): JSX.
       <div className="flex flex-wrap items-center gap-2">
         <StatusChip chip={verdictChip(result.outcome)} />
         <span
-          title="This tool only simulates — it never records a decision, produces a proof, or executes a payment."
+          title="This tool only simulates. It never records a decision, produces a proof, or executes a payment."
           className="rounded-full bg-surface-sunken px-2.5 py-1 text-[11.5px] text-ink-faint"
         >
-          Simulation only — no payment executed
+          Simulation only. No payment executed.
         </span>
       </div>
 
@@ -415,7 +426,7 @@ export function Policy(): JSX.Element {
       <div>
         <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Policy</h1>
         <p className="text-[13.5px] text-ink-muted">
-          The caps and clearances the deterministic policy engine enforces — derived from recorded facts, plus a
+          The caps and clearances the deterministic policy engine enforces, derived from recorded facts, plus a
           read-only simulator to preview any purchase.
         </p>
       </div>

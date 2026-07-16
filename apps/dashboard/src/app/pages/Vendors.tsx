@@ -51,7 +51,7 @@ export function Vendors(): JSX.Element {
       <div>
         <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Vendors</h1>
         <p className="text-[13.5px] text-ink-muted">
-          Every vendor an agent has requested spend to — registry status, risk tier, and real settled spend.
+          Every vendor an agent has requested spend to. Registry status, risk tier, and real settled spend.
         </p>
       </div>
 

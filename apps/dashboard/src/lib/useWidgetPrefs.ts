@@ -19,7 +19,6 @@ export interface WidgetDef {
 
 export const WIDGETS: readonly WidgetDef[] = [
   { key: "spendOverview", title: "Spend overview", description: "Daily decision volume by outcome" },
-  { key: "agentFleet", title: "Agent cards", description: "Your agent spend cards" },
   { key: "trustSummary", title: "Trust summary", description: "Proof verification + flags" },
   { key: "recentActivity", title: "Recent activity", description: "Latest decisions" },
   { key: "categoryBreakdown", title: "Category breakdown", description: "Spend by category" },
@@ -28,13 +27,13 @@ export const WIDGETS: readonly WidgetDef[] = [
   {
     key: "costPerQuery",
     title: "Cost per query",
-    description: "Per-call model cost — not yet tracked by the ledger",
+    description: "Per-call model cost (not yet tracked by the ledger)",
     placeholder: true,
   },
   {
     key: "providerBreakdown",
     title: "LLM provider breakdown",
-    description: "Spend by model provider — not yet tracked by the ledger",
+    description: "Spend by model provider (not yet tracked by the ledger)",
     placeholder: true,
   },
 ];

@@ -7,10 +7,15 @@
  * from the most recent `Facts` that named that vendor — never re-derived or
  * guessed — with only the display label/domain coming from the static
  * identity map (lib/identity.ts), which carries no security meaning.
+ *
+ * Every spend figure below uses `isSettledSpend` from lib/spend.ts. The rule
+ * used to be spelled out inline in each rollup; it is imported now so that the
+ * definition of "money that moved" can never drift between two copies.
  */
 import type { DecisionView } from "./types.js";
 import type { OutcomeCounts } from "./agents.js";
 import { vendorLabel, vendorDomain } from "./identity.js";
+import { isSettledSpend, dateKey } from "./spend.js";
 
 function emptyOutcomeCounts(): OutcomeCounts {
   return { allow: 0, deny: 0, escalate: 0, error: 0 };
@@ -56,7 +61,7 @@ export function summarizeVendors(decisions: readonly DecisionView[]): VendorSumm
 
     for (const d of sorted) {
       tallyOutcome(outcomeCounts, d);
-      if (d.outcome === "allow" && d.execution?.status === "settled") settledSpend += d.amount;
+      if (isSettledSpend(d)) settledSpend += d.amount;
       if (!sawFacts && d.facts) {
         verified = d.facts.vendor_verified;
         riskTier = d.facts.vendor_risk_tier;
@@ -109,7 +114,7 @@ export function summarizeCategories(decisions: readonly DecisionView[]): Categor
 
     for (const d of sorted) {
       tallyOutcome(outcomeCounts, d);
-      if (d.outcome === "allow" && d.execution?.status === "settled") settledSpend += d.amount;
+      if (isSettledSpend(d)) settledSpend += d.amount;
       if (!sawFacts && d.facts) {
         approved = d.facts.approved_categories.includes(category);
         sawFacts = true;
@@ -134,13 +139,6 @@ export interface DailySpendPoint {
   escalated: number;
 }
 
-/** SQLite datetime ("2026-07-14 10:00:00", UTC) -> "2026-07-14". Never throws. */
-function dateKey(ts: string): string {
-  const d = new Date(ts.replace(" ", "T") + "Z");
-  if (Number.isNaN(d.getTime())) return ts.slice(0, 10) || "unknown";
-  return d.toISOString().slice(0, 10);
-}
-
 /** One point per calendar day observed in the window, oldest first. */
 export function dailySpend(decisions: readonly DecisionView[]): DailySpendPoint[] {
   const byDay = new Map<string, DailySpendPoint>();
@@ -149,7 +147,7 @@ export function dailySpend(decisions: readonly DecisionView[]): DailySpendPoint[
     const point = byDay.get(key) ?? { date: key, settledSpend: 0, allowed: 0, denied: 0, escalated: 0 };
     if (d.outcome === "allow") {
       point.allowed += 1;
-      if (d.execution?.status === "settled") point.settledSpend += d.amount;
+      if (isSettledSpend(d)) point.settledSpend += d.amount;
     } else if (d.outcome === "deny") {
       point.denied += 1;
     } else if (d.outcome === "escalate") {

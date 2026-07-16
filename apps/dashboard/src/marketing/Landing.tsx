@@ -9,7 +9,6 @@ import {
   FileSignature,
   ScanEye,
   Fingerprint,
-  Check,
   X,
   CircleDot,
 } from "lucide-react";
@@ -54,11 +53,11 @@ function Eyebrow({ children }: { children: ReactNode }): JSX.Element {
 
 const HERO_STAGES = [
   { key: "request", title: "Agent request", detail: "agent_47 requested $340 to acme_corp for office_supplies.", tone: "done" as const },
-  { key: "facts", title: "Trusted facts loaded", detail: "Ledger DB + vendor registry — never model narration.", tone: "done" as const },
-  { key: "policy", title: "Policy evaluated", detail: "Deterministic Datalog kernel — allow/all_conditions_met.", tone: "done" as const },
+  { key: "facts", title: "Trusted facts loaded", detail: "Ledger DB + vendor registry. Never model narration.", tone: "done" as const },
+  { key: "policy", title: "Policy evaluated", detail: "Deterministic Datalog kernel: allow/all_conditions_met.", tone: "done" as const },
   { key: "decision", title: "Decision recorded", detail: "Written to an append-only, hash-chained ledger.", tone: "done" as const },
-  { key: "proof", title: "Proof re-verified", detail: "Recomputed independently — not trusted from stored bytes.", tone: "done" as const },
-  { key: "payment", title: "Payment settled", detail: "Sandbox executor — no real money moves in this demo.", tone: "done" as const },
+  { key: "proof", title: "Proof re-verified", detail: "Recomputed independently, not trusted from stored bytes.", tone: "done" as const },
+  { key: "payment", title: "Payment settled", detail: "Sandbox executor. No real money moves in this demo.", tone: "done" as const },
 ];
 
 function HeroTimeline(): JSX.Element {
@@ -83,7 +82,7 @@ function HeroTimeline(): JSX.Element {
         ))}
       </ol>
       <p className="mt-4 border-t border-line pt-3 text-[11px] text-ink-faint">
-        Illustrative example — the real thing runs in your browser on the Decisions page.
+        Illustrative example. The real thing runs in your browser on the Decisions page.
       </p>
     </div>
   );
@@ -101,7 +100,7 @@ function Hero(): JSX.Element {
         </h1>
         <p className="max-w-lg text-[16px] leading-relaxed text-ink-muted">
           Give an AI agent your company card and let it buy things on its own, and the real risk isn't a bad
-          spend limit — it's trusting the agent's in-the-moment judgment. Every purchase is checked against a
+          spend limit. It's trusting the agent's in-the-moment judgment. Every purchase is checked against a
           strict rulebook, with the inputs independently verified as authentic, before a dollar moves.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
@@ -131,8 +130,8 @@ function ProblemSection(): JSX.Element {
             <Eyebrow>The problem</Eyebrow>
             <h2 className="mt-4 font-display text-display text-ink">"Trust me" isn't an answer for money.</h2>
             <p className="mt-4 text-[15px] leading-relaxed text-ink-muted">
-              An agent can be <strong className="text-ink">tricked</strong> — a hidden instruction buried in an
-              invoice or email tells it to approve a fraudulent payment — or simply{" "}
+              An agent can be <strong className="text-ink">tricked</strong> (a hidden instruction buried in an
+              invoice or email tells it to approve a fraudulent payment) or simply{" "}
               <strong className="text-ink">wrong</strong>. An LLM classifier that outputs "92% likely
               legitimate" is a number that drifts with phrasing and can be nudged by a hidden instruction. The
               fix is to stop trusting the agent's word.
@@ -155,7 +154,7 @@ function ProblemSection(): JSX.Element {
               </div>
               <p className="mt-2 text-[13.5px] text-ink-muted">
                 A lookalike domain serving a byte-perfect invoice over real TLS with a real notary signature.
-                Every document agrees with every other document — a 3-way match passes this. Denied anyway, on
+                Every document agrees with every other document; a 3-way match passes this. Denied anyway, on
                 the registered domain.
               </p>
             </div>
@@ -175,12 +174,12 @@ const PILLARS = [
   {
     icon: FileSignature,
     title: "Provenance graph",
-    detail: "Every decision is sealed into a content-addressed bundle — the decision, the exact facts, and where each fact came from. Proves it at enforce time, not just logs it after.",
+    detail: "Every decision is sealed into a content-addressed bundle: the decision, the exact facts, and where each fact came from. Proves it at enforce time, not just logs it after.",
   },
   {
     icon: ScanEye,
     title: "CaMeL-style quarantine",
-    detail: "Untrusted content (invoices, emails, web) is wrapped at the boundary in a value that refuses to become a string — it escapes only through a total declassifier into a bounded codomain.",
+    detail: "Untrusted content (invoices, emails, web) is wrapped at the boundary in a value that refuses to become a string. It escapes only through a total declassifier into a bounded codomain.",
   },
   {
     icon: Fingerprint,
@@ -221,9 +220,9 @@ function PillarsSection(): JSX.Element {
 
 const OUTCOMES = [
   { verdict: "allow", example: "$340, under the $400 threshold", result: "Pays, unattended", tone: "lime" as const },
-  { verdict: "escalate", example: "$450 — within the $500 cap, over the threshold", result: "Held. A human is asked", tone: "amber" as const },
+  { verdict: "escalate", example: "$450, within the $500 cap but over the threshold", result: "Held. A human is asked", tone: "amber" as const },
   { verdict: "escalate", example: "verified vendor, onboarded yesterday", result: "Held. Verified ≠ familiar", tone: "amber" as const },
-  { verdict: "deny", example: "$600 — over the cap", result: "Refused. Nobody is asked", tone: "flag" as const },
+  { verdict: "deny", example: "$600, over the cap", result: "Refused. Nobody is asked", tone: "flag" as const },
 ];
 
 function OutcomesSection(): JSX.Element {
@@ -236,7 +235,7 @@ function OutcomesSection(): JSX.Element {
             <h2 className="mt-4 font-display text-display text-ink">"Ask a human" is a policy result, not a failure.</h2>
             <p className="mt-4 text-[15px] leading-relaxed text-ink-muted">
               A gate with only allow/deny forces every borderline case into the wrong box. The kernel's third
-              verdict — <strong className="text-ink">escalate</strong> — holds a payment for a human without
+              verdict, <strong className="text-ink">escalate</strong>, holds a payment for a human without
               denying it outright. The lattice is <strong className="text-ink">deny &gt; escalate &gt; allow</strong>:
               an escalation can never rescue a request a deny rule already rejected.
             </p>
@@ -297,7 +296,7 @@ function SoundnessSection(): JSX.Element {
             <Lock className="size-5 text-lime-ink" />
             <h3 className="mt-3 text-[14.5px] font-semibold text-ink">Ledger proof</h3>
             <p className="mt-1.5 text-[13px] text-ink-muted">
-              <strong className="text-ink">Integrity</strong> — has this record been altered? Fails when someone
+              <strong className="text-ink">Integrity</strong>: has this record been altered? Fails when someone
               edits the stored bytes.
             </p>
           </div>
@@ -305,7 +304,7 @@ function SoundnessSection(): JSX.Element {
             <GitBranch className="size-5 text-lime-ink" />
             <h3 className="mt-3 text-[14.5px] font-semibold text-ink">Hash chain</h3>
             <p className="mt-1.5 text-[13px] text-ink-muted">
-              <strong className="text-ink">Chain integrity</strong> — is any decision missing? Fails when one is
+              <strong className="text-ink">Chain integrity</strong>: is any decision missing? Fails when one is
               deleted, reordered, or inserted.
             </p>
           </div>
@@ -313,7 +312,7 @@ function SoundnessSection(): JSX.Element {
             <ShieldCheck className="size-5 text-lime-ink" />
             <h3 className="mt-3 text-[14.5px] font-semibold text-ink">Provenance bundle</h3>
             <p className="mt-1.5 text-[13px] text-ink-muted">
-              <strong className="text-ink">Soundness</strong> — does this decision follow from these facts?
+              <strong className="text-ink">Soundness</strong>: does this decision follow from these facts?
               Fails when the decision was wrong when made.
             </p>
           </div>
@@ -339,16 +338,13 @@ function ClosingCta(): JSX.Element {
         <h2 className="max-w-xl font-display text-display text-ink">See a real decision, provably.</h2>
         <p className="max-w-lg text-[15px] text-ink-muted">
           Agent spend cards, live vendor and category breakdowns, and every purchase re-derived from the real
-          kernel — in your browser.
+          kernel, in your browser.
         </p>
         <Button asChild size="lg">
           <Link to="/app">
             Go to dashboard <ArrowRight className="size-4" />
           </Link>
         </Button>
-        <div className="mt-2 flex items-center gap-1.5 text-[12px] text-ink-faint">
-          <Check className="size-3.5 text-lime" /> Demo environment · sandbox payments · no real money moves
-        </div>
       </div>
     </section>
   );

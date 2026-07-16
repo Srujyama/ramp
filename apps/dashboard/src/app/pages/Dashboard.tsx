@@ -15,7 +15,6 @@ import {
 } from "../../components/ui/dropdown-menu.js";
 import { Skeleton } from "../../components/ui/skeleton.js";
 import SpendOverviewWidget from "../../components/widgets/SpendOverviewWidget.js";
-import AgentFleetWidget from "../../components/widgets/AgentFleetWidget.js";
 import TrustSummaryWidget from "../../components/widgets/TrustSummaryWidget.js";
 import RecentActivityWidget from "../../components/widgets/RecentActivityWidget.js";
 import CategoryBreakdownWidget from "../../components/widgets/CategoryBreakdownWidget.js";
@@ -88,7 +87,7 @@ export function Dashboard(): JSX.Element {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Dashboard</h1>
-          <p className="text-[13.5px] text-ink-muted">Agent spend, at a glance — every figure below is real.</p>
+          <p className="text-[13.5px] text-ink-muted">Agentic spend, at a glance.</p>
         </div>
         <AddWidgetMenu enabled={enabled} toggle={toggle} />
       </div>
@@ -103,7 +102,6 @@ export function Dashboard(): JSX.Element {
         </StateCard>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {enabled.agentFleet ? <AgentFleetWidget decisions={win.data.decisions} /> : null}
           {enabled.spendOverview ? <SpendOverviewWidget decisions={win.data.decisions} /> : null}
           {enabled.trustSummary ? <TrustSummaryWidget decisions={win.data.decisions} /> : null}
           {enabled.recentActivity ? <RecentActivityWidget decisions={win.data.decisions} /> : null}
