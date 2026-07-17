@@ -96,6 +96,10 @@ export type {
   Overcommit,
 } from "./simulate-batch.js";
 
+// Reference data ONLY (demo pricing tab) — never a fact, never gates a decision.
+export { upsertModelPricing, listModelPricing } from "./model-pricing.js";
+export type { ModelPrice, PricingSource } from "./model-pricing.js";
+
 // The audit trail: persist every gate decision and read it back (read-only API).
 export {
   recordDecision,

@@ -66,7 +66,8 @@ through the real hook and `pnpm proof` re-verifies the sealed bundles.
 | `@ramp/ledger` | — | Authoritative facts via `node:sqlite` (+ records its own provenance), the append-only **decision log**, tamper-evident **proofs**, the read-only **HTTP bridge**, the **policy simulator**, and the shared **purchase lifecycle**. |
 | `@ramp/client` | — | The typed agent **SDK** (`createRampClient`) — build a provable spending agent in a few lines. A convenience over the real lifecycle, not a bypass. |
 | `@ramp/payments-mcp` | — | **Self-enforcing** MCP tool — drives the purchase lifecycle itself, so it is safe to call with no hook present. The 2nd independent gate over the same kernel. |
-| `@ramp/dashboard` | — | Vite+React **audit console**: Overview / Decisions / Decision detail / Policy + simulator. Decision detail **re-derives the decision in your browser** with the real kernel. |
+| `@ramp/dashboard` | — | Vite+React **audit console**: Overview / Decisions / Decision detail / Policy + simulator + **Pricing**. Decision detail **re-derives the decision in your browser** with the real kernel. |
+| `@ramp/control-plane` | — | **DEMO-ONLY** control plane (separate process/port, `pnpm control-plane`) — live model pricing + (later) UI-triggered **real** gated transactions via `requestPurchase` + typed input-table admin. **NOT the audit bridge, NOT the gate**; never writes a decision, never decides. |
 
 Scripts: `pnpm demo` (drive the beats), `pnpm proof` (independent audit), `pnpm notary` (mint an
 attestation), `pnpm dev` (console), `pnpm --filter @ramp/ledger bridge` (the read-only bridge the

@@ -7,6 +7,7 @@ import {
   Activity as ActivityIcon,
   Building2,
   ShieldCheck,
+  Coins,
   Search,
   Bell,
   Settings,
@@ -38,6 +39,7 @@ const NAV = [
   { to: "/app/activity", label: "Activity", icon: ActivityIcon },
   { to: "/app/vendors", label: "Vendors", icon: Building2 },
   { to: "/app/policy", label: "Policy", icon: ShieldCheck },
+  { to: "/app/pricing", label: "Pricing", icon: Coins },
 ];
 
 function Logo(): JSX.Element {

@@ -2,7 +2,7 @@
 # Every PR touching a path below requests a review from its owner.
 # Owners: @Srujyama (owner), @neilporw, @JonKach, @tomasciar.
 #
-# Split of the 9 workspaces:
+# Split of the 10 workspaces (9 product + the demo control plane):
 #   @Srujyama  — the gate (hero) + the three security pillars + the shared contract + the client SDK + repo wiring
 #   @neilporw  — the ledger/registry fact source + the self-enforcing payments MCP tool
 #   @JonKach   — the dashboard audit console
@@ -29,6 +29,11 @@
 # --- The demo/audit drivers (owner) ----------------------------------------
 # scripts/demo.mjs is executable documentation of PITCH.md and runs in CI.
 /scripts/                   @Srujyama
+
+# --- The DEMO control plane (owner) ----------------------------------------
+# apps/control-plane is a demo-only process (pricing + UI-triggered REAL gated
+# transactions + typed input-table admin). NOT the audit bridge, NOT the gate.
+/apps/control-plane/        @Srujyama
 
 # --- Authoritative facts + the spend seam (neil) ---------------------------
 /packages/ledger/           @neilporw

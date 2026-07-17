@@ -251,3 +251,27 @@ CREATE TABLE IF NOT EXISTS budgets (
   limit_amount INTEGER NOT NULL CHECK (limit_amount >= 0),
   PRIMARY KEY (scope, key)
 );
+
+-- ===========================================================================
+-- model_pricing — REFERENCE DATA ONLY. NOT A FACT. NEVER GATES A DECISION.
+-- ===========================================================================
+-- Live vendor model prices (OpenAI / Anthropic / Google …) surfaced in the demo
+-- dashboard's read-only "Pricing" tab. This table is written by the DEMO CONTROL
+-- PLANE's out-of-band fetch job (apps/control-plane), never by the enforcement
+-- hook, and it is NEVER read by the kernel, `translateToFacts`, or the fact
+-- source (`dal.ts`). It has no place in a `Facts` object and no provenance
+-- discipline BECAUSE it never enters a decision. Prices are informational; the
+-- source (`live` | `cached` | `static-fallback`) and `fetched_at` travel with the
+-- data so the UI can label how fresh it is. Money here is a decimal price string
+-- to preserve sub-cent per-token amounts (NOT the integer-whole-units invariant,
+-- which governs PAYMENTS, not reference prices).
+CREATE TABLE IF NOT EXISTS model_pricing (
+  provider      TEXT NOT NULL,              -- 'openai' | 'anthropic' | 'google' | …
+  model         TEXT NOT NULL,              -- e.g. 'gpt-5.6', 'claude-opus-4-8'
+  input_price   TEXT NOT NULL,              -- USD per 1M input tokens, decimal string
+  output_price  TEXT NOT NULL,              -- USD per 1M output tokens, decimal string
+  currency      TEXT NOT NULL DEFAULT 'USD',
+  source        TEXT NOT NULL,              -- 'live' | 'cached' | 'static-fallback'
+  fetched_at    TEXT NOT NULL,              -- ISO 8601 UTC of when this row was set
+  PRIMARY KEY (provider, model)
+);
