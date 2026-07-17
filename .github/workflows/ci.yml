@@ -86,6 +86,13 @@ jobs:
       - name: Operator stats
         run: pnpm stats --json
 
+      # The attacker's playbook, fired at the REAL hook: prompt injection, a forged
+      # notary signature, a lookalike domain, replay, amount/currency tampering, a
+      # homoglyph, malformed money, a quarantine-coercion attempt. Every one must be
+      # blocked (denied or held); `pnpm redteam` exits non-zero on any breach.
+      - name: Red-team the gate (every attack must be blocked)
+        run: pnpm redteam
+
   # The FOURTH kernel, proven. The Rust policy kernel is a hand-written mirror of
   # policy.dl (like the TS reference kernel is); this job compiles it to WASM and
   # cross-checks it against the reference oracle on the golden cases AND 4000
