@@ -8,6 +8,7 @@ import Activity from "./app/pages/Activity.js";
 import DecisionDetail from "./app/pages/DecisionDetail.js";
 import Vendors from "./app/pages/Vendors.js";
 import Policy from "./app/pages/Policy.js";
+import Pricing from "./app/pages/Pricing.js";
 import Landing from "./marketing/Landing.js";
 
 /**
@@ -30,6 +31,7 @@ export function App(): JSX.Element {
         <Route path="activity/:id" element={<DecisionDetail />} />
         <Route path="vendors" element={<Vendors />} />
         <Route path="policy" element={<Policy />} />
+        <Route path="pricing" element={<Pricing />} />
       </Route>
     </Routes>
   );

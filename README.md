@@ -119,7 +119,8 @@ cases and 4000 randomized fact sets, and it runs in CI.
 | **`@ramp/ledger`**    | `packages/ledger/`     | shared + provenance + gate | The **authoritative fact source** (SQLite) + vendor registry, the append-only decision log, proofs, the read-only bridge, and the policy simulator. Pure DB reads — never model narration. |
 | **`@ramp/client`**    | `packages/client/`     | shared + gate + ledger + attestation | The **typed agent SDK** — build a provable spending agent in a few lines. A convenience over the real lifecycle, not a bypass. |
 | **`@ramp/payments-mcp`** | `apps/payments-mcp/`| shared + ledger + attestation | **Self-enforcing** MCP tool (`mcp__payments__pay_vendor`) + 4 read-only agent tools — drives the purchase lifecycle itself, so it is safe even with no hook present. |
-| **`@ramp/dashboard`** | `apps/dashboard/`      | shared + provenance + gate | Vite + React. The **Audit page re-verifies bundles in your browser** with WebCrypto and the real kernel. |
+| **`@ramp/dashboard`** | `apps/dashboard/`      | shared + provenance + gate | Vite + React. The **Audit page re-verifies bundles in your browser** with WebCrypto and the real kernel; plus a read-only **Pricing** reference tab. |
+| **`@ramp/control-plane`** | `apps/control-plane/` | ledger | **Demo-only** process (`pnpm control-plane`) — live model pricing + (later) UI-triggered **real** gated transactions + typed input-table admin. **Not the audit bridge, not the gate.** |
 | The gate              | `hook/` (+ `.claude/` shim) | all of the above | The fail-closed `PreToolUse` enforcement point — the ONLY place policy is enforced. |
 
 **Ownership:** @Srujyama owns the gate + the three pillars + shared contract + repo wiring;

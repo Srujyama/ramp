@@ -43,6 +43,9 @@ pnpm install            # installs the whole workspace
 | `pnpm notary`           | Mint a demo attestation (`--spoof` / `--stale` for the deny beats). |
 | `pnpm sdk-example`      | Runnable ~15-line agent built on the `@ramp/client` SDK — the honest happy path end to end. |
 | `pnpm dev`              | Start the dashboard shell (Vite dev server).                       |
+| `pnpm bridge`           | Start the **read-only** audit bridge (:8787) the dashboard reads.  |
+| `pnpm control-plane`    | Start the **demo-only** control plane (:8788) — pricing + (later) UI-triggered real gated transactions. Not the gate. |
+| `pnpm setup`            | Auto-seed a complete demo: `db:reset` + `db:history` (real synthetic decision history through the sanctioned lifecycle). |
 | `pnpm mcp`              | Start the stub payments MCP server over stdio.                     |
 | `pnpm build:wasm`       | OPTIONAL — compile the Souffle kernel to WASM (no-op without tools).|
 
@@ -70,7 +73,8 @@ review is required.
 | `@ramp/ledger`        | `packages/ledger/`     | @neilporw   | Authoritative fact source (SQLite) + decision log + proofs + bridge. |
 | `@ramp/client`        | `packages/client/`     | @Srujyama   | The typed agent SDK (a convenience over the real lifecycle). |
 | `@ramp/payments-mcp`  | `apps/payments-mcp/`   | @neilporw   | Self-enforcing MCP tool + read-only agent tools. |
-| `@ramp/dashboard`     | `apps/dashboard/`      | @JonKach    | Vite + React audit console (read-only). |
+| `@ramp/dashboard`     | `apps/dashboard/`      | @JonKach    | Vite + React audit console (read-only) + Pricing tab. |
+| `@ramp/control-plane` | `apps/control-plane/`  | @Srujyama   | Demo-only control plane (pricing + UI-triggered real gated transactions). Not the gate. |
 | The hook              | `.claude/`             | @Srujyama   | The fail-closed PreToolUse enforcement point. |
 | Repo infra            | `.github/`, root config| @Srujyama   | CI, CODEOWNERS, root scaffolding.       |
 
