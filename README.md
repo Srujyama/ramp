@@ -16,7 +16,7 @@ are true.
 decision.*
 
 ```bash
-pnpm install && pnpm db:reset && pnpm build && pnpm test   # 530 tests
+pnpm install && pnpm db:reset && pnpm build && pnpm test   # 531 tests
 pnpm demo     # drive every pitch beat through the REAL hook; assert exit codes
 pnpm proof    # independently re-verify the bundles the gate sealed
 ```
@@ -102,15 +102,17 @@ what makes pillar 2's re-derivation possible at all.
 
 The seam between "facts" and "allow/deny" is a single interface, `PolicyKernel`, with **two
 implementations behind it**: a TypeScript **reference kernel** (the golden oracle, always
-available, zero deps) and an optional **WASM kernel** compiled from `policy.dl`. Callers are
-implementation-agnostic; a parity test cross-checks the two.
+available, zero deps) and an optional **WASM kernel** — a hand-written Rust mirror of `policy.dl`
+compiled to WebAssembly (not Soufflé-generated; `policy.dl` is the spec every mirror is checked
+against). Callers are implementation-agnostic; a parity test cross-checks the two on the golden
+cases and 4000 randomized fact sets, and it runs in CI.
 
 ## Workspace map
 
 | Workspace             | Path                   | Depends on        | What it is                                                            |
 | --------------------- | ---------------------- | ----------------- | -------------------------------------------------------------------- |
 | **`@ramp/shared`**    | `packages/shared/`     | —                 | The **frozen contract**: `Facts`, `Decision`, `RuleId`, `PolicyKernel`, `SpendRequest`, fact translation, `canonicalJson`. Zero runtime deps; browser-safe; imported by everyone. |
-| **`@ramp/gate`**      | `packages/gate/`       | `@ramp/shared`    | **Pillar 1** — the **policy kernel** (hero). `policy.dl` (Souffle) is the source of truth; the TS reference kernel mirrors it line-for-line; optional WASM build. |
+| **`@ramp/gate`**      | `packages/gate/`       | `@ramp/shared`    | **Pillar 1** — the **policy kernel** (hero). `policy.dl` (Datalog) is the spec; the TS reference kernel mirrors it line-for-line; an optional hand-written Rust→WASM kernel is the parity-checked 4th expression. |
 | **`@ramp/provenance`**| `packages/provenance/` | `@ramp/shared`    | **Pillar 2** — decision bundles + `verifyBundle`, the auditor's function. Does **not** depend on `@ramp/gate`: an auditor brings their own kernel. |
 | **`@ramp/quarantine`**| `packages/quarantine/` | — (`node:crypto`) | **Pillar 3** — the CaMeL wrapper + total declassifiers into bounded codomains. |
 | **`@ramp/attestation`**| `packages/attestation/`| `@ramp/shared`   | **Pillar 4** — Ed25519 notary attestation, canonical domain-separated signing, binding checks. |
@@ -134,7 +136,7 @@ corepack enable
 pnpm install         # install the whole workspace
 pnpm db:reset        # build the demo ledger from schema.sql + seed.sql
 pnpm build           # tsc build every package
-pnpm test            # run every workspace's node:test suite (530 tests)
+pnpm test            # run every workspace's node:test suite (531 tests)
 
 pnpm demo            # drive EVERY pitch beat through the real hook, assert exit codes
 pnpm proof           # independently re-verify the bundles the gate just sealed
@@ -184,19 +186,25 @@ Deny beats are seeded off the same DB: unverified vendor (`sketchy_llc`), unappr
 > **Seed note:** the prior total is `1140`, not `1200` — deliberately, so the happy path
 > allows. Don't "fix" it. Details in `packages/ledger/sql/seed.sql` and `CONTRIBUTING.md`.
 
-## Optional: the WASM kernel
+## Optional: the WASM kernel (the parity-proven 4th expression)
 
-The TS reference kernel is always the default, so nothing below is required:
+The TS reference kernel is always the default, so nothing below is required to run the gate. But
+building the WASM kernel and cross-checking it is a real CI job (`wasm kernel — 4-way parity`):
 
 ```bash
-pnpm build:wasm      # no-op unless `souffle` AND `wasm-pack` are on PATH
-RAMP_KERNEL=wasm pnpm --filter @ramp/gate test:parity
+rustup target add wasm32-unknown-unknown       # one-time
+cargo install wasm-pack                          # one-time (or the official installer)
+pnpm --filter @ramp/gate build:wasm              # hand-written Rust kernel → WebAssembly
+pnpm --filter @ramp/gate test:parity             # reference ⇄ WASM on golden + 4000 random cases
 ```
+
+The WASM kernel is a hand-written Rust mirror of `policy.dl` (not Soufflé-compiled). It needs only
+`cargo` + `wasm-pack` + the `wasm32` target — no Soufflé, no C++ toolchain.
 
 ## Collaborators
 
-- **@Srujyama** (owner) — the gate + shared contract + repo wiring
-- **@neilporw** — the ledger/registry fact source + payments MCP stub
+- **@Srujyama** (owner) — the gate + shared contract + the client SDK + repo wiring
+- **@neilporw** — the ledger/registry fact source + the self-enforcing payments MCP tool
 - **@JonKach** — the dashboard shell
 
 ## Contributing

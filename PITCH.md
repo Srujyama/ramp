@@ -7,7 +7,7 @@
 > detection, signed approvals, `pnpm stats` (money stopped), the `@ramp/client` SDK, and the
 > operator/auditor CLIs `pnpm explain` (kernel-confirmed counterfactuals), `pnpm simulate`
 > (pre-flight a batch), `pnpm policy-diff` (policy what-if), and `pnpm receipt` (a self-verifying
-> portable proof). 530 tests, 18 demo beats. Both HTML artifacts are propagated and in sync.
+> portable proof). 531 tests, 18 demo beats. Both HTML artifacts are propagated and in sync.
 >
 > **Published artifact URLs (republish to these; don't mint new ones):**
 > - Plan: https://claude.ai/code/artifact/30f5b98e-903f-4f8d-80f6-aaab5d80a2de
@@ -44,8 +44,13 @@ facts or it doesn't.** Determinism guarantees *"same facts → same answer"* —
 A spend request flows **down** through all four before a dollar moves. Enforcement comes from the
 **topology**, not from the agent cooperating.
 
-1. **Datalog policy kernel** (`@ramp/gate`; Soufflé → WASM behind a TS interface, with a pure TS
-   reference kernel as the always-available golden oracle). Translates a request into plain **facts**
+1. **Datalog policy kernel** (`@ramp/gate`). One policy, expressed **four ways and kept in
+   lockstep**: the `policy.dl` Datalog **spec**, a pure-TS **reference kernel** (the always-available
+   golden oracle), a hand-written **Rust kernel compiled to WASM**, and a dependency-free **JS
+   verifier** an auditor can run. The three executable ones are cross-checked by **parity tests** —
+   the reference vs. the JS verifier on 5000 random fact sets, and the reference vs. the WASM kernel
+   on 4000 more, **now run in CI** (it caught three real drifts the first time it ran). Translates a
+   request into plain **facts**
    and grinds out allow/deny mechanically. Same facts → same answer. **Deny dominates.**
 2. **Provenance graph** (`@ramp/provenance` + `@ramp/ledger`) — every decision is sealed into a
    content-addressed **bundle**: the decision, the exact facts, and for each fact the specific
@@ -521,7 +526,7 @@ console, and a policy simulator. **9 workspaces:** `@ramp/shared`, `@ramp/gate` 
 `@ramp/provenance`, `@ramp/payments-mcp` (self-enforcing tool + 4 read-only agent tools),
 **`@ramp/client`** (typed SDK), `@ramp/dashboard`. CI, branch protection, 4 collaborators.
 
-**530 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 18 demo beats above
+**531 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 18 demo beats above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 

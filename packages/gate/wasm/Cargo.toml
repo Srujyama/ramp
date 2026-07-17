@@ -1,10 +1,12 @@
 # ============================================================================
 # @ramp/gate — wasm crate (OPTIONAL)
 # ============================================================================
-# Wraps the Souffle-generated policy evaluator (datalog/policy.dl -> C++) in a
-# #[wasm_bindgen] shell and compiles to WebAssembly via wasm-pack. Built only by
-# scripts/build-wasm.sh when souffle + wasm-pack + cargo are all present; the TS
-# reference kernel is the always-available default, so this never gates CI.
+# A HAND-WRITTEN Rust mirror of the policy kernel (datalog/policy.dl is the spec),
+# wrapped in a #[wasm_bindgen] shell and compiled to WebAssembly via wasm-pack.
+# Standalone: only wasm-bindgen + serde, no Souffle, no C++, no build.rs. Built by
+# scripts/build-wasm.sh (needs wasm-pack + cargo); the TS reference kernel is the
+# always-available default, so this never gates the default CI build. Its
+# equivalence to the reference kernel is TESTED, not asserted (test/parity.test.ts).
 # ----------------------------------------------------------------------------
 [package]
 name = "ramp-gate-wasm"
