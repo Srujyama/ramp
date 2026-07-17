@@ -29,6 +29,7 @@
     "simulate": "node scripts/simulate.mjs",
     "policy-diff": "node scripts/policy-diff.mjs",
     "receipt": "node scripts/receipt.mjs",
+    "redteam": "node scripts/redteam.mjs",
     "sdk-example": "node scripts/sdk-example.mjs"
   },
   "dependencies": {

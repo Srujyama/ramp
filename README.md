@@ -145,6 +145,7 @@ pnpm explain [<id>]  # why a payment was stopped + the KERNEL-CONFIRMED counterf
 pnpm simulate [<f>]  # pre-flight a batch through the real kernel (zero side effects)
 pnpm policy-diff     # replay the log under a hypothetical policy dial (-- --cap 300)
 pnpm receipt         # emit a self-contained .mjs proof anyone can run with just node
+pnpm redteam         # fire the attacker's playbook at the real gate; every attack must be blocked
 pnpm dev             # dashboard (Vite) — the Audit page re-verifies in your browser
 pnpm mcp             # (separately) run the stub payments MCP server
 ```
