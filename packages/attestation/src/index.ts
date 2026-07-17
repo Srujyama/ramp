@@ -40,4 +40,18 @@ export {
   demoNotaryPublicKey,
   demoNotaryPrivateKey,
   DEMO_NOTARY_KEY_ID,
+  demoQuorumNotary,
+  demoQuorumNotaryKeyId,
+  demoQuorumKeyring,
 } from "./notary.js";
+
+// K-of-N threshold attestation: no single notary can authorise a payment.
+export { verifyQuorum, signQuorum } from "./quorum.js";
+export type {
+  QuorumAttestation,
+  NotarySignature,
+  VerifyQuorumOptions,
+  QuorumResult,
+  QuorumVerified,
+  QuorumRejected,
+} from "./quorum.js";

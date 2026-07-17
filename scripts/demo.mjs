@@ -21,6 +21,15 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { heroAttestation, mintAttestation, HERO_INVOICE } from "./notary.mjs";
 import { openLedgerStrict, closeLedger, listDecisions, simulateBatch } from "@ramp/ledger";
 import { getKernel, explainDecision, reclassify } from "@ramp/gate";
+import {
+  signQuorum,
+  verifyQuorum,
+  demoQuorumNotary,
+  demoQuorumKeyring,
+  digestInvoice,
+  ATTESTATION_VERSION,
+} from "@ramp/attestation";
+import { generateKeyPairSync } from "node:crypto";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOOK = join(HERE, "..", "hook", "evaluate.mjs");
@@ -618,6 +627,52 @@ beat(
     console.log(`         -> generator stderr: ${(gen.stderr ?? "").trim() || "(none)"}`);
   }
   console.log("");
+}
+
+// -- Beat 15: no SINGLE notary can authorize — K-of-N threshold attestation ---
+// The deepest "why trust you" question is the notary: a single-notary scheme roots
+// the whole chain in one key. This proves the threshold answer with REAL, distinct
+// Ed25519 notaries: 1-of-3 is rejected, 2-of-3 verifies, and a quorum with one
+// notary compromised + one signature forged still fails a 2-of-3 policy.
+{
+  console.log("--- Beat 15: K-of-N notary quorum — no single notary can authorize ---\n");
+  const keyring = demoQuorumKeyring(3);
+  const [n0, n1] = [demoQuorumNotary(0), demoQuorumNotary(1)];
+  const invoice = "ACME CORP\nInvoice inv_quorum\nTotal: USD 340\n";
+  const statement = {
+    version: ATTESTATION_VERSION,
+    serverDomain: "acme.example.com",
+    invoiceDigest: digestInvoice(invoice),
+    transcriptCommitment: "tc_quorum_demo",
+    notarizedAt: new Date().toISOString(),
+    amount: 340,
+    currency: "USD",
+    invoiceRef: "inv_quorum",
+  };
+  const expect = { invoiceDigest: digestInvoice(invoice), registeredDomain: "acme.example.com", amount: 340, currency: "USD" };
+  const opts = (threshold) => ({ keyring, expect, now: Date.now(), threshold });
+
+  const oneOfThree = verifyQuorum(signQuorum(statement, [n0]), opts(2)); // one honest → rejected
+  const twoOfThree = verifyQuorum(signQuorum(statement, [n0, n1]), opts(2)); // two honest → verified
+  // Attacker holds n0's key and forges a second signature with their own key,
+  // claiming n1's id. Against a 2-of-3 policy that is still one honest signer.
+  const attacker = generateKeyPairSync("ed25519").privateKey;
+  const forged = verifyQuorum(
+    signQuorum(statement, [n0, { privateKey: attacker, notaryKeyId: n1.notaryKeyId }]),
+    opts(2),
+  );
+
+  const ok =
+    oneOfThree.verified === false &&
+    twoOfThree.verified === true &&
+    twoOfThree.signers.length === 2 &&
+    forged.verified === false &&
+    forged.validSigners.length === 1;
+  if (!ok) failures++;
+  console.log(`${ok ? "  PASS" : "! FAIL"}  Beat 15: K-of-N threshold — a single notary is never enough`);
+  console.log(`         -> 1-of-3 (one honest): ${oneOfThree.verified ? "verified" : "rejected"}; ` +
+    `2-of-3 (two honest): ${twoOfThree.verified ? "verified" : "rejected"}; ` +
+    `compromised+forged: ${forged.verified ? "verified" : "rejected"} (${forged.validSigners?.length ?? 0} honest signer)\n`);
 }
 
 console.log("=".repeat(72));

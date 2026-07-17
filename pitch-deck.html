@@ -1380,7 +1380,7 @@
   <section class="slide" data-note="A pitch that says non-bypassable has to survive being attacked. So the attacker's playbook is run as code, fired at the same hook Claude Code uses, and gated in CI. Prompt injection, a forged notary signature, a lookalike domain with real TLS and a real notary, a replayed session, amount and currency tampering, a Cyrillic homoglyph vendor, malformed money, a quarantine coercion attempt. Seventeen attacks, all blocked, zero breaches. The attacker gets everything a real one would — the gate wins on topology, not on the attacker being polite. pnpm redteam exits non-zero on any breach, so it's a CI gate, not a slide, and every block is itself recorded and re-verifiable.">
     <div class="stage">
       <p class="eyebrow green">Non-bypassable — proven by attacking it</p>
-      <h1 class="headline">17 attacks. 0 breaches. In CI.</h1>
+      <h1 class="headline">18 attacks. 0 breaches. In CI.</h1>
       <div class="cols">
         <div class="card">
           <span class="stamp green">pnpm redteam — the attacker's playbook</span>
@@ -1393,6 +1393,7 @@
             <div><span class="tag-green">✔</span> homoglyph vendor 'аcme_corp'</div>
             <div><span class="tag-green">✔</span> float / negative / proto-pollution</div>
             <div><span class="tag-green">✔</span> quarantine coercion (String/JSON)</div>
+            <div><span class="tag-green">✔</span> compromise 1 notary of a 2-of-3 quorum</div>
           </div>
         </div>
         <div class="card">
@@ -1404,6 +1405,33 @@
         </div>
       </div>
       <p class="footnote green">Exits non-zero on ANY breach — a CI gate, not a slide. And every block is recorded and re-verifiable.</p>
+    </div>
+  </section>
+
+  <!-- ===================================================== SLIDE 15h — NOTARY QUORUM -->
+  <section class="slide" data-note="The sharpest question a judge can ask: fine, but the whole chain roots in trusting your one notary. It doesn't have to. verifyQuorum requires the same statement to be independently signed by at least K distinct trusted notaries — a K-of-N threshold. Compromising one notary buys one signature; a 2-of-3 policy still rejects it. And duplication can't fake breadth — N copies of one notary's signature count once. Each signature is checked by the exact same single-sig verifier, so there's no weaker second path. Demo beat 15 and a red-team case prove it: an attacker who holds one notary's key AND forges a second signature still fails a 2-of-3. The single point of trust becomes a threshold.">
+    <div class="stage">
+      <p class="eyebrow green">No single point of trust</p>
+      <h1 class="headline">No one notary can authorize a payment.</h1>
+      <div class="cols">
+        <div class="card">
+          <span class="stamp green">verifyQuorum — K-of-N threshold</span>
+          <div class="mono" style="font-size:clamp(12px,1.25vw,16px);margin:16px 0 0;line-height:1.85;color:var(--ink-2);">
+            <div>1-of-3 (one honest notary) &nbsp;<span class="tag-red">rejected</span></div>
+            <div>2-of-3 (two honest notaries) &nbsp;<span class="tag-green">verified</span></div>
+            <div style="margin-top:10px;color:var(--muted);">compromise 1 notary + forge a 2nd sig</div>
+            <div><span class="tag-red">still rejected</span> — one honest signer, below threshold</div>
+          </div>
+        </div>
+        <div class="card">
+          <span class="stamp">The single point of trust becomes a threshold</span>
+          <div style="font-size:clamp(13px,1.35vw,16px);margin:16px 0 0;line-height:1.75;color:var(--ink-2);">
+            <div>The same statement, signed by <b>K distinct</b> trusted notaries. Compromising one buys one signature.</div>
+            <div style="margin-top:12px;color:var(--muted);">Duplication can't fake breadth (N copies count once). Each signature runs the <b>exact same verifier</b> — no weaker second path.</div>
+          </div>
+        </div>
+      </div>
+      <p class="footnote green">The attacker now has to compromise K independent parties, not one — which is the whole reason thresholds exist.</p>
     </div>
   </section>
 
@@ -1423,7 +1451,7 @@
         <div class="status-row"><span class="ws">@ramp/client</span><span class="desc">typed SDK — build a spending agent in 5 lines</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/dashboard</span><span class="desc">the audit console — re-derives decisions in your browser</span><span class="ck">✓</span></div>
       </div>
-      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">531 tests PASS</span> · <span class="tag-green">18 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
+      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">544 tests PASS</span> · <span class="tag-green">19 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
       <p class="heroline">Everyone else scopes the card. <span class="tag-green">We prove the decision</span> — and here's the receipt.</p>
     </div>
   </section>

@@ -27,7 +27,16 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { generateKeyPairSync } from "node:crypto";
 import { mintAttestation, heroAttestation, HERO_INVOICE } from "./notary.mjs";
-import { signAttestation, digestInvoice, ATTESTATION_VERSION, DEMO_NOTARY_KEY_ID } from "@ramp/attestation";
+import {
+  signAttestation,
+  digestInvoice,
+  ATTESTATION_VERSION,
+  DEMO_NOTARY_KEY_ID,
+  signQuorum,
+  verifyQuorum,
+  demoQuorumNotary,
+  demoQuorumKeyring,
+} from "@ramp/attestation";
 import { quarantine } from "@ramp/quarantine";
 import { money } from "./_lib.mjs";
 
@@ -279,6 +288,35 @@ function quarantineCoercionAttack() {
   return { blocked: escaped.length === 0, detail: escaped.length ? `LEAKED via ${escaped.join(", ")}` : "every coercion path threw" };
 }
 
+// Under a K-of-N notary policy, compromising ONE notary must not authorize a
+// payment. The attacker holds notary 0's key AND forges a second signature with
+// their own key claiming notary 1's id — a 2-of-3 quorum must still reject it.
+function quorumSingleCompromiseAttack() {
+  const keyring = demoQuorumKeyring(3);
+  const n0 = demoQuorumNotary(0);
+  const n1 = demoQuorumNotary(1);
+  const doc = "ACME CORP\nInvoice inv_rt_quorum\nTotal: USD 340\n";
+  const statement = {
+    version: ATTESTATION_VERSION,
+    serverDomain: "acme.example.com",
+    invoiceDigest: digestInvoice(doc),
+    transcriptCommitment: "tc_rt_quorum",
+    notarizedAt: new Date().toISOString(),
+    amount: 340,
+    currency: "USD",
+    invoiceRef: "inv_rt_quorum",
+  };
+  const attackerKey = generateKeyPairSync("ed25519").privateKey;
+  const qa = signQuorum(statement, [n0, { privateKey: attackerKey, notaryKeyId: n1.notaryKeyId }]);
+  const r = verifyQuorum(qa, {
+    keyring,
+    expect: { invoiceDigest: digestInvoice(doc), registeredDomain: "acme.example.com", amount: 340, currency: "USD" },
+    now: Date.now(),
+    threshold: 2,
+  });
+  return { blocked: r.verified === false, detail: r.verified ? "QUORUM FORGED" : `only ${r.validSigners.length} honest notary — below threshold 2` };
+}
+
 // --- run everything -----------------------------------------------------------
 const results = [];
 for (const a of ATTACKS) {
@@ -300,6 +338,20 @@ results.push({
   asExpected: qc.blocked,
   rules: [],
   detail: qc.detail,
+});
+
+const quorum = quorumSingleCompromiseAttack();
+results.push({
+  id: "attestation/single-notary-compromise",
+  category: "Attestation forgery",
+  title: "Compromise ONE notary under a K-of-N policy",
+  exploit: "Hold notary 0's key + forge notary 1's signature — a 2-of-3 quorum must still reject.",
+  expect: "reject",
+  got: quorum.blocked ? "reject" : "authorized",
+  blocked: quorum.blocked,
+  asExpected: quorum.blocked,
+  rules: [],
+  detail: quorum.detail,
 });
 
 const breaches = results.filter((r) => !r.blocked);

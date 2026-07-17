@@ -52,7 +52,7 @@ still need propagation — never silently leave them inconsistent.
 ## The monorepo (all four pillars built & green)
 
 pnpm + TypeScript, Node 24. `pnpm install && pnpm db:reset && pnpm build && pnpm test` → all green
-(**531 tests**; the 2 wasm-parity tests run when the WASM kernel is built — the `wasm kernel —
+(**544 tests**; the 2 wasm-parity tests run when the WASM kernel is built — the `wasm kernel —
 4-way parity` CI job does this — else they skip cleanly). Then `pnpm demo` drives every PITCH beat
 through the real hook and `pnpm proof` re-verifies the sealed bundles.
 

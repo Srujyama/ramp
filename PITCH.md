@@ -5,9 +5,9 @@
 > HERE first, then propagate to both artifacts** (see `CLAUDE.md` → "Keeping the pitch in sync").
 > Last substantive update: 2026-07-17 — the WASM kernel now compiles and its **4-way parity is
 > proven in CI** (it had never built; the parity run caught three real drifts), and `pnpm redteam`
-> fires the attacker's playbook (**17 attacks, 0 breaches**) as a CI gate. Prior: velocity, windowed
+> fires the attacker's playbook (**18 attacks, 0 breaches**) as a CI gate. Prior: velocity, windowed
 > budgets, duplicate detection, signed approvals, `pnpm stats`, the `@ramp/client` SDK, and the
-> operator/auditor CLIs `pnpm explain` / `simulate` / `policy-diff` / `receipt`. 531 tests, 18 demo
+> operator/auditor CLIs `pnpm explain` / `simulate` / `policy-diff` / `receipt`. 544 tests, 19 demo
 > beats. Both HTML artifacts are propagated and in sync.
 >
 > **Published artifact URLs (republish to these; don't mint new ones):**
@@ -66,6 +66,9 @@ A spend request flows **down** through all four before a dollar moves. Enforceme
    domain-separated statement binding the invoice bytes, the amount, and the vendor's **registered**
    domain, verified against a trusted notary keyring before money moves. **`deny/attestation_invalid`
    is a real rule**: an unattested payment is denied.
+   And it need not root in **one** notary: `verifyQuorum` requires a **K-of-N threshold** of distinct
+   trusted notaries to independently sign the same statement, so compromising a single notary is not
+   enough to authorize a payment.
    *Scope, stated plainly:* this implements the **verification half** with genuine cryptography, not
    the TLSNotary **MPC protocol**. Strictly stronger than trusting narration; strictly weaker than
    real TLSNotary. See `packages/attestation/README.md` — a pitch about provability doesn't get to
@@ -490,7 +493,8 @@ run as code, fired at the **same hook Claude Code uses**, and **gated in CI**:
   POLICY BYPASS        ✔ homoglyph vendor 'аcme_corp' (Cyrillic а)       → denied
   MALFORMED INPUT      ✔ float / negative amount, prototype pollution    → denied
   QUARANTINE ESCAPE    ✔ String(q) / `${q}` / JSON.stringify(q)          → all throw
-  ── 17/17 attacks BLOCKED. No breach. ──
+                       ✔ compromise ONE notary under a 2-of-3 quorum     → rejected
+  ── 18/18 attacks BLOCKED. No breach. ──
 ```
 
 The attacker gets everything a real one would — a real TLS domain, a **real notary signature** on a
@@ -531,6 +535,13 @@ breach, so it is a CI gate, not a slide — and every block is itself recorded a
   README, and this file. It's real Ed25519 over a canonical domain-separated statement with real
   binding checks; it is not the MPC. Swapping in a real TLSNotary verifier replaces one function and
   **every binding check survives**. We'd rather state the boundary than have a judge find it.
+- **"Then the whole chain roots in trusting your one notary."** → **It doesn't have to — the gate
+  supports a K-of-N quorum.** `verifyQuorum` requires the *same* statement to be independently signed
+  by at least `threshold` **distinct** trusted notaries, each checked by the exact single-sig verifier
+  (so there's no weaker second path). Compromising one notary buys one signature; a 2-of-3 policy
+  still rejects it — and duplication can't fake breadth (N copies of one notary's signature count
+  once). **Demo beat 15 and a red-team case prove it**: an attacker who holds one notary's key *and*
+  forges a second signature still fails a 2-of-3. The single point of trust becomes a threshold.
 
 ## The winning frame
 
@@ -551,7 +562,7 @@ console, and a policy simulator. **9 workspaces:** `@ramp/shared`, `@ramp/gate` 
 `@ramp/provenance`, `@ramp/payments-mcp` (self-enforcing tool + 4 read-only agent tools),
 **`@ramp/client`** (typed SDK), `@ramp/dashboard`. CI, branch protection, 4 collaborators.
 
-**531 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 18 demo beats above
+**544 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 19 demo beats above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 

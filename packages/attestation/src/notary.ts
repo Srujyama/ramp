@@ -116,6 +116,50 @@ export function demoKeyring(): ReadonlyMap<string, KeyObject> {
   return keyringFrom({ [DEMO_NOTARY_KEY_ID]: pem });
 }
 
+// ============================================================================
+// DEMO QUORUM NOTARIES — for K-of-N threshold attestation
+// ============================================================================
+// A quorum's whole point is that notaries are INDEPENDENT: compromising one must
+// not be enough. So each demo quorum notary is derived from its OWN seed (the base
+// phrase salted with its index), giving genuinely distinct keypairs — not one key
+// wearing N hats. Same "public by design, worthless by construction" property as
+// the single demo notary; a real deployment would hold N keys across N parties/HSMs.
+
+/** Stable key id of the i-th demo quorum notary (0-based). */
+export function demoQuorumNotaryKeyId(i: number): string {
+  return `notary_demo_ed25519_quorum_${i}`;
+}
+
+/**
+ * Deterministically derive an INDEPENDENT demo notary keypair for index `i`. The
+ * id field is `notaryKeyId` so the object composes directly with `signQuorum`.
+ */
+export function demoQuorumNotary(i: number): {
+  readonly notaryKeyId: string;
+  readonly privateKey: KeyObject;
+  readonly publicKey: KeyObject;
+} {
+  const seed = createHash("sha256")
+    .update(`${DEMO_NOTARY_SEED_PHRASE} #quorum-${i}`, "utf8")
+    .digest();
+  const privateKey = createPrivateKey({
+    key: Buffer.concat([ED25519_PKCS8_HEADER, seed]),
+    format: "der",
+    type: "pkcs8",
+  });
+  return { notaryKeyId: demoQuorumNotaryKeyId(i), privateKey, publicKey: createPublicKey(privateKey) };
+}
+
+/** A keyring of `n` independent demo quorum notaries (the N in K-of-N). */
+export function demoQuorumKeyring(n: number): ReadonlyMap<string, KeyObject> {
+  const entries: Record<string, string> = {};
+  for (let i = 0; i < n; i++) {
+    const notary = demoQuorumNotary(i);
+    entries[notary.notaryKeyId] = notary.publicKey.export({ type: "spki", format: "pem" }) as string;
+  }
+  return keyringFrom(entries);
+}
+
 /**
  * A keyring for a real deployment, built from operator-supplied PEMs.
  *
