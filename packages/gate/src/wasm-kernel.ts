@@ -17,12 +17,35 @@
 import { createRequire } from "node:module";
 import type { Facts, Decision, PolicyKernel, RuleId } from "@ramp/shared";
 
-/** Path (relative to the built dist/) of the wasm-pack output package. */
-const WASM_PKG_SPECIFIER = "../wasm/pkg/ramp_gate_wasm.js";
+/**
+ * Candidate paths of the wasm-pack output package, tried in order. The wasm pkg
+ * lives at `packages/gate/wasm/pkg/`, but this module compiles to two different
+ * depths depending on the tsconfig: `dist/wasm-kernel.js` (one level down → the
+ * first candidate) and `dist-test/src/wasm-kernel.js` (two levels → the second).
+ * Trying both is what makes the parity test actually RUN against the built wasm
+ * instead of silently skipping — the bug that let the wasm kernel rot uncompiled.
+ */
+const WASM_PKG_SPECIFIERS = [
+  "../wasm/pkg/ramp_gate_wasm.js", // dist/wasm-kernel.js
+  "../../wasm/pkg/ramp_gate_wasm.js", // dist-test/src/wasm-kernel.js
+] as const;
+
+/** First candidate specifier that resolves from `require`, or null if none do. */
+function resolveWasmPkg(require: NodeJS.Require): string | null {
+  for (const spec of WASM_PKG_SPECIFIERS) {
+    try {
+      require.resolve(spec);
+      return spec;
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  return null;
+}
 
 const NOT_BUILT_MESSAGE =
   'wasm kernel not built — run `pnpm --filter @ramp/gate build:wasm` ' +
-  "(requires souffle + wasm-pack). The TS reference kernel is the always-available default.";
+  "(requires wasm-pack + cargo). The TS reference kernel is the always-available default.";
 
 /**
  * The FFI shape the wasm-pack module is expected to expose: a single
@@ -71,9 +94,13 @@ export class WasmKernel implements PolicyKernel {
 
   constructor() {
     const require = createRequire(import.meta.url);
+    const spec = resolveWasmPkg(require);
+    if (spec === null) {
+      throw new Error(NOT_BUILT_MESSAGE);
+    }
     let mod: unknown;
     try {
-      mod = require(WASM_PKG_SPECIFIER);
+      mod = require(spec);
     } catch (cause) {
       throw new Error(NOT_BUILT_MESSAGE, { cause });
     }
@@ -102,8 +129,7 @@ export class WasmKernel implements PolicyKernel {
 export function isWasmKernelAvailable(): boolean {
   try {
     const require = createRequire(import.meta.url);
-    require.resolve(WASM_PKG_SPECIFIER);
-    return true;
+    return resolveWasmPkg(require) !== null;
   } catch {
     return false;
   }

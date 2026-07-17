@@ -4,13 +4,15 @@
 //! point the TS `WasmKernel` calls across the WASM boundary (structured data is
 //! passed as JSON strings so the boundary stays simple and stable).
 //!
-//! The allow/escalate/deny logic here mirrors `datalog/policy.dl` EXACTLY — the
-//! lattice is deny > escalate > allow, and the deny-evaluation order is fixed
-//! (vendor, per_txn_cap, category, agent, daily, attestation) so `reasons`/`fired_rules` are byte-stable and pass the parity test
-//! against the TS reference oracle. In a full build, `scripts/build-wasm.sh` runs
-//! `souffle -g` to generate the C++ engine; this shell can either link that engine
-//! or, as documented below, evaluate the rules directly in Rust with identical
-//! semantics. Both produce the same `Decision` — that is what parity enforces.
+//! The allow/escalate/deny logic here is a HAND-WRITTEN Rust mirror of
+//! `datalog/policy.dl` (the spec) — the same lattice (deny > escalate > allow),
+//! the same fixed deny order (vendor, per_txn_cap, category, agent, daily,
+//! attestation, budgets), the same byte-stable `reasons`/`fired_rules`. It is NOT
+//! Souffle-compiled C++; it is a third independent implementation alongside the TS
+//! reference kernel and the standalone JS verifier. Independence is the point, and
+//! their equivalence is TESTED, not trusted: `test/parity.test.ts` cross-checks
+//! this kernel against the reference oracle on the golden cases AND 4000 random
+//! fact sets. (When that test first actually ran it caught three real drifts here.)
 
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -35,6 +37,7 @@ struct Facts {
     vendor_risk_tier: String,
     recent_txn_count: i64,
     velocity_limit: i64,
+    duplicate_recent_count: i64,
     #[serde(default)]
     budgets: Vec<BudgetLine>,
 }
@@ -218,7 +221,7 @@ fn evaluate_facts(f: &Facts) -> Decision {
     Decision {
         decision: "allow".to_string(),
         reasons: vec![format!(
-            "all_conditions_met: amount {} within cap {}, category \"{}\" approved and agent \"{}\" cleared, vendor \"{}\" verified, daily {} + {} <= {}",
+            "all_conditions_met: amount {} within cap {}, category \"{}\" approved and agent \"{}\" cleared, vendor \"{}\" verified, daily {} + {} <= {}, attestation verified",
             f.amount, f.per_txn_cap, f.category, f.requesting_agent, f.vendor,
             f.daily_total_so_far, f.amount, f.daily_limit
         )],

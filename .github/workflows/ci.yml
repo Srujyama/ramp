@@ -86,13 +86,18 @@ jobs:
       - name: Operator stats
         run: pnpm stats --json
 
-  # OPTIONAL job: only does real work where souffle + wasm-pack exist. It never gates
-  # the build — the TS reference kernel is always present, so the `build` job above is
-  # green with no souffle/wasm-pack. continue-on-error keeps a red X here non-blocking.
-  wasm-kernel:
-    name: wasm kernel (optional)
+  # The FOURTH kernel, proven. The Rust policy kernel is a hand-written mirror of
+  # policy.dl (like the TS reference kernel is); this job compiles it to WASM and
+  # cross-checks it against the reference oracle on the golden cases AND 4000
+  # randomized fact sets. It is a REAL check now (not a skip): the parity test that
+  # gates it caught three real drifts the first time it actually ran.
+  #
+  # Kept a SEPARATE job (not part of the required `build` check) so a rare Rust/
+  # wasm-pack toolchain hiccup can't block a merge — but it runs for real on every
+  # push, so a genuine kernel divergence shows up as a red X, not a silent skip.
+  wasm-parity:
+    name: wasm kernel — 4-way parity
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -109,20 +114,17 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Probe toolchain (souffle + wasm-pack)
-        id: probe
-        run: |
-          if command -v souffle >/dev/null 2>&1 && command -v wasm-pack >/dev/null 2>&1; then
-            echo "have_toolchain=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "have_toolchain=false" >> "$GITHUB_OUTPUT"
-            echo "souffle/wasm-pack not present — skipping wasm build (reference kernel covers CI)."
-          fi
+      - name: Add the wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
 
-      - name: Build wasm kernel
-        if: steps.probe.outputs.have_toolchain == 'true'
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build the shared contract + gate (TS)
+        run: pnpm --filter @ramp/shared build && pnpm --filter @ramp/gate build
+
+      - name: Compile the Rust kernel to WASM
         run: pnpm --filter @ramp/gate build:wasm
 
-      - name: Cross-check wasm vs reference oracle (parity)
-        if: steps.probe.outputs.have_toolchain == 'true'
+      - name: Cross-check WASM vs the reference oracle (golden + 4000 randomized)
         run: pnpm --filter @ramp/gate test:parity

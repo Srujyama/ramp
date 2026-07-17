@@ -52,13 +52,14 @@ still need propagation — never silently leave them inconsistent.
 ## The monorepo (all four pillars built & green)
 
 pnpm + TypeScript, Node 24. `pnpm install && pnpm db:reset && pnpm build && pnpm test` → all green
-(**530 tests**; 1 wasm-parity skip is expected without Soufflé/wasm-pack). Then `pnpm demo` drives
-every PITCH beat through the real hook and `pnpm proof` re-verifies the sealed bundles.
+(**531 tests**; the 2 wasm-parity tests run when the WASM kernel is built — the `wasm kernel —
+4-way parity` CI job does this — else they skip cleanly). Then `pnpm demo` drives every PITCH beat
+through the real hook and `pnpm proof` re-verifies the sealed bundles.
 
 | Workspace | Pillar | What it is |
 | --- | --- | --- |
 | `@ramp/shared` | — | Frozen contract: `Facts`/`Decision`/`RuleId`/`PolicyKernel`/`translateToFacts`/`canonicalJson`. |
-| `@ramp/gate` | **1** | Kernel: real `policy.dl` + TS reference oracle + optional WASM. |
+| `@ramp/gate` | **1** | Kernel: `policy.dl` Datalog spec + TS reference oracle + a hand-written Rust→WASM mirror, cross-checked by a parity test (now a real CI job, not a skip). |
 | `@ramp/provenance` | **2** | Content-addressed decision bundles + the independent `verifyBundle`. |
 | `@ramp/quarantine` | **3** | CaMeL wrapper + total declassifiers into bounded codomains. |
 | `@ramp/attestation` | **4** | Ed25519 notary attestation + binding checks. |

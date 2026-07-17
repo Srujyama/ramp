@@ -962,7 +962,7 @@
           <div class="flow-node enforce">
             <div>
               <div class="fn-title">Policy Kernel</div>
-              <div class="fn-desc">Datalog (Soufflé→WASM), not an LLM. Facts in, allow/deny out. Deny dominates. Same facts, same answer.</div>
+              <div class="fn-desc">Datalog kernel (TS reference + a hand-written Rust→WASM mirror, parity-proven), not an LLM. Facts in, allow/deny out. Deny dominates.</div>
             </div>
             <div class="stamp-cell"><span class="stamp green">Enforce</span></div>
           </div>
@@ -1382,7 +1382,7 @@
       <p class="eyebrow green">Status — not vaporware</p>
       <h1 class="headline">All four pillars are built. The gate runs today. It's green.</h1>
       <div class="statusboard">
-        <div class="status-row"><span class="ws">@ramp/gate</span><span class="desc">PILLAR 1 — kernel + real policy.dl (Soufflé) + TS golden oracle</span><span class="ck">✓</span></div>
+        <div class="status-row"><span class="ws">@ramp/gate</span><span class="desc">PILLAR 1 — kernel: policy.dl spec + TS golden oracle + parity-proven Rust→WASM mirror</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/provenance</span><span class="desc">PILLAR 2 — re-derivable decision bundles (soundness)</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/quarantine</span><span class="desc">PILLAR 3 — CaMeL wrapper + bounded declassifiers</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/attestation</span><span class="desc">PILLAR 4 — real Ed25519 notary + binding checks</span><span class="ck">✓</span></div>
@@ -1392,7 +1392,7 @@
         <div class="status-row"><span class="ws">@ramp/client</span><span class="desc">typed SDK — build a spending agent in 5 lines</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/dashboard</span><span class="desc">the audit console — re-derives decisions in your browser</span><span class="ck">✓</span></div>
       </div>
-      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">530 tests PASS</span> · <span class="tag-green">18 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
+      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">531 tests PASS</span> · <span class="tag-green">18 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
       <p class="heroline">Everyone else scopes the card. <span class="tag-green">We prove the decision</span> — and here's the receipt.</p>
     </div>
   </section>
