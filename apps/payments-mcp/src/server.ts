@@ -34,6 +34,7 @@ import {
   verifyAttestation,
   demoKeyring,
   digestInvoice,
+  ATTESTATION_VERSION,
 } from "@ramp/attestation";
 import {
   requestPurchase,
@@ -101,14 +102,35 @@ const payVendorInputShape = {
         "be hashed and checked against the attestation's invoiceDigest.",
     ),
   attestation: z
-    .unknown()
+    .object({
+      notaryKeyId: z.string().describe('Which notary key signed, e.g. "notary_demo_ed25519_1".'),
+      statement: z
+        .object({
+          version: z.literal(ATTESTATION_VERSION),
+          serverDomain: z
+            .string()
+            .describe('TLS server name the notary observed, e.g. "acme.example.com".'),
+          invoiceDigest: z.string().describe("sha256 (hex) of the invoice document bytes."),
+          transcriptCommitment: z.string().describe("Opaque notary session handle."),
+          notarizedAt: z.string().describe("RFC 3339 UTC instant the notarisation happened."),
+          amount: z.number().describe("Amount as served, whole currency units."),
+          currency: z.string().describe("Currency as served, e.g. \"USD\"."),
+          invoiceRef: z.string().describe("The vendor's own invoice reference."),
+        })
+        .describe("The signed claim binding this attestation to one invoice."),
+      signature: z.string().describe("Base64 Ed25519 signature over the statement."),
+    })
     .optional()
     .describe(
-      "A TLSNotary-style attestation over invoiceDocument, as minted by the notary. " +
-        "Presenting one grants nothing: the PreToolUse hook verifies the signature " +
-        "against a trusted keyring and checks it binds to THIS payment (invoice " +
-        "digest, the vendor's registered domain, amount, currency, freshness). " +
-        "Without a VERIFIED attestation the gate denies (deny/attestation_invalid).",
+      "A TLSNotary-style attestation over invoiceDocument, as minted by the notary " +
+        "(see scripts/notary.mjs `mintAttestation`) — a STRUCTURED OBJECT, not a " +
+        "JSON string. Presenting one grants nothing: the PreToolUse hook verifies " +
+        "the signature against a trusted keyring and checks it binds to THIS " +
+        "payment (invoice digest, the vendor's registered domain, amount, " +
+        "currency, freshness). Without a VERIFIED attestation the gate denies " +
+        "(deny/attestation_invalid). The schema is spelled out field-by-field " +
+        "(rather than left untyped) so tool-calling clients serialize it as a " +
+        "real nested object instead of flattening it to a string.",
     ),
   reason: z
     .string()
