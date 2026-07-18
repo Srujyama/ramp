@@ -3,6 +3,7 @@ import type { FormEvent, JSX } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutGrid,
+  Radio,
   Activity as ActivityIcon,
   Building2,
   ShieldCheck,
@@ -36,6 +37,7 @@ import { SkipLink } from "../components/ui/skip-link.js";
 
 const NAV = [
   { to: "/app", label: "Dashboard", icon: LayoutGrid, end: true },
+  { to: "/app/live", label: "Live", icon: Radio },
   { to: "/app/activity", label: "Activity", icon: ActivityIcon },
   { to: "/app/vendors", label: "Vendors", icon: Building2 },
   { to: "/app/policy", label: "Policy", icon: ShieldCheck },
