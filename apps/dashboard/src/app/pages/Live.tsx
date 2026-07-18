@@ -136,7 +136,7 @@ export function Live(): JSX.Element {
   const primedRef = useRef(false);
 
   useEffect(() => {
-    document.title = "Live · Provable Agent Spend";
+    document.title = "Live · Warrant";
   }, []);
 
   // Re-tick every 5s so "x/min" and relative times stay honest without new events.

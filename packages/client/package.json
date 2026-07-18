@@ -2,7 +2,7 @@
   "name": "@ramp/client",
   "version": "0.0.0",
   "private": true,
-  "description": "Provable Agent Spend \u2014 the typed agent SDK. Build a spending agent on the gate in a few lines: pay, preview, budget, approval, decisions.",
+  "description": "Warrant \u2014 the typed agent SDK. Build a spending agent on the gate in a few lines: pay, preview, budget, approval, decisions.",
   "type": "module",
   "exports": {
     ".": {

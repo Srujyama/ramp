@@ -25,7 +25,7 @@ const CARD = scorecard as Scorecard;
 
 export function Security(): JSX.Element {
   useEffect(() => {
-    document.title = "Security · Provable Agent Spend";
+    document.title = "Security · Warrant";
   }, []);
 
   const groups = useMemo(() => {

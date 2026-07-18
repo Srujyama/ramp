@@ -41,7 +41,7 @@ export function Vendors(): JSX.Element {
   const win = useDecisionsWindow();
 
   useEffect(() => {
-    document.title = "Vendors · Provable Agent Spend";
+    document.title = "Vendors · Warrant";
   }, []);
 
   const vendors = win.status === "success" ? summarizeVendors(win.data.decisions) : [];

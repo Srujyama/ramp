@@ -13,11 +13,12 @@ import {
   CircleDot,
 } from "lucide-react";
 import { Button } from "../components/ui/button.js";
+import { MoneyBagIcon } from "../components/MoneyBagIcon.js";
 
 /**
  * @ramp/dashboard — Landing (the funnel)
  *
- * Marketing front door for Provable Agent Spend. Every claim here is drawn
+ * Marketing front door for Warrant. Every claim here is drawn
  * verbatim in spirit from PITCH.md (the canonical pitch) — see CLAUDE.md's
  * "keeping the pitch in sync" rule. If a claim here is reworded, round-trip
  * it through PITCH.md first.
@@ -28,10 +29,10 @@ function Nav(): JSX.Element {
     <header className="sticky top-0 z-40 border-b border-line/70 bg-canvas/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-6">
         <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-ink font-display text-[15px] font-bold text-white">
-            P
+          <div className="flex size-8 items-center justify-center rounded-lg border border-line bg-white text-black">
+            <MoneyBagIcon className="size-5" />
           </div>
-          <span className="font-display text-[15px] font-semibold tracking-tight text-ink">Provable</span>
+          <span className="font-display text-[15px] font-semibold tracking-tight text-ink">Warrant</span>
         </div>
         <Button asChild size="sm">
           <Link to="/app">
@@ -352,7 +353,7 @@ function ClosingCta(): JSX.Element {
 
 export function Landing(): JSX.Element {
   useEffect(() => {
-    document.title = "Provable Agent Spend";
+    document.title = "Warrant";
   }, []);
 
   return (

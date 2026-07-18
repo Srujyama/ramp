@@ -97,7 +97,7 @@ function beat(n, title, toolInput, expect, expectRule) {
   console.log("");
 }
 
-console.log("\n=== Provable Agent Spend — the live demo ===");
+console.log("\n=== Warrant — the live demo ===");
 console.log("Driving the REAL hook as a subprocess. Exit code 2 = denied.\n");
 
 // -- Beat 1: the happy path -------------------------------------------------

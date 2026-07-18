@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// Provable Agent Spend — the GATE (PreToolUse hook) — hook/evaluate.mjs
+// Warrant — the GATE (PreToolUse hook) — hook/evaluate.mjs
 // ============================================================================
 // This is the ONLY enforcement point. The MCP payments tool is an honest,
 // non-enforcing stub; policy is decided HERE, out of band, before the tool is

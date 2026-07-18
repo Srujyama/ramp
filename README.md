@@ -1,4 +1,4 @@
-# Provable Agent Spend
+# Warrant
 
 **A deterministic Datalog policy gate for agent payments.**
 

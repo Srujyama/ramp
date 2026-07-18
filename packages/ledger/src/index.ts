@@ -1,7 +1,7 @@
 /**
  * @ramp/ledger — barrel
  *
- * The AUTHORITATIVE fact source for Provable Agent Spend. Everything the hook
+ * The AUTHORITATIVE fact source for Warrant. Everything the hook
  * needs to turn an untrusted `SpendRequest` into ground-truth facts is here:
  *   - `openLedger` / `closeLedger` — open the SQLite fact store (node:sqlite).
  *   - `LedgerFactSource` — the anti-injection DAL (`contextFor`, plus the

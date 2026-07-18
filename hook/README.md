@@ -1,6 +1,6 @@
 # The Gate — PreToolUse hook
 
-`evaluate.mjs` is the **single enforcement point** for Provable Agent Spend. It
+`evaluate.mjs` is the **single enforcement point** for Warrant. It
 runs as a Claude Code `PreToolUse` hook matching `mcp__payments__.*` and decides
 `allow` / `deny` **before** the payments MCP tool is permitted to run. The MCP
 tool itself is an honest, non-enforcing stub — it never decides policy.

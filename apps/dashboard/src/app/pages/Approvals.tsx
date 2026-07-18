@@ -33,7 +33,7 @@ export function Approvals(): JSX.Element {
   const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
-    document.title = "Approvals · Provable Agent Spend";
+    document.title = "Approvals · Warrant";
     const ac = new AbortController();
     fetchApprovals(ac.signal)
       .then((r) => {

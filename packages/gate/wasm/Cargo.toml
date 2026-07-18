@@ -12,7 +12,7 @@
 name = "ramp-gate-wasm"
 version = "0.0.0"
 edition = "2021"
-description = "Provable Agent Spend — Souffle policy kernel compiled to WebAssembly."
+description = "Warrant — Souffle policy kernel compiled to WebAssembly."
 license = "MIT"
 publish = false
 
