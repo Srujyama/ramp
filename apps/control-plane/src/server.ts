@@ -31,6 +31,7 @@ import type { RampClient } from "@ramp/client";
 import { refreshPricing } from "./pricing.js";
 import { parseIntent, runTransaction } from "./transactions.js";
 import { adminState, runCreateAgent, runUpdateDials } from "./admin.js";
+import { listPending, listApprovers, runResolve } from "./approvals.js";
 import { runSetDemoData } from "./demo.js";
 
 /** What the control-plane request handler needs: the ledger + the real gate driver. */
@@ -142,6 +143,33 @@ export function createControlPlane(deps: ControlPlaneDeps): Server {
       return;
     }
 
+    // GET /approvals — the queue of held (escalated) decisions still awaiting a
+    // human, plus the demo approvers a viewer may act as. Read-only.
+    if (method === "GET" && path === "/approvals") {
+      json(res, 200, { pending: listPending(db), approvers: listApprovers() });
+      return;
+    }
+
+    // POST /approvals — HUMAN CHANNEL. Resolve a held decision as a chosen demo
+    // approver: mints a real Ed25519-signed approval bound to the decision's digest
+    // and records it. Never an MCP path; never writes a decision.
+    if (method === "POST" && path === "/approvals") {
+      let body: unknown;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        json(res, 400, { error: "request body must be small, well-formed JSON" });
+        return;
+      }
+      const out = runResolve(db, body, new Date().toISOString());
+      if ("error" in out) {
+        json(res, 400, out);
+        return;
+      }
+      json(res, 201, out);
+      return;
+    }
+
     // POST /agents — register a new agent + its clearances (INPUT tables only).
     // Never writes a decision; changes what the NEXT decision for this agent will be.
     if (method === "POST" && path === "/agents") {
@@ -239,7 +267,7 @@ export async function main(): Promise<void> {
     // eslint-disable-next-line no-console
     console.error(
       `[control-plane] DEMO control plane on http://localhost:${port} — NOT the audit bridge, NOT the gate.\n` +
-        `[control-plane]   GET /health · GET /pricing · POST /transaction · GET /admin/state · POST /agents · PATCH /policy · POST /demo/data`,
+        `[control-plane]   GET /health · GET /pricing · POST /transaction · GET /admin/state · POST /agents · PATCH /policy · POST /demo/data · GET/POST /approvals`,
     );
   });
 

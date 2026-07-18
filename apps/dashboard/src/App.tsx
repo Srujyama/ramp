@@ -5,6 +5,7 @@ import Dashboard from "./app/pages/Dashboard.js";
 import AgentDetail from "./app/pages/AgentDetail.js";
 import Activity from "./app/pages/Activity.js";
 import Live from "./app/pages/Live.js";
+import Approvals from "./app/pages/Approvals.js";
 import DecisionDetail from "./app/pages/DecisionDetail.js";
 import Vendors from "./app/pages/Vendors.js";
 import Policy from "./app/pages/Policy.js";
@@ -28,6 +29,7 @@ export function App(): JSX.Element {
         <Route index element={<Dashboard />} />
         <Route path="agents/:agentId" element={<AgentDetail />} />
         <Route path="live" element={<Live />} />
+        <Route path="approvals" element={<Approvals />} />
         <Route path="activity" element={<Activity />} />
         <Route path="activity/:id" element={<DecisionDetail />} />
         <Route path="vendors" element={<Vendors />} />
