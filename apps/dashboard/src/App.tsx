@@ -10,6 +10,7 @@ import Vendors from "./app/pages/Vendors.js";
 import Policy from "./app/pages/Policy.js";
 import Pricing from "./app/pages/Pricing.js";
 import Simulate from "./app/pages/Simulate.js";
+import Admin from "./app/pages/Admin.js";
 import Landing from "./marketing/Landing.js";
 
 /**
@@ -34,6 +35,7 @@ export function App(): JSX.Element {
         <Route path="policy" element={<Policy />} />
         <Route path="pricing" element={<Pricing />} />
         <Route path="simulate" element={<Simulate />} />
+        <Route path="admin" element={<Admin />} />
       </Route>
     </Routes>
   );

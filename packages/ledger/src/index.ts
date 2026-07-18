@@ -100,6 +100,12 @@ export type {
 export { upsertModelPricing, listModelPricing } from "./model-pricing.js";
 export type { ModelPrice, PricingSource } from "./model-pricing.js";
 
+// Typed admin writes to INPUT tables ONLY (the demo control plane's mutation
+// surface). Never writes decisions/proofs — editing an input changes the NEXT
+// decision, never one already sealed. See admin-writes.ts for the full constitution.
+export { createAgent, updatePolicyDials, readDials } from "./admin-writes.js";
+export type { NewAgent, CreatedAgent, DialPatch, Dials } from "./admin-writes.js";
+
 // The audit trail: persist every gate decision and read it back (read-only API).
 export {
   recordDecision,

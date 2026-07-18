@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Coins,
   Play,
+  SlidersHorizontal,
   Search,
   Bell,
   Settings,
@@ -42,6 +43,7 @@ const NAV = [
   { to: "/app/policy", label: "Policy", icon: ShieldCheck },
   { to: "/app/pricing", label: "Pricing", icon: Coins },
   { to: "/app/simulate", label: "Simulate", icon: Play },
+  { to: "/app/admin", label: "Admin", icon: SlidersHorizontal },
 ];
 
 function Logo(): JSX.Element {
