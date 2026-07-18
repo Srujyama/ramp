@@ -16,6 +16,10 @@
     "./explain": {
       "types": "./dist/explain.d.ts",
       "default": "./dist/explain.js"
+    },
+    "./reclassify": {
+      "types": "./dist/reclassify.d.ts",
+      "default": "./dist/reclassify.js"
     }
   },
   "types": "./dist/index.d.ts",
