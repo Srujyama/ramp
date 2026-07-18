@@ -16,7 +16,9 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@ramp/ledger": "workspace:*"
+    "@ramp/ledger": "workspace:*",
+    "@ramp/client": "workspace:*",
+    "@ramp/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
