@@ -81,6 +81,7 @@ const HEALTH_DOT: Record<string, string> = {
 
 function Sidebar(): JSX.Element {
   const { health } = useBridgeHealth();
+  const { live } = useDecisionsWindow();
   return (
     <aside className="flex h-screen w-[240px] shrink-0 flex-col gap-6 border-r border-line bg-surface px-4 py-5 max-lg:hidden">
       <Logo />
@@ -107,6 +108,12 @@ function Sidebar(): JSX.Element {
           <span className={cn("size-1.5 rounded-full", HEALTH_DOT[health])} aria-hidden="true" />
           {HEALTH_LABEL[health]}
         </div>
+        {live ? (
+          <div className="flex items-center gap-2 px-1 text-[12px] text-chart-allow">
+            <span className="size-1.5 animate-pulse rounded-full bg-chart-allow" aria-hidden="true" />
+            Real-time · new decisions stream in
+          </div>
+        ) : null}
         <div className="rounded-md bg-surface-sunken px-3 py-2 text-[11px] leading-snug text-ink-faint">
           Demo environment · sandbox payments. No real money moves.
         </div>

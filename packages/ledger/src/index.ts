@@ -106,6 +106,8 @@ export {
   recordExecution,
   getDecision,
   listDecisions,
+  tailDecisions,
+  latestDecisionSeq,
   isDecisionShape,
   DecisionConflictError,
   DEFAULT_LIMIT,
@@ -119,6 +121,7 @@ export type {
   RecordDecisionResult,
   RecordExecutionInput,
   DecisionRecord,
+  SeqDecision,
   ListDecisionsQuery,
   ListDecisionsResult,
 } from "./decision-log.js";

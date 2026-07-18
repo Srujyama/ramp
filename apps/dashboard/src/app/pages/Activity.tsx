@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { fetchDecisions } from "../../lib/bridge.js";
+import { fetchDecisions, BRIDGE_URL } from "../../lib/bridge.js";
 import type { DecisionOutcome, DecisionStatus, DecisionsQuery, DecisionView, RuleId } from "../../lib/types.js";
 import {
   RULE_META,
@@ -58,6 +58,21 @@ function isAbort(err: unknown): boolean {
   return err instanceof DOMException && err.name === "AbortError";
 }
 
+/** Does a live-streamed decision belong in the current filtered view? */
+function matchesFilters(v: DecisionView, f: Filters): boolean {
+  if (f.outcome !== "" && v.outcome !== f.outcome) return false;
+  if (f.status !== "" && v.status !== f.status) return false;
+  if (f.agentId.trim() !== "" && v.agentId !== f.agentId.trim()) return false;
+  if (f.firedRule !== "" && !v.firedRules.includes(f.firedRule)) return false;
+  return true;
+}
+
+function isDecisionView(v: unknown): v is DecisionView {
+  if (typeof v !== "object" || v === null) return false;
+  const d = v as Record<string, unknown>;
+  return typeof d.decisionId === "string" && typeof d.status === "string" && Array.isArray(d.firedRules);
+}
+
 export function Activity(): JSX.Element {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -73,8 +88,46 @@ export function Activity(): JSX.Element {
 
   const anyFilter = filters.outcome !== "" || filters.status !== "" || filters.agentId.trim() !== "" || filters.firedRule !== "";
 
+  // Kept in refs so the single long-lived SSE subscription always sees the CURRENT
+  // filters and row ids without re-subscribing on every keystroke/render.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const idsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    idsRef.current = new Set(rows.map((r) => r.decisionId));
+  }, [rows]);
+  const [liveCount, setLiveCount] = useState(0);
+
   useEffect(() => {
     document.title = "Activity · Provable Agent Spend";
+  }, []);
+
+  // Live tail: prepend new decisions (that match the active filters) as the gate
+  // records them, via the bridge's read-only SSE stream. A new row slides in at the
+  // top without a manual reload; the "live" pill counts how many arrived.
+  useEffect(() => {
+    if (typeof EventSource === "undefined") return;
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource(`${BRIDGE_URL}/events`);
+    } catch {
+      return;
+    }
+    const onDecision = (ev: Event): void => {
+      try {
+        const data: unknown = JSON.parse((ev as MessageEvent).data);
+        if (!isDecisionView(data)) return;
+        if (idsRef.current.has(data.decisionId)) return;
+        if (!matchesFilters(data, filtersRef.current)) return;
+        idsRef.current.add(data.decisionId);
+        setRows((prev) => [data, ...prev]);
+        setLiveCount((n) => n + 1);
+      } catch {
+        /* ignore a malformed frame */
+      }
+    };
+    es.addEventListener("decision", onDecision);
+    return () => es?.close();
   }, []);
 
   useEffect(() => {
@@ -335,8 +388,14 @@ export function Activity(): JSX.Element {
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-[12.5px] text-ink-faint">
+            <span className="flex items-center gap-2 text-[12.5px] text-ink-faint">
               {rows.length} decision{rows.length === 1 ? "" : "s"}
+              {liveCount > 0 ? (
+                <span className="inline-flex items-center gap-1.5 text-chart-allow">
+                  <span className="size-1.5 animate-pulse rounded-full bg-chart-allow" aria-hidden="true" />
+                  {liveCount} streamed in live
+                </span>
+              ) : null}
             </span>
             {cursor !== undefined ? (
               <Button variant="secondary" size="sm" onClick={loadMore} disabled={loadingMore}>
