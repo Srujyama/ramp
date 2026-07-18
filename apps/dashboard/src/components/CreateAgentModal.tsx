@@ -102,6 +102,22 @@ export function CreateAgentModal({ trigger, onCreated }: { trigger: JSX.Element;
           </DialogDescription>
         </DialogHeader>
 
+        <div className="rounded-[--radius-sm] border border-line bg-surface-sunken p-3 text-[12px] leading-relaxed text-ink-muted">
+          <p className="font-semibold text-ink">An agent is a spending identity, not a running AI.</p>
+          <p className="mt-1">
+            It is a row in the policy database: an id, a display name, and the categories it may spend in. Creating one
+            does not launch a model or open an account.
+          </p>
+          <p className="mt-1.5">
+            To connect a real client (Claude Code, Cursor, Codex, or your own service), point its MCP config at the
+            payments server and have it call{" "}
+            <code className="rounded-[--radius-xs] bg-surface px-1 py-0.5 font-mono text-[11px]">pay_vendor</code> with{" "}
+            <code className="rounded-[--radius-xs] bg-surface px-1 py-0.5 font-mono text-[11px]">requestingAgent</code> set
+            to this agent id. The gate loads this agent's clearances and limits, then decides. Several clients can share
+            one agent id, like a corporate card with one spending history.
+          </p>
+        </div>
+
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="new-agent-id" className="text-[11px] font-medium text-ink-faint">

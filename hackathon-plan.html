@@ -450,14 +450,14 @@
     <div class="sec-head"><span class="sec-num">00</span><h2>The one-sentence pitch</h2></div>
     <div class="callout win">
       <p class="ct">▶ Lead with this</p>
-      <p><b>"Everyone else scopes the card. We prove the decision."</b> Visa, Mastercard, Stripe/OpenAI, and Ramp all hand agents scoped credentials with a small blast radius — that's identity and spend-limit control. Nobody verifies that the authorization decision itself was computed from trustworthy inputs. We do: a Datalog kernel evaluates every request as formal logic (pass/fail, never "87% confident"), and TLSNotary proves the invoice really came from the vendor's server. <b>Ramp's own audit log tells you what the agent did; we tell you whether it was allowed to — and prove it before the money moves.</b></p>
+      <p><b>"Everyone else scopes the card. We prove the decision."</b> Visa, Mastercard, Stripe/OpenAI, and Ramp all hand agents scoped credentials with a small blast radius. Ramp layers real controls on top — deterministic policies, fraud checks, hard overrides, approval workflows, a hash-chained audit log. We're exploring one thing further: an <b>independently verifiable authorization layer</b> that cryptographically binds the critical inputs and lets a third party <b>re-execute the exact decision</b> afterward. A Datalog kernel evaluates every request as formal logic (pass/fail, never "87% confident"), and a notary-signed statement binds the invoice bytes to the vendor's registered domain. <b>Everyone — Ramp included — can show you the record of what was decided; we add a portable proof an outsider can re-run to confirm that record is also logically right. Complementary, not competing.</b></p>
     </div>
   </section>
 
   <!-- 00.5 KNOW YOUR JUDGE -->
   <section>
     <div class="sec-head"><span class="sec-num">◆</span><h2>Know your judge — Ramp's own words</h2></div>
-    <p class="sec-sub">Ramp published three pieces that draw the exact boundary of their thinking. Two of them tee up your pitch; one names your product for you. Quote them back.</p>
+    <p class="sec-sub">Ramp published pieces that frame agent spend as a first-class cost category. Extend their story, don't attack it — then add the one layer on top: an independently verifiable authorization step. Quote them back.</p>
     <div class="duo" style="grid-template-columns:1fr 1fr;">
       <div class="panel defense">
         <span class="tag">Their thesis (opens the door)</span>
@@ -469,16 +469,16 @@
         </ul>
       </div>
       <div class="panel threat">
-        <span class="tag">Their gaps (names your product)</span>
+        <span class="tag">Where we go further (the one layer we add)</span>
         <ul>
-          <li>Their agentic-payments post lists what it does <i>not</i> solve: <b>no defense against fabricated or manipulated invoices.</b></li>
-          <li><b>No prompt-injection defense.</b> Stated plainly, unsolved.</li>
-          <li><b>No cryptographic attestation</b> of the underlying documents.</li>
-          <li>Vendor identity confirmed only by <b>"database lookup"</b> — not proof the invoice is authentic.</li>
+          <li>An independently <b>re-executable</b> proof of each decision — an outsider re-runs the exact kernel on the committed facts. <b>No public evidence Ramp does this.</b></li>
+          <li>A <b>notary-signed</b> binding of invoice bytes to the vendor's <b>registered domain</b> (honest scope: notary-signed, <i>not</i> full TLSNotary).</li>
+          <li><b>Structural isolation</b> — untrusted document text can never become a policy fact.</li>
+          <li>Be fair: Ramp already does fraud scoring, bank-level vendor verification, and cited-source policy explanations. We do <b>not</b> claim those as gaps.</li>
         </ul>
       </div>
     </div>
-    <p style="margin-top:16px; color:var(--ink-2); font-size:14.5px;"><b>The move:</b> open with <i>their</i> stat and <i>their</i> "third pillar" framing so you're extending their story, not attacking it — then land on the four gaps <i>they admitted</i> and show a live demo that closes each one. You're not the contrarian in the room; you're the missing layer they already described.</p>
+    <p style="margin-top:16px; color:var(--ink-2); font-size:14.5px;"><b>The move:</b> open with <i>their</i> stat and <i>their</i> "third pillar" framing so you're extending their story, not attacking it — then claim only the <b>one layer we could not find published</b>: an independently re-executable proof of each decision. Don't attribute a gap list to Ramp — credit what they ship and add <b>reproducibility</b> on top. Complementary, not competing.</p>
   </section>
 
   <!-- 01 THREAT / DEFENSE -->
@@ -598,7 +598,7 @@
     </div>
     <div class="callout crux">
       <p class="ct">⚠ Defensibility crux #3 — match ≠ authenticate <span style="opacity:.7">(anticipate the Ramp rebuttal)</span></p>
-      <p>Ramp's published agentic-payments post names a <b>3-way match</b>: PO vs. invoice vs. receiving report. That checks three documents <i>against each other</i> — but if all three are spoofed together (or the invoice is tampered after the PO), the match still passes. <b>TLSNotary authenticates that the invoice bytes actually came from the vendor's real TLS session</b> — a different guarantee entirely. When a judge says "Ramp already does 3-way match," the answer is one line: <i>"matching documents against each other isn't the same as proving the document is real."</i></p>
+      <p>Ramp's agentic-payments materials describe a <b>3-way match</b>: PO vs. invoice vs. receiving report — a real, useful control. That checks three documents <i>against each other</i>, so if all three are coherently spoofed together the match still passes. We <i>add</i> a different control: an <b>Ed25519 notary-signed statement binding the invoice bytes to the vendor's registered domain</b>. Honest scope — that's <b>notary-signed, not TLS-proven</b>; we verify a trusted notary's signature, not the TLSNotary MPC. When a judge says "Ramp already does 3-way match," the one-liner is: <i>"matching documents against each other isn't the same as binding them to a named origin — and we don't claim they fail a live test, only that matching has a conceptual limit."</i></p>
     </div>
   </section>
 
@@ -714,21 +714,25 @@
   <!-- 06 DIFFERENTIATION -->
   <section>
     <div class="sec-head"><span class="sec-num">06</span><h2>Why this isn't what's out there</h2></div>
-    <p class="sec-sub">The judges likely include Ramp people. Name the overlap precisely — you're not attacking their core, you're building what their own published posts say comes next.</p>
+    <p class="sec-sub">The judges likely include Ramp people. Be scrupulously fair: Ramp already ships most spend controls. Name the overlap precisely and claim only the one thing we could not find published anywhere — an independently <b>re-executable</b> proof of each decision.</p>
     <div class="table-scroll">
       <table>
         <thead>
-          <tr><th>Player</th><th>What they solve</th><th>The gap we fill</th></tr>
+          <tr><th>Player</th><th>What they already do</th><th>Where we're actually different</th></tr>
         </thead>
         <tbody>
-          <tr><td>Ramp Agentic Payments <span style="opacity:.6">(their newest)</span></td><td>Agent Cards (single-use Visa tokens) · "human on the loop" · <b>3-way match</b> (PO/invoice/receiving) · network fraud scoring · immutable audit log</td><td>Their own post lists the gaps: <b>no defense against fabricated/manipulated invoices, no prompt-injection defense, no cryptographic attestation, vendor identity by "database lookup."</b> <span class="us">That list is our product.</span></td></tr>
-          <tr><td>Visa / MC / Stripe·OpenAI</td><td>Scoped, limited-use credentials — a $500 virtual card at one vendor</td><td><span class="us">Was the decision computed from trustworthy inputs?</span> Their model is "trust the agent within a small blast radius."</td></tr>
-          <tr><td>Ramp Stack / Procurement</td><td>Agents follow codified rules & processes; deterministic compliance checks</td><td>Rules execute correctly against <b>false inputs</b>. <span class="us">We cryptographically verify the source</span> + provenance.</td></tr>
-          <tr><td>Ramp Token Spend / PostHog</td><td>Observe: token cost by team/model, traces, spans, after-the-fact alerts &amp; audit trails</td><td>Read-only, can't block, and it's <b>inference</b> cost — not money leaving the company. <span class="us">Our hook denies before the call runs</span>; provenance proves the decision <i>at enforce time</i>, not just logs it after.</td></tr>
+          <tr><td>Ramp Agentic Payments <span style="opacity:.6">(their newest)</span></td><td>Scoped <b>Agent Cards</b> · human-on-the-loop · <b>3-way match</b> · fraud scoring · <b>bank-level vendor verification</b> · policy agent w/ cited sources · hash-chained audit log</td><td>All strong, all table stakes we also built. The one thing we found <b>no public evidence</b> of: an independently <b>re-executable</b> proof of the decision — <span class="us">reproducibility, not just observability.</span></td></tr>
+          <tr><td>Visa / MC / Stripe·OpenAI</td><td>Scoped, limited-use credentials — a $500 virtual card at one vendor</td><td><span class="us">Whether the decision was computed from verified inputs.</span> Their model is "trust the agent within a small blast radius."</td></tr>
+          <tr><td>Ramp Policy Agent / Procurement</td><td>AI reads receipts/memos/context + written policy, cites the clause, layers deterministic flags & hard overrides</td><td>Overlapping goal. We add the portable <b>re-run</b>: <span class="us">commit facts + policy version → an outsider re-executes the exact kernel</span> and catches a preserved-but-wrong verdict.</td></tr>
+          <tr><td>Ramp Token Spend / PostHog</td><td>Observe: token cost by team/model, traces, spans, after-the-fact alerts &amp; audit trails</td><td>Read-only, can't block, and it's <b>inference</b> cost — not money leaving the company. <span class="us">Our hook denies before the call runs.</span></td></tr>
         </tbody>
       </table>
     </div>
-    <p style="margin-top:18px; color:var(--ink-2); font-size:14.5px;"><b>The framing that wins:</b> Ramp is solving the <i>platform</i> problem — deploying agents in finance at scale (their own projection: <b>~$15T of B2B purchases involve agents by 2028</b>). We solve the <i>trust</i> problem — making the authorization both logically sound and grounded in verified inputs. Complementary, not competing. Ramp would ideally be the platform our provable decisions run on. Their audit log records <i>what the agent did, after the fact</i>; our provenance <b>proves the decision was computed correctly from authenticated inputs — before the money moves.</b></p>
+    <p style="margin-top:18px; color:var(--ink-2); font-size:14.5px;"><b>The framing that wins:</b> Ramp controls and automates agent spending — the <i>platform</i> problem, at scale (their own projection: <b>~$15T of B2B purchases involve agents by 2028</b>). We're exploring an <i>independently verifiable authorization layer</i>: cryptographically bind the critical inputs, and let a third party <b>re-execute the exact decision</b> afterward. The distinction is <b>not</b> whether policies, limits, fraud checks, or audit logs exist — Ramp has those — it's whether an outsider can re-run the decision and confirm it was right. <b>Complementary, not competing;</b> a layer that could run on top of Ramp.</p>
+    <div class="callout crux" style="margin-top:16px;">
+      <p class="ct">⚠ What this is NOT — say it before a judge finds it</p>
+      <p>Today this is a <b>prototype, not a Ramp replacement.</b> Missing, and we say so first: <b>production caller identity</b> — we accept <code>requestingAgent:"agent_47"</code> as an unauthenticated string, and <b>Ramp's scoped Agent Cards are ahead of us here</b> (the fix is real but unbuilt: signed requests / OAuth / mTLS / workload identity); <b>full TLSNotary</b> (we verify a notary signature, not the MPC); <b>external receipt publication</b> (emitted, not yet published out-of-band); a <b>live K-of-N quorum path</b> (built + tested; the running gate is single-notary). Honest summary: <span class="us">we may provide stronger decision proof; Ramp provides stronger credential enforcement — both true.</span></p>
+    </div>
   </section>
 
   <!-- 07 DEMO -->
@@ -750,7 +754,7 @@
     </div>
     <div class="beat">
       <span class="n">4</span>
-      <div><h3>The spoof</h3><p><b>The subtle one — a 3-way match passes this.</b> <code>acme-corp-billing.example</code> serves a byte-perfect invoice over <b>real TLS</b>, genuinely notarised. Every document agrees with every other document. → the registry says Acme is <code>acme.example.com</code> → <code>deny/attestation_invalid</code> (domain_mismatch). Also demoed: <b>no attestation at all</b>, and <b>replay</b> of a genuine hour-old one. Consistency isn't authenticity.</p></div>
+      <div><h3>The spoof</h3><p><b>The subtle one — any check that compares documents to each other is satisfied here.</b> <code>acme-corp-billing.example</code> serves a byte-perfect invoice over <b>real TLS</b>, genuinely notarised. Every document agrees with every other. → the registry says Acme is <code>acme.example.com</code> → <code>deny/attestation_invalid</code> (domain_mismatch). Also demoed: <b>no attestation at all</b>, and <b>replay</b> of a genuine hour-old one. We add domain binding as another control — not a claim that anyone else fails a live test. Consistency isn't authenticity.</p></div>
     </div>
     <div class="beat">
       <span class="n">5</span>

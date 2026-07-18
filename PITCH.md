@@ -3,9 +3,15 @@
 > **Single source of truth for the pitch.** The plan (`hackathon-plan.html`) and the slide
 > deck (`pitch-deck.html`) both derive from this file. **If you change the pitch, change it
 > HERE first, then propagate to both artifacts** (see `CLAUDE.md` → "Keeping the pitch in sync").
-> Last substantive update: 2026-07-17 — the WASM kernel now compiles and its **4-way parity is
-> proven in CI** (it had never built; the parity run caught three real drifts), and `pnpm redteam`
-> fires the attacker's playbook (**18 attacks, 0 breaches**) as a CI gate. Prior: velocity, windowed
+> Last substantive update: 2026-07-18 — **honest repositioning.** Removed the unsubstantiated
+> "Ramp admits these gaps" framing and the "a competitor provably fails our demo" language, and
+> reframed the pitch around the one thing that is actually ours: **decision reproducibility, not
+> observability** — a re-executable proof bundle, a notary-signed invoice→domain binding,
+> structural input isolation, and a general side-effect-authorization primitive. Added an explicit
+> **"What this is NOT"** candor section (production caller identity, full TLSNotary, external
+> receipt publication, a live quorum path). Prior: the WASM kernel compiles with **4-way parity
+> proven in CI**, and `pnpm redteam` fires the attacker's playbook (**18 attacks, 0 breaches**) as
+> a CI gate. Prior: velocity, windowed
 > budgets, duplicate detection, signed approvals, `pnpm stats`, the `@ramp/client` SDK, and the
 > operator/auditor CLIs `pnpm explain` / `simulate` / `policy-diff` / `receipt`. 544 tests, 19 demo
 > beats. Both HTML artifacts are propagated and in sync.
@@ -39,6 +45,13 @@ Trade flexibility for provability. An LLM classifier outputs "92% likely legitim
 that drifts with phrasing and can be nudged by a hidden instruction. A **Datalog rule matches the
 facts or it doesn't.** Determinism guarantees *"same facts → same answer"* — and we make the facts
 **true** by pulling them from authoritative sources and cryptographically attesting the documents.
+
+This is **not** "rules instead of Ramp's AI" — Ramp already layers deterministic controls and hard
+overrides over its policy AI. The distinction that is actually ours is that the **entire decision
+is packaged to be re-executed by an independent third party**: commit the facts and the policy
+version, and anyone can re-run the exact kernel and confirm the verdict falls out — catching a
+record that is validly preserved but logically *wrong*, which no hash-checked audit log can. That
+is **decision reproducibility, not just observability**, and it is the whole moat.
 
 ## The four pieces
 
@@ -504,53 +517,113 @@ fails the math, a lookalike fails the domain binding, a replay fails freshness, 
 fails its binding, a homoglyph isn't the verified vendor. `pnpm redteam` exits non-zero on **any**
 breach, so it is a CI gate, not a slide — and every block is itself recorded and re-verifiable.
 
-## Differentiation (quote their own posts back)
+## Differentiation — the honest comparison (be scrupulously fair about Ramp, or lose the room)
 
-| Player | What they solve | The gap we fill |
-| --- | --- | --- |
-| **Ramp Agentic Payments** (their newest) | Agent Cards (single-use Visa tokens), "human on the loop", **3-way match** (PO/invoice/receiving), network fraud scoring, immutable audit log | Their own post lists the gaps: **no defense against fabricated/manipulated invoices, no prompt-injection defense, no cryptographic attestation, vendor identity by "database lookup."** That list is our product. |
-| Visa / MC / Stripe·OpenAI | Scoped single-use credentials — a $500 card at one vendor | *Was the decision computed from trustworthy inputs?* Their model is "trust the agent within a small blast radius." |
-| Ramp Stack / Procurement | Agents follow codified rules; deterministic compliance checks | Rules execute correctly against **false inputs**. We cryptographically verify the source + provenance. |
-| Ramp Token Spend / PostHog | Observe token cost, traces, after-the-fact alerts & audit | Read-only, can't block; and it's **inference** cost, not money leaving the company. Our hook denies *before* the call runs. |
+Ramp Agentic Payments is a **real, shipping, strong** product. It already does the spend-control
+basics *and* much more. Pretending otherwise gets us caught. Here is the fair table — the moat is
+the **bottom four rows only**, and everything above them is table stakes we also built so the demo
+is real.
 
-### The rebuttals judges will raise
-- **"Ramp already does 3-way match."** → **Match ≠ authenticate.** A 3-way match checks three
-  documents *against each other*; if all three are spoofed together, it passes. Attestation binds the
-  invoice bytes to a TLS session with a **named server**, checked against the vendor's registered
-  domain. **Demo beat 4 is exactly this**: a lookalike domain, a byte-perfect invoice, a real
-  signature — every document agrees, a 3-way match passes, and we deny.
-- **"Ramp already has audit trails."** → **Their log proves integrity. We prove soundness too.** An
-  immutable log proves nobody edited the record; it cannot tell you the record was *right*. A
-  perfectly intact "allow" written by a buggy gate passes every hash check ever devised. Our bundle
-  is **re-derivable**: `pnpm proof` re-runs the kernel on the recorded facts and checks the verdict
-  falls out — and the dashboard does it in your browser while you watch. **You cannot reseal your way
-  out of arithmetic.** Nobody else in this space draws that distinction, and it is the difference
-  between an audit trail and a proof.
-- **"Isn't the injection defence just a fancy blocklist?"** → No — and the repo proves it. Detection
-  is **telemetry that gates nothing**; if it returned `false` for every real attack the guarantees
-  would be unchanged. The defence is structural: untrusted bytes can't become a string, and escape
-  only into a codomain of size *n* that we chose. There is a test (`an UNDETECTED injection is still
-  structurally powerless`) asserting a payload that dodges every heuristic is still refused.
-- **"Your TLSNotary isn't real TLSNotary."** → **Correct, and we say so first** — in the package, its
-  README, and this file. It's real Ed25519 over a canonical domain-separated statement with real
-  binding checks; it is not the MPC. Swapping in a real TLSNotary verifier replaces one function and
-  **every binding check survives**. We'd rather state the boundary than have a judge find it.
-- **"Then the whole chain roots in trusting your one notary."** → **It doesn't have to — the gate
-  supports a K-of-N quorum.** `verifyQuorum` requires the *same* statement to be independently signed
-  by at least `threshold` **distinct** trusted notaries, each checked by the exact single-sig verifier
-  (so there's no weaker second path). Compromising one notary buys one signature; a 2-of-3 policy
-  still rejects it — and duplication can't fake breadth (N copies of one notary's signature count
-  once). **Demo beat 15 and a red-team case prove it**: an attacker who holds one notary's key *and*
-  forges a second signature still fails a 2-of-3. The single point of trust becomes a threshold.
+| Capability | Ramp today | Us | Verdict |
+| --- | --- | --- | --- |
+| Per-txn + cumulative limits; merchant/category restrictions; velocity + duplicate controls | **Yes** | Yes | **Already Ramp** |
+| Human escalation / approval workflows; inherited approval chains | **Yes** | Yes | Already Ramp |
+| Agent-specific payment credentials | **Yes — Agent Cards**: tokenized virtual cards issued to an agent via API/MCP, scoped to agent + transaction | **No real authenticated agent credential** — we accept a credential-less string | **Ramp is ahead** |
+| Vendor verification | **Yes** — bank-account **ownership**/deposit verification (micro-deposits, statements, letters) | Registry + **domain** checks | Different mechanism, not obviously stronger |
+| Invoice-fraud detection | **Yes** — risk scoring across vendor authenticity, payment-detail changes, invoice patterns, unusual amounts, network signals | Rule-based scenarios + attestation | Significant overlap |
+| Two-/three-way matching (PO / invoice / receiving) | **Yes**, incl. overbilling + mismatch checks | We don't ship matching | Ramp already does it |
+| Policy explanations w/ cited sources; policy versions; activity/audit history | **Yes — Policy Agent** cites policy text, records versions + reviewer actions, layers deterministic flags | Provenance bundle | Overlapping goal |
+| **Re-execute the recorded decision to prove it was *correct*** | No public evidence found | **Yes** | **Strongest differentiation** |
+| **Proof bundle independently verifiable offline (no repo, no network)** | No public evidence found | **Yes** | **Strong differentiation** |
+| **Ed25519 invoice statement bound to the vendor's registered domain** | No public evidence found | **Yes** (notary-signed; *not* full TLSNotary) | Potentially differentiated |
+| **Structural isolation: untrusted document text can never become a policy fact** | No public evidence found | **Yes** (claimed + tested) | Potential differentiation |
+
+Sources: ramp.com/blog/ai-agent-spending-controls, ramp.com/blog/agentic-payments, and
+support.ramp.com (3-Way Match, Bill-Pay fraud, Vendor verification, Policy Agent). **We do NOT
+attribute a "list of gaps" to Ramp** — that earlier framing was removed for lack of a primary
+quotation. "No public evidence found" means exactly that: we could not find it published, not that
+Ramp privately lacks it.
+
+### The one distinction that is actually ours: reproducibility, not observability
+
+Everyone — Ramp included — gives you decision **observability**: the recorded recommendation, the
+cited policy, the version, the activity feed, an append-only / hash-chained audit log. That answers
+*"what did the agent do, and does the record still match what was written?"*
+
+We could not find anyone giving you decision **reproducibility**: a portable artifact that lets an
+**independent third party re-execute the exact authorization logic** —
+
+    committed facts + committed policy version  →  recorded decision
+
+— and catch a record that is **validly preserved but logically wrong.** An immutable, perfectly
+intact audit row of a *buggy* "allow" passes every hash check ever devised; **only re-execution**
+catches it. That is the difference between an audit trail and a proof, and it is the whole pitch.
+
+### The rebuttals judges will raise — answer them straight
+
+- **"Ramp already does caps, budgets, velocity, matching, fraud scoring, approvals, audit logs."**
+  → **Correct, and we are not claiming those as our moat.** They are necessary infrastructure we
+  also built so the demo is real; they are table stakes. Our claim is narrower and survives
+  scrutiny: an independently **re-executable** proof of each decision, which we could not find in
+  Ramp's public materials.
+- **"Isn't your audit trail the same as theirs?"** → **Observability vs reproducibility.** Ramp can
+  show the recorded recommendation, cited policy, and workflow history. We additionally **package
+  the decision so an outside verifier can re-run the kernel** on the committed facts and detect a
+  validly-preserved-but-incorrect result. `pnpm receipt` emits one dependency-free file; the
+  dashboard re-derives in the judge's own browser. *You cannot re-seal your way out of arithmetic.*
+- **"Isn't three-way matching enough?"** → **We do NOT claim Ramp fails** — we never ran the attack
+  against Ramp. We claim a *conceptual* limit of document matching: three-way match checks documents
+  **against each other**, so coherently-spoofed records can all agree. We *explore* an additional
+  control — a **notary-signed** binding of invoice bytes to a vendor's **registered domain**. Stated
+  honestly: notary-signed, **not** a cryptographic proof the bytes came off the vendor's TLS server.
+- **"Isn't the injection defence just a fancy blocklist?"** → No. Detection **gates nothing**; if it
+  returned `false` for every real attack the guarantee would be unchanged. The defence is
+  structural — untrusted bytes can't become a string, and escape only into a codomain of size *n* we
+  chose. A test (`an UNDETECTED injection is still structurally powerless`) asserts a payload that
+  dodges every heuristic is still refused.
+- **"Then it all roots in trusting one notary."** → It need not: `verifyQuorum` implements a
+  **K-of-N** threshold (built + unit-tested + in a red-team case). *Honest caveat:* the live
+  enforcement path runs **single-notary** today; quorum is a wiring change, not yet the default.
 
 ## The winning frame
 
-Ramp is solving the **platform** problem — deploy agents in finance at scale (their own projection:
-**~$15T of B2B purchases involve AI agents by 2028**; Ramp AI Index: **55% of US businesses use AI**,
-Jun 2026). We solve the **trust** problem — make the authorization both logically sound *and*
-grounded in verified inputs. **Complementary, not competing** — Ramp would ideally be the platform
-our provable decisions run on. You're not the contrarian in the room; you're the missing layer they
-already described in their own posts.
+**Ramp controls and automates agent spending. We are exploring an independently verifiable
+authorization layer for high-stakes agent actions.** The distinction is **not** whether policies,
+limits, fraud checks, or audit logs exist — Ramp already has those. The distinction is whether a
+third party can **cryptographically bind the critical inputs** and **independently re-execute the
+exact decision** after the fact. Complementary, not competing — Ramp is the platform (their own
+projection: **~$15T of B2B purchases involve AI agents by 2028**; Ramp AI Index: **55% of US
+businesses use AI**, Jun 2026); we are a verifiability layer that could run on top of it.
+
+And the same primitive is **not payments-specific**: **trusted facts → deterministic policy →
+fail-closed gate → portable, re-executable proof** applies to deploys, trades, refunds, data
+exports, and infra changes. Payments is the beachhead, not the ceiling. *(Honest caveat: to sell
+the generalization we still owe one non-payment adapter — a generic kernel is necessary, not
+sufficient.)*
+
+## What this is NOT (say it before a judge finds it)
+
+Today this is a **prototype, not a Ramp replacement.** It is missing the following, and we say so
+first — the same provability discipline the product is about:
+
+- **Production caller identity — our weakest area, and Ramp is ahead here.** We accept
+  `requestingAgent: "agent_47"` as an **unauthenticated string**; any process can present any
+  registered id (the id is only ever a key to look up facts the caller cannot shrink, so it can't
+  *escalate* privilege — but nothing authenticates *which* caller presents it). Ramp's Agent Cards
+  are scoped credentials issued to a specific agent/transaction. The fix is real but unbuilt: signed
+  per-agent requests / OAuth client credentials / mTLS / workload identity / an authenticated
+  mapping from MCP client to agent id.
+- **Full TLSNotary.** We verify a *trusted notary's signature* over a claim; we do **not** run the
+  MPC that would prove the bytes came off the vendor's TLS session. Notary-signed, not TLS-proven.
+- **External receipt publication.** The head receipt is a real external witness **only** once it is
+  published where the operator cannot rewrite it. The code emits it; the publishing is a deployment
+  step we have not taken.
+- **A live quorum enforcement path.** K-of-N is built and tested, but the running gate is
+  single-notary.
+
+Naming these makes the four real differentiators **more** credible, not less. Right now the honest
+summary is: we may provide stronger **decision proof**; Ramp provides stronger **principal and
+payment-credential enforcement**. Both are true, and we say both.
 
 ## Traction (this is not vaporware)
 

@@ -81,7 +81,7 @@ export function Integrity(): JSX.Element {
       <div>
         <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Ledger integrity</h1>
         <p className="mt-0.5 max-w-2xl text-[13.5px] text-ink-muted">
-          The decision log is a hash chain — each record commits to the one before, so nothing can be altered without
+          The decision log is a hash chain. Each record commits to the one before, so nothing can be altered without
           breaking every link after it. A signed <span className="font-medium text-ink">head receipt</span>, published
           somewhere you don't control, then catches even a self-consistent full rewrite: today's chain must still have that
           head as a prefix.
@@ -153,7 +153,7 @@ export function Integrity(): JSX.Element {
               <Download className="size-4" /> {busy === "download" ? "Signing…" : "Download head receipt"}
             </Button>
             <p className="text-[12px] text-ink-faint">
-              A receipt saved next to the database proves nothing — whoever rewrites the chain rewrites it too. The value
+              A receipt saved next to the database proves nothing. Whoever rewrites the chain rewrites it too. The value
               is the copy <span className="font-medium text-ink-muted">you</span> keep off-box.
             </p>
           </CardContent>
@@ -210,7 +210,7 @@ export function Integrity(): JSX.Element {
               </p>
             ) : (
               <p className="text-[12px] text-ink-faint">
-                Try it: download a receipt above, then upload it back — it verifies. It stays consistent as the chain
+                Try it: download a receipt above, then upload it back and it verifies. It stays consistent as the chain
                 grows, and fails the instant history is rewritten or truncated.
               </p>
             )}

@@ -31,7 +31,7 @@ import type { RampClient } from "@ramp/client";
 import { refreshPricing } from "./pricing.js";
 import { parseIntent, runTransaction } from "./transactions.js";
 import { adminState, runCreateAgent, runUpdateDials } from "./admin.js";
-import { listPending, listApprovers, runResolve } from "./approvals.js";
+import { listPending, listApprovers, runResolve, resolutionFor } from "./approvals.js";
 import { chainStatus, makeReceipt, checkReceipt } from "./integrity.js";
 import { runSetDemoData } from "./demo.js";
 
@@ -172,6 +172,13 @@ export function createControlPlane(deps: ControlPlaneDeps): Server {
         return;
       }
       json(res, 200, out);
+      return;
+    }
+
+    // GET /approvals/:id — the recorded human resolution for one decision (or null).
+    if (method === "GET" && path.startsWith("/approvals/")) {
+      const id = decodeURIComponent(path.slice("/approvals/".length));
+      json(res, 200, { resolution: resolutionFor(db, id) });
       return;
     }
 

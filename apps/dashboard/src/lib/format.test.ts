@@ -118,7 +118,7 @@ test("explainDecision narrates an allow whose executor failed", () => {
 
 test("explainDecision narrates an allow that was never executed", () => {
   const out = explainDecision(mkView({ outcome: "allow", execution: null }));
-  assert.equal(out, "Allowed by policy — every condition held. No sandbox payment was executed for this record.");
+  assert.equal(out, "Allowed by policy. Every condition held. No sandbox payment was executed for this record.");
 });
 
 test("explainDecision narrates a deny with its fired reasons joined", () => {
@@ -184,7 +184,7 @@ test("explainDecision narrates a pre-decision error", () => {
 
 test("explainSimulation narrates an allow", () => {
   const out = explainSimulation("allow", ["allow/all_conditions_met"]);
-  assert.match(out, /^Allowed — every policy condition held/);
+  assert.match(out, /^Allowed\. Every policy condition held/);
   assert.match(out, /within the per-transaction cap and daily limit\.$/);
 });
 

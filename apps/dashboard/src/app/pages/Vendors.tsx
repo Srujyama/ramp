@@ -122,7 +122,7 @@ export function Vendors(): JSX.Element {
                         {v.riskTier ? (
                           <Badge tone={RISK_TONE[v.riskTier] ?? "neutral"}>{v.riskTier}</Badge>
                         ) : (
-                          <span className="text-ink-faint">—</span>
+                          <span className="text-ink-faint">–</span>
                         )}
                       </td>
                       <td className="tabular px-4 py-3 text-right text-ink">{v.decisionCount}</td>

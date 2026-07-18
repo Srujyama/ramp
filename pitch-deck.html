@@ -868,6 +868,12 @@
         <p>The question isn't how much it can spend.<br>It's whether you can trust <em>why</em> it decided to.</p>
       </div>
       <div class="signoff mono">
+        <span>github.com/Srujyama/ramp</span>
+        <span class="sep">·</span>
+        <span><span class="g">544 tests green</span></span>
+        <span class="sep">·</span>
+        <span>the gate runs today</span>
+        <span class="sep">·</span>
         <span>Srujan Yamali, Jonathan Kachappilly, Neil Porwal</span>
       </div>
     </div>
@@ -895,25 +901,25 @@
   </section>
 
   <!-- ===================================================== SLIDE 3 -->
-  <section class="slide" data-note="Every current answer is identity and blast-radius control — a smaller card at one vendor. None of them ask the only question that stops injection: was this decision computed from inputs you can trust?">
+  <section class="slide" data-note="Be fair here — most of these do far more than scope a card, and Ramp checks a lot. The honest distinction is NOT 'they don't check.' It's that none of them, as far as we can find published, let an outside party RE-EXECUTE the exact decision and prove it was correct. That's reproducibility — the only column that's actually ours.">
     <div class="stage">
-      <p class="eyebrow">Why today's answers don't touch it</p>
-      <h1 class="headline">Scoping the credential controls the blast radius. Not the decision.</h1>
+      <p class="eyebrow">Why today's answers don't close it</p>
+      <h1 class="headline">They give you observability. Not a decision you can re-run.</h1>
       <div class="tablewrap">
         <table class="matrix">
           <thead>
-            <tr><th>Approach</th><th>What it controls</th><th>The question it never asks</th></tr>
+            <tr><th>Approach</th><th>What it does</th><th>What it doesn't establish</th></tr>
           </thead>
           <tbody>
             <tr>
               <th>Visa / Mastercard / Stripe&#8211;OpenAI</th>
               <td>Single-use <span class="mono">$500</span> card at one vendor</td>
-              <td class="ask">Was the decision computed from real inputs?</td>
+              <td class="ask">Whether the decision was computed from verified inputs</td>
             </tr>
             <tr>
               <th>Ramp Agentic Payments</th>
-              <td>Agent Cards, human-on-the-loop, 3-way match</td>
-              <td class="ask">Is the invoice actually authentic?</td>
+              <td>Scoped Agent Cards, 3-way match, fraud scoring, vendor verification, approvals, audit log</td>
+              <td class="ask">Independent <b>re-execution</b> of the decision — observability, not reproducibility</td>
             </tr>
             <tr>
               <th>PostHog LLM analytics</th>
@@ -923,27 +929,27 @@
           </tbody>
         </table>
       </div>
-      <p class="footnote red">A scoped card still pays the fraudulent invoice. It just pays a smaller one.</p>
+      <p class="footnote">Scoping the credential shrinks the blast radius. It doesn't make the decision <span class="tag-green">re-provable</span> by someone who doesn't trust you.</p>
     </div>
   </section>
 
   <!-- ===================================================== SLIDE 4 -->
-  <section class="slide" data-note="The fix is a stance change: stop trusting the agent's explanation and make every spending decision provable — checked against a strict rulebook, on inputs independently verified as real.">
+  <section class="slide" data-note="The stance change — and say it carefully. This is NOT 'we use rules and Ramp uses AI'; Ramp layers deterministic controls and hard overrides over its policy AI too. What's actually ours is that the whole decision is packaged to be re-executed by an outsider: a receipt anyone can re-run, not just a log they can read.">
     <div class="stage">
       <p class="eyebrow green">The insight</p>
-      <h1 class="headline">Stop trusting the agent's word. Make the decision provable.</h1>
-      <p class="lead">Don't ask the model to be trustworthy. <b>Remove the model from the decision entirely.</b></p>
+      <h1 class="headline">Don't just decide. Emit a decision someone else can re-run.</h1>
+      <p class="lead">The point isn't rules-instead-of-AI — good systems use both. It's <b>reproducibility</b>: commit the facts and the policy version, and the verdict can be re-derived by anyone who doesn't trust you.</p>
       <div class="contrast2">
         <div class="crow trust">
-          <span class="lbl">Trust<br><span style="color:var(--faint);font-weight:400;font-size:.8em;">today</span></span>
-          <span class="flowtext">agent narrates<span class="arw">→</span>"92% likely legitimate"<span class="arw">→</span>pays</span>
+          <span class="lbl">Log<br><span style="color:var(--faint);font-weight:400;font-size:.8em;">observe</span></span>
+          <span class="flowtext">decide<span class="arw">→</span>record verdict + rationale + hash<span class="arw">→</span><span class="tag-red">"trust the record"</span></span>
         </div>
         <div class="crow prove">
-          <span class="lbl">Prove<br><span style="color:var(--faint);font-weight:400;font-size:.8em;">ours</span></span>
-          <span class="flowtext">authoritative facts<span class="arw">→</span>strict rulebook<span class="arw">→</span><span class="tag-green">allow</span> / <span class="tag-red">deny</span> + receipt</span>
+          <span class="lbl">Prove<br><span style="color:var(--faint);font-weight:400;font-size:.8em;">reproduce</span></span>
+          <span class="flowtext">commit facts + policy<span class="arw">→</span>anyone re-runs the kernel<span class="arw">→</span><span class="tag-green">verdict falls out</span></span>
         </div>
       </div>
-      <p class="footnote">Same facts, same answer, every time. <span class="tag-red">Deny dominates.</span> Not a classifier that drifts with phrasing — a rule that matches or it doesn't.</p>
+      <p class="footnote">Same facts, same answer, every time. <span class="tag-red">Deny dominates.</span> A preserved-but-wrong verdict survives every hash check — only <span class="tag-green">re-execution</span> catches it.</p>
     </div>
   </section>
 
@@ -1134,16 +1140,16 @@
   </section>
 
   <!-- ===================================================== SLIDE 11 -->
-  <section class="slide" data-note="A fake invoice with no attestation fails because vendor-verified is false — no receipt, no payment. And the provenance view traces any decision back through its facts to each authoritative source. This is what you hand an auditor.">
+  <section class="slide" data-note="Say this one carefully. We do NOT claim Ramp fails a live test — we never ran this against Ramp. We show a CONCEPTUAL limit of any check that compares documents to each other: coherently-spoofed records all agree. We add a notary-signed domain binding as an additional control. The right panel re-derives the decision in the judge's own browser.">
     <div class="stage">
       <p class="eyebrow">Live demo — 4 &amp; 5</p>
-      <h1 class="headline">A spoof survives a 3-way match. It does not survive this.</h1>
+      <h1 class="headline">Matching proves documents agree. Not where they came from.</h1>
       <div class="cols">
         <div class="card">
-          <span class="stamp red">The spoof — a 3-way match PASSES this</span>
-          <p style="font-size:clamp(14px,1.4vw,17px);color:var(--ink-2);margin:16px 0 0;line-height:1.5;"><span class="mono">acme-corp-billing.example</span> serves a byte-perfect invoice over <b>real TLS</b>, with a <b>real notary signature</b>. Every document agrees with every other.</p>
-          <p class="mono" style="font-size:clamp(13px,1.3vw,16px);margin:14px 0 0;color:var(--muted);">→ registered domain = <span class="tag-green">acme.example.com</span> → <span class="tag-red">✗ DENY</span></p>
-          <p style="font-size:14px;color:var(--muted);margin:12px 0 0;"><b>deny/attestation_invalid</b> · domain_mismatch. Consistency isn't authenticity.</p>
+          <span class="stamp amber">A conceptual limit of document matching</span>
+          <p style="font-size:clamp(14px,1.4vw,17px);color:var(--ink-2);margin:16px 0 0;line-height:1.5;"><span class="mono">acme-corp-billing.example</span> serves a byte-perfect invoice over <b>real TLS</b> with a <b>real notary signature</b>. Every document agrees with every other — so any check that compares documents <em>to each other</em> is satisfied.</p>
+          <p class="mono" style="font-size:clamp(13px,1.3vw,16px);margin:14px 0 0;color:var(--muted);">domain binding → registered = <span class="tag-green">acme.example.com</span> → <span class="tag-red">✗ DENY</span></p>
+          <p style="font-size:14px;color:var(--muted);margin:12px 0 0;"><b>deny/attestation_invalid</b> · domain_mismatch. We add domain binding as <b>another</b> control — not a claim that anyone else fails a live test.</p>
         </div>
         <div class="card" style="border-color:var(--green-dim);">
           <span class="stamp green">The proof — re-derived in YOUR browser</span>
@@ -1161,77 +1167,130 @@
     </div>
   </section>
 
-  <!-- ===================================================== SLIDE 12 -->
-  <section class="slide" data-note="Ramp's newest release is strong — Agent Cards, three-way match, cryptographic audit logs. And their own post lists what it doesn't solve: fabricated invoices, prompt injection, no document attestation, vendor identity by database lookup. That list is our product.">
+  <!-- ===================================================== SLIDE 12 — HONEST COMPARISON -->
+  <section class="slide" data-note="Be scrupulously fair about Ramp or lose the room. Ramp already ships caps, budgets, velocity, duplicate controls, approvals, three-way matching, invoice-fraud scoring, bank-level vendor verification, a policy agent that cites sources, and audit logs. We built those too — table stakes, not the moat. The one thing we could not find anywhere in Ramp's public materials is decision reproducibility: a portable proof an outsider can re-execute. Everything else is observability. We do NOT attribute a gap list to Ramp — we couldn't source it.">
     <div class="stage">
-      <p class="eyebrow amber">Ramp's newest — in their own words</p>
-      <h1 class="headline">The gaps aren't our critique. They're Ramp's own list.</h1>
-      <p class="lead">Ramp Agentic Payments ships: <span class="mono" style="color:var(--ink-2);">Agent Cards · human-on-the-loop · 3-way match · network fraud scoring · immutable audit logs with cryptographic hashes.</span></p>
-      <div class="cols-hero">
-        <div>
-          <p class="attrib">Ramp's published post lists what it does NOT solve:</p>
-          <blockquote class="pullquote">
-            <ul>
-              <li>· no defense against fabricated / manipulated invoices</li>
-              <li>· no prompt-injection defense</li>
-              <li>· no cryptographic attestation of documents</li>
-              <li>· vendor identity by "database lookup" only</li>
-            </ul>
-          </blockquote>
-        </div>
-        <div style="display:grid;place-items:center;">
-          <p class="heroline green" style="margin-top:0;font-size:clamp(24px,3.4vw,44px);text-align:center;">That list<br>is our product.</p>
-        </div>
+      <p class="eyebrow amber">Be fair about Ramp — then draw the real line</p>
+      <h1 class="headline">Ramp already does most of this. One thing it doesn't.</h1>
+      <div class="tablewrap">
+        <table class="matrix">
+          <thead>
+            <tr><th>Capability</th><th>Ramp today</th><th>Us</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>Caps · budgets · velocity · duplicates · approvals</th><td>Yes</td><td>Yes <span class="ro">— table stakes</span></td></tr>
+            <tr><th>3-way match · invoice-fraud risk scoring</th><td>Yes</td><td class="ro">not our claim</td></tr>
+            <tr><th>Bank-level vendor verification</th><td>Yes</td><td class="ro">domain checks (different)</td></tr>
+            <tr><th>Policy agent — cites sources, versions, audit history</th><td>Yes</td><td>Yes <span class="ro">— observability</span></td></tr>
+            <tr><th style="color:var(--green);">Re-execute a recorded decision to prove it was <em>correct</em></th><td class="ask">no public evidence</td><td><span class="tag-green">Yes ◄ the moat</span></td></tr>
+            <tr><th style="color:var(--green);">Proof bundle verifiable offline — no repo, no network</th><td class="ask">no public evidence</td><td><span class="tag-green">Yes</span></td></tr>
+          </tbody>
+        </table>
       </div>
+      <p class="footnote green">Everyone gives you <b>observability</b>. We add <b>reproducibility</b> — an outsider re-runs the exact logic and catches a preserved-but-wrong verdict.</p>
     </div>
   </section>
 
-  <!-- ===================================================== SLIDE 13 -->
-  <section class="slide" data-note="Two rebuttals cold. Three-way match checks documents against each other — spoof all three and it passes; TLSNotary proves the bytes are real. And their audit log says what the agent did after the fact; our provenance proves the decision was right before the money moves.">
+  <!-- ===================================================== SLIDE 13 — MOAT 1: REPRODUCIBILITY -->
+  <section class="slide" data-note="The moat in one sentence. Observability answers 'what did the agent do, and is the record unedited.' Reproducibility answers 'was the decision correct' — commit the facts and the policy version and let an independent party re-run the exact kernel. A perfectly intact audit row of a buggy allow passes every hash check ever devised; only re-execution catches it. That's the difference between an audit trail and a proof.">
     <div class="stage">
-      <p class="eyebrow">The two rebuttals judges will raise</p>
-      <h1 class="headline">Match isn't authenticate. A log isn't a proof.</h1>
-      <div class="rebuttal">
-        <div class="reb">
-          <div class="claim">"Ramp already does 3-way match."</div>
-          <div class="ans"><span class="arrow">→</span> <b>MATCH ≠ AUTHENTICATE.</b> Three documents checked against each other. Spoof all three together and the match passes. <span class="hi">Attestation binds the invoice bytes to a TLS session with a NAMED server</span>, checked against the registry. <b>Beat 4 is exactly this:</b> a lookalike domain, a byte-perfect invoice, a real signature — every document agrees, a 3-way match passes, and we deny.</div>
+      <p class="eyebrow green">The moat — pillar 1 of 4</p>
+      <h1 class="headline">Reproducibility, not observability.</h1>
+      <div class="contrast2">
+        <div class="crow trust">
+          <span class="lbl">Observe<br><span style="color:var(--faint);font-weight:400;font-size:.8em;">everyone</span></span>
+          <span class="flowtext">recorded verdict + cited policy + hash-chained log<span class="arw">→</span><span class="tag-red">"the record wasn't edited"</span></span>
         </div>
-        <div class="reb">
-          <div class="claim">"Ramp already has audit trails."</div>
-          <div class="ans"><span class="arrow">→</span> <b>THEIR LOG PROVES INTEGRITY. WE PROVE THREE THINGS.</b> An immutable log proves nobody <i>edited</i> a record — and every proof is an island, so <span class="hi">DELETE the inconvenient row and every remaining proof still verifies perfectly.</span> We chain them (deletion breaks it), and we re-run the kernel on the recorded facts to prove the decision was <i>right</i>, not merely unedited. <span class="hi">A perfectly intact record of a WRONG decision passes every hash check ever devised.</span></div>
+        <div class="crow prove">
+          <span class="lbl">Reproduce<br><span style="color:var(--faint);font-weight:400;font-size:.8em;">ours</span></span>
+          <span class="flowtext">committed facts + policy version<span class="arw">→</span>re-run the kernel<span class="arw">→</span><span class="tag-green">"the verdict was correct"</span></span>
         </div>
       </div>
-      <p class="footnote">Enforce-time, not after-the-fact. Authentic, not merely consistent. <b>You cannot reseal your way out of arithmetic.</b></p>
+      <div class="codeblock">
+<pre><span class="cm">// an outsider runs this — no repo, no network, no trust in us:</span>
+<span class="key">committed facts</span> + <span class="key">committed policy version</span> <span class="arw">→</span> <span class="grn">recorded decision</span>
+<span class="cm">// a preserved-but-WRONG "allow" passes every hash check ever devised —</span>
+<span class="cm">// only re-execution catches it.</span></pre>
+      </div>
+      <p class="footnote green">pnpm receipt emits one dependency-free file · the dashboard re-derives in the judge's browser. <b>You cannot re-seal your way out of arithmetic.</b></p>
     </div>
   </section>
 
-  <!-- ===================================================== SLIDE 14 -->
-  <section class="slide" data-note="We're not the contrarian. Ramp is solving the platform problem — deploy agents in finance at scale. We solve the trust problem. Ramp would ideally be the platform our provable decisions run on — we're the missing layer they described in their own posts.">
+  <!-- ===================================================== SLIDE 14 — MOAT 2+3: BIND + ISOLATE -->
+  <section class="slide" data-note="Two more real differentiators, limits out loud. One: an Ed25519 notary signature binds invoice bytes and amount to the vendor's registered domain. Honest scope — notary-signed, NOT a proof the bytes came off the vendor's TLS server; we don't run the TLSNotary MPC. Two: untrusted document text is structurally prevented from ever becoming a policy fact — it escapes only through a declassifier into a set of values chosen in advance, so even an injection we fail to detect is powerless.">
+    <div class="stage">
+      <p class="eyebrow green">The moat — pillars 2 &amp; 3 of 4</p>
+      <h1 class="headline">Bind the inputs. Isolate the untrusted.</h1>
+      <div class="cols">
+        <div class="card" style="border-color:var(--green-dim);">
+          <span class="stamp green">Notary-signed input binding</span>
+          <p style="font-size:clamp(14px,1.45vw,17px);color:var(--ink-2);margin:16px 0 0;line-height:1.5;">Ed25519 over a canonical statement binds invoice bytes + amount to the vendor's <b>registered domain</b>. A check that only compares documents to each other cannot do that.</p>
+          <p class="mono" style="font-size:clamp(12px,1.2vw,15px);margin:14px 0 0;color:var(--amber);">Honest scope: notary-signed, <b>not</b> TLS-proven. No TLSNotary MPC — and we say so first.</p>
+        </div>
+        <div class="card">
+          <span class="stamp amber">Structural isolation</span>
+          <p style="font-size:clamp(14px,1.45vw,17px);color:var(--ink-2);margin:16px 0 0;line-height:1.5;">Untrusted document text <b>cannot become a policy fact.</b> It escapes only through a declassifier into a codomain of size <b>n</b> chosen in advance.</p>
+          <p class="mono" style="font-size:clamp(12px,1.2vw,15px);margin:14px 0 0;color:var(--green);">Test: an UNDETECTED injection is still structurally powerless. The guarantee is topology, not detection.</p>
+        </div>
+      </div>
+      <p class="footnote">Stated honestly, both times: a control we <b>add</b>, with its boundary named — not a claim that anyone else fails.</p>
+    </div>
+  </section>
+
+  <!-- ===================================================== SLIDE 14b — MOAT 4: PRIMITIVE -->
+  <section class="slide" data-note="Why this isn't just a spend feature. The gate has zero payments-specific assumptions — swap the fact source and the same trusted-facts, deterministic-policy, fail-closed, portable-proof pipe governs a wire, a trade, a refund, a data export, a production deploy. Payments is the beachhead, not the ceiling. Honest caveat: to sell the generalization we still owe one non-payment adapter — a generic kernel is necessary, not sufficient.">
+    <div class="stage">
+      <p class="eyebrow green">The moat — pillar 4 of 4</p>
+      <h1 class="headline">Not a spend feature. An authorization primitive.</h1>
+      <p class="lead">The gate has <b>zero payments-specific assumptions.</b> Swap the fact source and the same pipe governs any irreversible agent action.</p>
+      <div class="codeblock">
+<pre><span class="key">trusted facts</span> <span class="arw">→</span> <span class="key">deterministic policy</span> <span class="arw">→</span> <span class="red">fail-closed gate</span> <span class="arw">→</span> <span class="grn">portable, re-executable proof</span></pre>
+      </div>
+      <div class="compare" style="margin-top:clamp(14px,2vh,22px);margin-bottom:0;">
+        <div class="listcard good">
+          <h4>Same pipe governs</h4>
+          <ul>
+            <li><span class="mk">→</span><span>wire transfers / treasury moves</span></li>
+            <li><span class="mk">→</span><span>trades / order placement</span></li>
+            <li><span class="mk">→</span><span>refunds · data exports · PII deletes</span></li>
+            <li><span class="mk">→</span><span>production deploys / infra changes</span></li>
+          </ul>
+        </div>
+        <div class="listcard">
+          <h4 style="color:var(--amber);">Honest caveat</h4>
+          <p style="font-size:clamp(13px,1.3vw,16px);color:var(--ink-2);margin:0;line-height:1.55;">We still owe <b>one non-payment adapter</b> to prove the expansion. A generic kernel is necessary — not sufficient. We won't claim the category until we ship it.</p>
+        </div>
+      </div>
+      <p class="footnote green">Payments is the beachhead, not the ceiling.</p>
+    </div>
+  </section>
+
+  <!-- ===================================================== SLIDE 14c — WINNING FRAME -->
+  <section class="slide" data-note="The frame to leave them with. Ramp controls and automates agent spending. We are exploring an independently verifiable authorization layer for high-stakes agent actions. The distinction is not whether policies, limits, fraud checks, or audit logs exist — Ramp already has those. It's whether a third party can cryptographically bind the critical inputs and independently re-execute the exact decision after the fact. Complementary, not competing — a layer that could run on top of Ramp.">
     <div class="stage">
       <p class="eyebrow green">The winning frame</p>
-      <h1 class="headline">Ramp solves the platform problem. We solve the trust problem.</h1>
-      <p class="lead">Their own thesis: business finance is People, Vendors, and now <b>TOKENS.</b></p>
+      <h1 class="headline">Ramp automates agent spend. We make each decision independently re-provable.</h1>
       <div class="stats">
         <div class="stat">
           <div class="figure">~<span class="num">$15</span><span class="unit">T</span></div>
-          <div class="cap">of B2B purchases involve AI agents by 2028</div>
+          <div class="cap">of B2B purchases involve AI agents by 2028 <span class="mono" style="color:var(--faint);">(Ramp)</span></div>
         </div>
         <div class="stat">
           <div class="figure"><span class="num">55</span><span class="unit">%</span></div>
-          <div class="cap">of US businesses use AI &nbsp;<span class="mono" style="color:var(--faint);">(Ramp AI Index, Jun 2026)</span></div>
+          <div class="cap">of US businesses use AI <span class="mono" style="color:var(--faint);">(Ramp AI Index, Jun 2026)</span></div>
         </div>
       </div>
       <div class="compare" style="margin-bottom:0;">
         <div class="listcard">
-          <h4 style="color:var(--ink-2);">Ramp</h4>
-          <p style="font-size:clamp(13px,1.3vw,16px);color:var(--ink-2);margin:0;line-height:1.5;">deploy agents in finance at scale <span style="color:var(--muted);">(the platform)</span></p>
+          <h4 style="color:var(--ink-2);">Ramp — the platform</h4>
+          <p style="font-size:clamp(13px,1.3vw,16px);color:var(--ink-2);margin:0;line-height:1.5;">deploy agents in finance at scale · caps, cards, matching, fraud scoring, approvals, audit <span style="color:var(--muted);">(the platform)</span></p>
         </div>
         <div class="listcard good">
-          <h4>Us</h4>
-          <p style="font-size:clamp(13px,1.3vw,16px);color:var(--ink-2);margin:0;line-height:1.5;">make each authorization logically sound AND grounded in verified inputs <span style="color:var(--green);">(the trust layer)</span></p>
+          <h4>Us — a verifiability layer</h4>
+          <p style="font-size:clamp(13px,1.3vw,16px);color:var(--ink-2);margin:0;line-height:1.5;">cryptographically bind the inputs + independently re-execute the exact decision after the fact <span style="color:var(--green);">(the proof layer)</span></p>
         </div>
       </div>
-      <p class="heroline green">Complementary, not competing. We're the missing layer they already described.</p>
+      <p class="heroline green">The distinction isn't whether controls exist — Ramp has those. It's whether an outsider can re-run the decision. Complementary, not competing.</p>
     </div>
   </section>
 
@@ -1431,8 +1490,32 @@
     </div>
   </section>
 
+  <!-- ===================================================== SLIDE 14d — WHAT THIS IS NOT (candor) -->
+  <section class="slide" data-note="Say it before a judge finds it. Today this is a prototype, not a Ramp replacement. It's missing production caller identity — we accept requestingAgent as an unauthenticated string, and Ramp's scoped Agent Cards are ahead of us here. It's missing full TLSNotary — we verify a trusted notary's signature, not the MPC. It's missing external receipt publication and a live quorum path. Naming these makes the four real differentiators more credible, not less. Honest summary: we may provide stronger decision proof; Ramp provides stronger credential enforcement. Both true.">
+    <div class="stage">
+      <p class="eyebrow amber">What this is NOT — say it before a judge finds it</p>
+      <h1 class="headline">A prototype, not a Ramp replacement. Here's what we still owe.</h1>
+      <div class="cols">
+        <div class="card" style="border-color:var(--red-dim);">
+          <span class="stamp red">Our weakest area — Ramp is ahead here</span>
+          <p style="font-size:clamp(14px,1.45vw,17px);color:var(--ink-2);margin:16px 0 0;line-height:1.5;">No production <b>caller identity.</b> We accept <span class="mono">requestingAgent:"agent_47"</span> as an unauthenticated string — any process can present any registered id. Ramp's Agent Cards are scoped credentials.</p>
+          <p class="mono" style="font-size:clamp(12px,1.2vw,15px);margin:14px 0 0;color:var(--muted);">Fix is real but unbuilt: signed requests / OAuth / mTLS / workload identity → MCP-client-to-agent binding.</p>
+        </div>
+        <div class="card">
+          <span class="stamp amber">Stated up front, not hidden</span>
+          <div style="font-size:clamp(13px,1.35vw,16px);margin:16px 0 0;line-height:1.85;color:var(--ink-2);">
+            <div>· <b>Full TLSNotary</b> — we verify a notary signature, not the MPC</div>
+            <div style="margin-top:6px;">· <b>External receipt publication</b> — emitted, not yet published out-of-band</div>
+            <div style="margin-top:6px;">· <b>Live quorum path</b> — K-of-N built + tested; gate runs single-notary</div>
+          </div>
+        </div>
+      </div>
+      <p class="footnote">Honest summary: we may provide stronger <span class="tag-green">decision proof</span>; Ramp provides stronger <span class="tag-amber">credential enforcement</span>. Both are true — and naming ours makes the real differentiators land harder.</p>
+    </div>
+  </section>
+
   <!-- ===================================================== SLIDE 15 -->
-  <section class="slide" data-note="This is not a slide-deck idea — the backbone is built and green. Five workspaces, CI, branch protection, twenty-five tests passing, the gate allows and denies live today. Everyone else scopes the card. We prove the decision — and here's the receipt.">
+  <section class="slide" data-note="This is not a slide-deck idea — the backbone is built and green. Nine workspaces, CI, branch protection, 544 tests passing, the gate allows and denies live today. And we're candid about what it is NOT: a prototype missing production caller identity, full TLSNotary, external receipt publication, and a live quorum path. Everyone else scopes the card. We prove — and re-prove — the decision.">
     <div class="stage">
       <p class="eyebrow green">Status — not vaporware</p>
       <h1 class="headline">All four pillars are built. The gate runs today. It's green.</h1>

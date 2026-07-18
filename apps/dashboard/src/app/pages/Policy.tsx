@@ -198,6 +198,20 @@ export function Policy(): JSX.Element {
         </Link>
       </div>
 
+      <div className="rounded-[--radius-sm] border border-line bg-surface-sunken p-4 text-[13px] leading-relaxed text-ink-muted">
+        <p>
+          <span className="font-semibold text-ink">How clearances and categories work.</span> A category is one of the
+          org's approved spend buckets, like office supplies, software, or travel. A clearance is the set of categories a
+          given agent is allowed to spend in. Every purchase names its category, and the gate checks it twice: the
+          category has to be on the approved list, and the requesting agent has to be cleared for it. Both come from org
+          policy, not from the agent. You register an agent and pick its clearances on the{" "}
+          <Link to="/app/admin" className="font-medium text-lime-ink hover:underline">
+            Admin
+          </Link>{" "}
+          tab. The approved category list is part of the org's policy configuration.
+        </p>
+      </div>
+
       {win.status === "loading" ? (
         <div className="flex flex-col gap-4">
           <Skeleton className="h-20 w-full" />

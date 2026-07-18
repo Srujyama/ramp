@@ -45,7 +45,7 @@ export function Security(): JSX.Element {
       <div>
         <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Security</h1>
         <p className="mt-0.5 max-w-2xl text-[13.5px] text-ink-muted">
-          The attacker's playbook, fired at the <span className="font-medium text-ink">real enforcement hook</span> — the
+          The attacker's playbook, fired at the <span className="font-medium text-ink">real enforcement hook</span>, the
           same subprocess Claude Code invokes before any payment tool runs. Every attack must be denied or held; a single
           silent allow is a breach and fails CI (<code className="rounded bg-surface-sunken px-1 py-0.5 font-mono text-[12px]">pnpm redteam</code>).
         </p>
@@ -116,7 +116,7 @@ export function Security(): JSX.Element {
 
       <p className="px-1 text-[12px] text-ink-faint">
         Each stop is recorded and independently re-verifiable (<code className="font-mono">pnpm proof</code>). This
-        scorecard is the latest committed run; re-run it live with <code className="font-mono">pnpm redteam</code> — it
+        scorecard is the latest committed run; re-run it live with <code className="font-mono">pnpm redteam</code>. It
         exits non-zero on any breach, so a regression can never merge.
       </p>
     </div>

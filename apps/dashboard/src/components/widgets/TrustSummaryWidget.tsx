@@ -30,7 +30,7 @@ export function TrustSummaryWidget({ decisions }: { decisions: readonly Decision
           </div>
           <div>
             <div className="tabular text-[22px] font-semibold leading-none text-ink">
-              {pct !== null ? `${pct}%` : "—"}
+              {pct !== null ? `${pct}%` : "…"}
             </div>
             <div className="text-[12px] text-ink-faint">
               {total > 0 ? `${verified} of ${total} proofs verified` : "No decisions yet"}

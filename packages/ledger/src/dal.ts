@@ -43,6 +43,7 @@ export const LEDGER_QUERIES = {
     "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE agent_id = ? AND date(ts) = date('now')",
   vendorVerified: "SELECT verified FROM vendors WHERE vendor_id = ?",
   vendorDomain: "SELECT registry_domain FROM vendors WHERE vendor_id = ?",
+  agentPublicKey: "SELECT pubkey FROM agents WHERE agent_id = ?",
   limits:
     "SELECT per_txn_cap, daily_limit, escalation_threshold, velocity_limit, velocity_window_minutes, dedup_window_minutes, currency FROM policy_limits WHERE id = 1",
   // Settled payments that MATCH this one (vendor + amount + category) in the dedup
@@ -279,6 +280,19 @@ export class LedgerFactSource implements AuthoritativeFactSource {
       | { registry_domain: string | null }
       | undefined;
     return row?.registry_domain ?? null;
+  }
+
+  /**
+   * The agent's registered Ed25519 public key (base64 SPKI DER), or null if the
+   * agent has no key issued (a legacy/unauthenticated agent). When non-null, the
+   * enforcement path REQUIRES a valid `agentSignature` for this agent — the model
+   * cannot assert this, so it authenticates WHICH caller may act as the agent.
+   */
+  getAgentPublicKey(agentId: string): string | null {
+    const row = this.#db.prepare(LEDGER_QUERIES.agentPublicKey).get(agentId) as
+      | { pubkey: string | null }
+      | undefined;
+    return row?.pubkey ?? null;
   }
 
   /** Org policy limits (per-txn cap + daily limit). Throws if unprovisioned. */

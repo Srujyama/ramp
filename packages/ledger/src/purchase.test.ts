@@ -34,6 +34,14 @@ import {
   type ExecutorRequest,
   type ExecutorReceipt,
 } from "./purchase.js";
+import {
+  demoAgentPublicKey,
+  encodeAgentPublicKey,
+  signAgentRequestDemo,
+  signAgentRequest,
+  demoAgentKeyId,
+} from "@ramp/attestation";
+import { generateKeyPairSync } from "node:crypto";
 
 // --- fixtures ----------------------------------------------------------------
 
@@ -641,5 +649,111 @@ test("executor throw: decision persisted, no execution row (nothing settled)", a
     assert.equal(r.status, "executor_error");
     // The executor threw before returning a receipt → nothing to record.
     assert.equal(getDecision(db, r.decisionId!)?.execution, null);
+  });
+});
+
+// --- second-layer caller authentication (defense in depth with the hook) -----
+// The hook is the first gate; requestPurchase enforces the SAME binding so the
+// MCP tool and SDK deny an impersonator even with no hook installed.
+
+const AUTH_AT = 1_700_000_000_000;
+const secureReq: SpendRequest = {
+  vendorId: "acme_corp",
+  amount: 40,
+  currency: "USD",
+  category: "office_supplies",
+  invoiceRef: "inv_secure",
+  requestingAgent: "agent_secure",
+};
+
+/** A fact source that reports a registered key for `agentId` (turns auth on). */
+function keyedFactSource(agentId: string, over: Partial<AuthoritativeFacts> = {}): FactSourcePort {
+  const facts = authFacts(over);
+  const pub = encodeAgentPublicKey(demoAgentPublicKey(agentId));
+  return {
+    contextFor: () => facts,
+    getAgentPublicKey: (id: string) => (id === agentId ? pub : null),
+  };
+}
+
+test("2nd layer: a key-issued agent with a VALID signature is authenticated and proceeds", async () => {
+  await withDb(async (db) => {
+    const executor = new FakeExecutor();
+    const r = await requestPurchase({
+      request: {
+        ...secureReq,
+        agentSignature: signAgentRequestDemo(secureReq, "agent_secure", new Date(AUTH_AT).toISOString()),
+      },
+      kernel: fakeKernel(ALLOW),
+      kernelId: KERNEL_ID,
+      factSource: keyedFactSource("agent_secure"),
+      db,
+      executor,
+      producedAt: AUTH_AT,
+      now: AUTH_AT,
+    });
+    assert.equal(r.status, "allowed");
+    assert.equal(r.executed, true);
+  });
+});
+
+test("2nd layer: a key-issued agent with NO signature is DENIED (impersonation)", async () => {
+  await withDb(async (db) => {
+    const executor = new FakeExecutor();
+    const r = await requestPurchase({
+      request: secureReq, // no agentSignature
+      kernel: fakeKernel(ALLOW),
+      kernelId: KERNEL_ID,
+      factSource: keyedFactSource("agent_secure"),
+      db,
+      executor,
+      producedAt: AUTH_AT,
+      now: AUTH_AT,
+    });
+    assert.equal(r.status, "denied");
+    assert.deepEqual(r.firedRules, ["agent_unauthenticated"]);
+    assert.equal(r.executed, false);
+    assert.equal(executor.called, false);
+  });
+});
+
+test("2nd layer: a signature from the WRONG key is DENIED", async () => {
+  await withDb(async (db) => {
+    const attacker = generateKeyPairSync("ed25519").privateKey;
+    const r = await requestPurchase({
+      request: {
+        ...secureReq,
+        agentSignature: signAgentRequest(secureReq, {
+          privateKey: attacker,
+          keyId: demoAgentKeyId("agent_secure"),
+          signedAt: new Date(AUTH_AT).toISOString(),
+        }),
+      },
+      kernel: fakeKernel(ALLOW),
+      kernelId: KERNEL_ID,
+      factSource: keyedFactSource("agent_secure"),
+      db,
+      executor: new FakeExecutor(),
+      producedAt: AUTH_AT,
+      now: AUTH_AT,
+    });
+    assert.equal(r.status, "denied");
+    assert.deepEqual(r.firedRules, ["agent_unauthenticated"]);
+  });
+});
+
+test("2nd layer: a legacy agent (no registered key) is unaffected", async () => {
+  await withDb(async (db) => {
+    const r = await requestPurchase({
+      request: heroReq, // agent_47, no key, no signature
+      kernel: fakeKernel(ALLOW),
+      kernelId: KERNEL_ID,
+      factSource: keyedFactSource("agent_secure"), // only agent_secure is keyed
+      db,
+      executor: new FakeExecutor(),
+      producedAt: AUTH_AT,
+      now: AUTH_AT,
+    });
+    assert.equal(r.status, "allowed");
   });
 });

@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { buildTimeline, type StageState } from "../lib/timeline.js";
+import { buildTimeline, type StageState, type Resolution } from "../lib/timeline.js";
 import { outcomeChip, verificationChip, paymentChip, type StatusChip as StatusChipModel } from "../lib/format.js";
 import type { DecisionView } from "../lib/types.js";
 import { cn } from "../lib/utils.js";
@@ -33,10 +33,18 @@ const META_LABEL: Record<string, string> = {
 };
 
 /** The trust-ladder chip folded into the relevant stage — no separate status cards. */
-function stageChip(v: DecisionView, key: string): StatusChipModel | null {
+function stageChip(v: DecisionView, key: string, resolution?: Resolution | null): StatusChipModel | null {
   if (key === "policy") return outcomeChip(v);
   if (key === "proof") return verificationChip(v.proofVerification.reason);
-  if (key === "payment") return paymentChip(v);
+  if (key === "payment") {
+    // A resolved escalation shows the human verdict here, not the stale "Held".
+    if (v.outcome === "escalate" && resolution) {
+      return resolution.verdict === "approved"
+        ? { label: "Approved", tone: "accent", title: `Approved by ${resolution.approvedBy}` }
+        : { label: "Rejected", tone: "deny", title: `Rejected by ${resolution.approvedBy}` };
+    }
+    return paymentChip(v);
+  }
   return null;
 }
 
@@ -45,12 +53,12 @@ function stageChip(v: DecisionView, key: string): StatusChipModel | null {
  * with the outcome/proof/payment chips folded into the stage they belong to
  * (so a deny reads "blocked" here, not as a separate red card floating above).
  */
-export function ExecutionTimeline({ view }: { view: DecisionView }): JSX.Element {
-  const stages = buildTimeline(view);
+export function ExecutionTimeline({ view, resolution }: { view: DecisionView; resolution?: Resolution | null }): JSX.Element {
+  const stages = buildTimeline(view, resolution);
   return (
     <ol className="relative flex flex-col gap-6 pl-1">
       {stages.map((s, i) => {
-        const chip = stageChip(view, s.key);
+        const chip = stageChip(view, s.key, resolution);
         return (
           <li key={s.key} className="relative flex gap-3.5">
             {i < stages.length - 1 ? (

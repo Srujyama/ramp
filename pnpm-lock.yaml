@@ -216,6 +216,9 @@ importers:
 
   packages/ledger:
     dependencies:
+      '@ramp/attestation':
+        specifier: workspace:*
+        version: link:../attestation
       '@ramp/gate':
         specifier: workspace:*
         version: link:../gate

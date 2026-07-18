@@ -217,6 +217,11 @@ const ADDITIVE_COLUMNS: ReadonlyArray<{
     column: "chain_hash",
     ddl: "ALTER TABLE decisions ADD COLUMN chain_hash TEXT",
   },
+  {
+    table: "agents",
+    column: "pubkey",
+    ddl: "ALTER TABLE agents ADD COLUMN pubkey TEXT",
+  },
 ];
 
 /** True iff `table` exists and has `column`. Never throws. */

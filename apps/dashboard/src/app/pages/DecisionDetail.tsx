@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { JSX, ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, TriangleAlert } from "lucide-react";
+import { ArrowLeft, TriangleAlert, ShieldCheck, ShieldX } from "lucide-react";
 import { fetchDecision } from "../../lib/bridge.js";
+import { fetchResolution, type ApprovalRecord } from "../../lib/controlPlane.js";
 import { useAsync } from "../../lib/useAsync.js";
 import { formatMoney, formatTimestamp, outcomeChip, verificationChip, paymentChip, ruleTitle, ruleBlurb } from "../../lib/format.js";
 import { agentLabel, vendorLabel } from "../../lib/identity.js";
@@ -66,6 +67,21 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
   const currency = v.request?.currency ?? "USD";
   const facts = v.facts;
 
+  // A held decision may since have been resolved by a human through the approvals
+  // channel; the bridge record can't know that, so we ask the control plane.
+  const [resolution, setResolution] = useState<ApprovalRecord | null>(null);
+  useEffect(() => {
+    if (v.outcome !== "escalate") {
+      setResolution(null);
+      return;
+    }
+    const ac = new AbortController();
+    fetchResolution(v.decisionId, ac.signal)
+      .then(setResolution)
+      .catch(() => setResolution(null));
+    return () => ac.abort();
+  }, [v.decisionId, v.outcome]);
+
   return (
     <div className="flex flex-col gap-5">
       <Link to="/app/activity" className="flex w-fit items-center gap-1.5 text-[13px] text-ink-muted hover:text-ink">
@@ -82,7 +98,19 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <StatusChip chip={outcomeChip(v)} />
           <StatusChip chip={verificationChip(v.proofVerification.reason)} />
-          <StatusChip chip={paymentChip(v)} />
+          {resolution ? null : <StatusChip chip={paymentChip(v)} />}
+          {resolution ? (
+            <span
+              className={
+                "inline-flex items-center gap-1.5 rounded-[--radius-sm] px-2 py-[3px] text-[11px] font-bold uppercase tracking-[0.04em] text-white " +
+                (resolution.verdict === "approved" ? "bg-badge-accent" : "bg-badge-deny")
+              }
+              title={`Resolved by ${resolution.approvedBy}`}
+            >
+              {resolution.verdict === "approved" ? <ShieldCheck className="size-3.5" /> : <ShieldX className="size-3.5" />}
+              {resolution.verdict === "approved" ? "Approved" : "Rejected"} by {resolution.approvedBy}
+            </span>
+          ) : null}
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-[12.5px] text-ink-faint">
           <span>{formatTimestamp(v.ts)}</span>
@@ -109,7 +137,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
           </div>
         </CardHeader>
         <CardContent>
-          <ExecutionTimeline view={v} />
+          <ExecutionTimeline view={v} resolution={resolution} />
         </CardContent>
       </Card>
 

@@ -14,7 +14,12 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS agents (
   agent_id     TEXT PRIMARY KEY,
   display_name TEXT NOT NULL,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  -- base64 SPKI DER of the agent's Ed25519 PUBLIC key, or NULL for a legacy
+  -- (unauthenticated) agent. When present, the gate REFUSES any request naming
+  -- this agent unless it is signed by the matching private key. Authoritative
+  -- source of "may this caller act as this agent"; the model can never assert it.
+  pubkey       TEXT
 );
 
 -- Vendor registry. `verified` is the AUTHORITATIVE source of `vendor_verified`.
