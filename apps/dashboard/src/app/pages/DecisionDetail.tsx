@@ -15,6 +15,7 @@ import { CopyId } from "../../components/ui/copy-id.js";
 import { StatusChip } from "../../components/StatusChip.js";
 import { ExecutionTimeline } from "../../components/ExecutionTimeline.js";
 import { Rederive } from "../../components/Rederive.js";
+import { Explain } from "../../components/Explain.js";
 import type { DecisionView } from "../../lib/types.js";
 
 function Row({ k, children }: { k: string; children: ReactNode }): JSX.Element {
@@ -235,6 +236,8 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
           </CardContent>
         </Card>
       </div>
+
+      <Explain facts={v.facts} decision={v.decision} />
 
       <Card>
         <CardHeader>

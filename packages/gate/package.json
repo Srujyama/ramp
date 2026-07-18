@@ -12,6 +12,10 @@
     "./reference": {
       "types": "./dist/reference-kernel.d.ts",
       "default": "./dist/reference-kernel.js"
+    },
+    "./explain": {
+      "types": "./dist/explain.d.ts",
+      "default": "./dist/explain.js"
     }
   },
   "types": "./dist/index.d.ts",
