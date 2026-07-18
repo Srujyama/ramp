@@ -42,6 +42,9 @@ importers:
       '@ramp/ledger':
         specifier: workspace:*
         version: link:../../packages/ledger
+      '@ramp/provenance':
+        specifier: workspace:*
+        version: link:../../packages/provenance
       '@ramp/shared':
         specifier: workspace:*
         version: link:../../packages/shared

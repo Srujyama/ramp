@@ -18,6 +18,7 @@
   "dependencies": {
     "@ramp/ledger": "workspace:*",
     "@ramp/client": "workspace:*",
+    "@ramp/provenance": "workspace:*",
     "@ramp/shared": "workspace:*"
   },
   "devDependencies": {

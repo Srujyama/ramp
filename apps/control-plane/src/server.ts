@@ -32,6 +32,7 @@ import { refreshPricing } from "./pricing.js";
 import { parseIntent, runTransaction } from "./transactions.js";
 import { adminState, runCreateAgent, runUpdateDials } from "./admin.js";
 import { listPending, listApprovers, runResolve } from "./approvals.js";
+import { chainStatus, makeReceipt, checkReceipt } from "./integrity.js";
 import { runSetDemoData } from "./demo.js";
 
 /** What the control-plane request handler needs: the ledger + the real gate driver. */
@@ -140,6 +141,37 @@ export function createControlPlane(deps: ControlPlaneDeps): Server {
     // GET /admin/state — the current dials + approved categories the admin UI needs.
     if (method === "GET" && path === "/admin/state") {
       json(res, 200, adminState(db));
+      return;
+    }
+
+    // GET /chain/head — current chain head + length + an internal-consistency walk.
+    if (method === "GET" && path === "/chain/head") {
+      json(res, 200, chainStatus(db));
+      return;
+    }
+
+    // GET /chain/receipt — a SIGNED head receipt to publish off-box. Read-only.
+    if (method === "GET" && path === "/chain/receipt") {
+      json(res, 200, makeReceipt(db, new Date().toISOString()));
+      return;
+    }
+
+    // POST /chain/verify — prove a previously-published receipt is still a PREFIX
+    // of today's chain (catches a self-consistent full rewrite / truncation).
+    if (method === "POST" && path === "/chain/verify") {
+      let body: unknown;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        json(res, 400, { error: "request body must be a small, well-formed head receipt" });
+        return;
+      }
+      const out = checkReceipt(db, body);
+      if ("error" in out) {
+        json(res, 400, out);
+        return;
+      }
+      json(res, 200, out);
       return;
     }
 
