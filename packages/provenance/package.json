@@ -2,7 +2,7 @@
   "name": "@ramp/provenance",
   "version": "0.0.0",
   "private": true,
-  "description": "Provable Agent Spend \u2014 the provenance graph. Content-addressed decision bundles that an auditor can independently re-verify: decision -> facts -> each fact's authoritative source.",
+  "description": "Warrant \u2014 the provenance graph. Content-addressed decision bundles that an auditor can independently re-verify: decision -> facts -> each fact's authoritative source.",
   "type": "module",
   "exports": {
     ".": {

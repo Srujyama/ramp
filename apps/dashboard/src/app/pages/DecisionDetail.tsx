@@ -292,7 +292,7 @@ export function DecisionDetail(): JSX.Element {
   const state = useAsync((signal) => fetchDecision(id ?? "", signal), [id]);
 
   useEffect(() => {
-    document.title = "Decision · Provable Agent Spend";
+    document.title = "Decision · Warrant";
   }, []);
 
   if (state.status === "loading") {

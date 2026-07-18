@@ -1,5 +1,5 @@
 <!--
-  Provable Agent Spend — Pull Request
+  Warrant — Pull Request
   Keep PRs scoped to ONE workspace where possible; CODEOWNERS routes review to the
   right owner automatically. See CONTRIBUTING.md for the full flow.
 -->

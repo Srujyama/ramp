@@ -1,4 +1,4 @@
-# Provable Agent Spend — Design System
+# Warrant — Design System
 
 The visual system for a **business-facing spend console**: agent spend cards, live
 vendor/category breakdowns, and every purchase independently provable — presented as

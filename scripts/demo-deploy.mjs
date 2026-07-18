@@ -62,7 +62,7 @@ const beats = [
 ];
 
 let failures = 0;
-console.log(`\n${B}Provable Agent Actions — production-deploy gate (no money)${X}\n`);
+console.log(`\n${B}Warrant — production-deploy gate (no money)${X}\n`);
 let lastDenyDigest = null;
 
 for (const beat of beats) {

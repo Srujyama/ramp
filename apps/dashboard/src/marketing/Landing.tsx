@@ -17,7 +17,7 @@ import { Button } from "../components/ui/button.js";
 /**
  * @ramp/dashboard — Landing (the funnel)
  *
- * Marketing front door for Provable Agent Spend. Every claim here is drawn
+ * Marketing front door for Warrant. Every claim here is drawn
  * verbatim in spirit from PITCH.md (the canonical pitch) — see CLAUDE.md's
  * "keeping the pitch in sync" rule. If a claim here is reworded, round-trip
  * it through PITCH.md first.
@@ -352,7 +352,7 @@ function ClosingCta(): JSX.Element {
 
 export function Landing(): JSX.Element {
   useEffect(() => {
-    document.title = "Provable Agent Spend";
+    document.title = "Warrant";
   }, []);
 
   return (

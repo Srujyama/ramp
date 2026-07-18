@@ -1,6 +1,6 @@
-# Provable Agent Spend — Product
+# Warrant — Product
 
-> **Provable Agent Spend is the trust layer between AI agents and money. Every
+> **Warrant is the trust layer between AI agents and money. Every
 > autonomous purchase is policy-controlled, recorded, traceable, and
 > independently verifiable.**
 

@@ -1,4 +1,4 @@
-# Contributing to Provable Agent Spend
+# Contributing to Warrant
 
 Thanks for building on the gate. This repo is a small pnpm monorepo with a **frozen
 contract** at its core — read the guardrails before you push.

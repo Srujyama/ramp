@@ -75,7 +75,7 @@ export function Dashboard(): JSX.Element {
   const win = useDecisionsWindow();
 
   useEffect(() => {
-    document.title = "Dashboard · Provable Agent Spend";
+    document.title = "Dashboard · Warrant";
   }, []);
 
   return (

@@ -183,7 +183,7 @@ export function Policy(): JSX.Element {
   const win = useDecisionsWindow();
 
   useEffect(() => {
-    document.title = "Policy · Provable Agent Spend";
+    document.title = "Policy · Warrant";
   }, []);
 
   return (

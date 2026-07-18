@@ -1,4 +1,4 @@
-# Provable Agent Spend — canonical pitch
+# Warrant — canonical pitch
 
 > **Single source of truth for the pitch.** The plan (`hackathon-plan.html`) and the slide
 > deck (`pitch-deck.html`) both derive from this file. **If you change the pitch, change it

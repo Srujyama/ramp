@@ -342,8 +342,8 @@ function Topbar(): JSX.Element {
 function useDocTitleFromPath(): void {
   useEffect(() => {
     // Individual pages override this; this is just a sane default on first paint.
-    if (!document.title || document.title === "Provable Agent Spend") {
-      document.title = "Dashboard · Provable Agent Spend";
+    if (!document.title || document.title === "Warrant") {
+      document.title = "Dashboard · Warrant";
     }
   }, []);
 }

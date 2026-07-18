@@ -32,7 +32,7 @@ export function Simulate(): JSX.Element {
   const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
-    document.title = "Simulate · Provable Agent Spend";
+    document.title = "Simulate · Warrant";
   }, []);
 
   const set = (patch: Partial<Form>) => setForm((f) => ({ ...f, ...patch }));

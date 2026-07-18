@@ -1,5 +1,5 @@
 // ============================================================================
-// Provable Agent Spend — policy kernel (Souffle Datalog) — packages/gate/datalog/policy.dl
+// Warrant — policy kernel (Souffle Datalog) — packages/gate/datalog/policy.dl
 // ============================================================================
 // This program evaluates EXACTLY ONE spend request per run. The fact-translation
 // adapter (see @ramp/shared) emits one row into each *_input relation from the

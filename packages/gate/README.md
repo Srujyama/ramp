@@ -1,6 +1,6 @@
 # `@ramp/gate` — the policy kernel
 
-The hero of Provable Agent Spend: a **deterministic** allow/deny kernel for a
+The hero of Warrant: a **deterministic** allow/deny kernel for a
 single spend request. Given a `Facts` object (from `@ramp/shared`, sourced only
 from authoritative stores — never model narration), it returns a `Decision`
 (`allow` / `deny` + reasons + fired rule ids).

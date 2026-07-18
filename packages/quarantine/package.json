@@ -2,7 +2,7 @@
   "name": "@ramp/quarantine",
   "version": "0.0.0",
   "private": true,
-  "description": "Provable Agent Spend — CaMeL-style quarantine. Untrusted content (invoices, emails, web) is held in opaque, non-coercible wrappers that can only be trusted by passing a total declassifier into a closed domain.",
+  "description": "Warrant — CaMeL-style quarantine. Untrusted content (invoices, emails, web) is held in opaque, non-coercible wrappers that can only be trusted by passing a total declassifier into a closed domain.",
   "type": "module",
   "exports": {
     ".": {
