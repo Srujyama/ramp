@@ -139,19 +139,28 @@ function DummyDataCard({ win }: { win: DecisionsWindow }): JSX.Element {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [lastResult, setLastResult] = useState<DemoDataResult | null>(null);
+  // Once the operator acts, the SERVER'S response is the source of truth — not a
+  // re-derivation from the live decision window, which can lag (or read a stale
+  // bridge) and flip the switch back on right after a clear. `null` = derive from
+  // the log (fresh mount); a boolean = the last confirmed action.
+  const [confirmed, setConfirmed] = useState<boolean | null>(null);
 
-  const enabled = hasDummyData(win);
+  const enabled = confirmed ?? hasDummyData(win);
   const ready = win.status === "success";
 
   async function toggle(): Promise<void> {
+    const target = !enabled;
     setBusy(true);
     setError(null);
     setLastResult(null);
+    setConfirmed(target); // optimistic — the switch reflects the intent immediately
     try {
-      const result = await setDemoData(!enabled);
+      const result = await setDemoData(target);
+      setConfirmed(result.enabled); // authoritative
       setLastResult(result);
       win.reload();
     } catch (e) {
+      setConfirmed(null); // failed — fall back to what the log says
       setError(e);
     } finally {
       setBusy(false);
@@ -181,14 +190,14 @@ function DummyDataCard({ win }: { win: DecisionsWindow }): JSX.Element {
             onClick={toggle}
             disabled={busy || !ready}
             className={cn(
-              "relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50",
+              "inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50",
               enabled ? "bg-lime" : "border border-line-strong bg-surface-sunken",
             )}
           >
             <span
               className={cn(
-                "absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform",
-                enabled ? "translate-x-[22px]" : "translate-x-0.5",
+                "block size-5 rounded-full bg-white shadow-sm transition-transform duration-150",
+                enabled ? "translate-x-5" : "translate-x-0",
               )}
             />
           </button>
