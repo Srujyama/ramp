@@ -74,7 +74,7 @@ const DENY: Decision = {
 async function withBridge(
   seed: (db: LedgerDb) => void,
   run: (base: string, db: LedgerDb, server: Server) => Promise<void>,
-  options?: { maxUrlLength?: number; maxBodyBytes?: number },
+  options?: { maxUrlLength?: number; maxBodyBytes?: number; eventsPollMs?: number },
 ): Promise<void> {
   const db = openLedger(IN_MEMORY_PATH, { provisionIfEmpty: true, seed: true });
   seed(db);
@@ -83,6 +83,7 @@ async function withBridge(
     allowedOrigin: ORIGIN,
     maxUrlLength: options?.maxUrlLength,
     maxBodyBytes: options?.maxBodyBytes,
+    eventsPollMs: options?.eventsPollMs,
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   try {
@@ -522,5 +523,89 @@ test("corrupt stored request/decision JSON → corrupt true, still 200 (no crash
       const body = (await res.json()) as { corrupt: boolean };
       assert.equal(body.corrupt, true);
     },
+  );
+});
+
+// --- GET /events — the real-time SSE tail (read-only) -------------------------
+
+/** Read the SSE stream until a `data:` line matching `predicate` arrives, or timeout. */
+async function readUntilDecision(base: string, path: string, afterConnect: () => void): Promise<{ id: number; view: { decisionId: string; outcome: string } } | null> {
+  const ac = new AbortController();
+  const killer = setTimeout(() => ac.abort(), 3000);
+  try {
+    const res = await fetch(`${base}${path}`, { headers: { Accept: "text/event-stream" }, signal: ac.signal });
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("content-type") ?? "", /text\/event-stream/);
+    afterConnect();
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const m = buf.match(/id: (\d+)\nevent: decision\ndata: (.+)\n\n/);
+      if (m && m[1] !== undefined && m[2] !== undefined) {
+        return { id: Number(m[1]), view: JSON.parse(m[2]) as { decisionId: string; outcome: string } };
+      }
+    }
+    return null;
+  } catch {
+    return null; // aborted / timed out
+  } finally {
+    clearTimeout(killer);
+    ac.abort();
+  }
+}
+
+test("GET /events streams a NEW decision as a 'decision' SSE frame", async () => {
+  await withBridge(
+    () => {}, // empty log at connect
+    async (base, db) => {
+      const got = await readUntilDecision(base, "/events", () => {
+        recordDecision(db, { decisionId: "sse_live", request: req, facts: facts(), decision: ALLOW });
+      });
+      assert.ok(got, "should receive a decision frame within the timeout");
+      assert.equal(got.view.decisionId, "sse_live");
+      assert.equal(got.view.outcome, "allow");
+      assert.equal(got.id, 1); // the seq is the SSE event id, for resume
+    },
+    { eventsPollMs: 20 },
+  );
+});
+
+test("GET /events with a NON-empty log tails NEW-only (regression: empty cursor must not replay all)", async () => {
+  await withBridge(
+    (db) => {
+      // Two decisions BEFORE any client connects.
+      recordDecision(db, { decisionId: "old1", request: req, facts: facts(), decision: ALLOW });
+      recordDecision(db, { decisionId: "old2", request: req, facts: facts(), decision: DENY });
+    },
+    async (base, db) => {
+      // Connect with NO cursor → must start at the head (seq 2), NOT replay old1/old2.
+      const got = await readUntilDecision(base, "/events", () => {
+        recordDecision(db, { decisionId: "new3", request: req, facts: facts(), decision: ALLOW });
+      });
+      assert.ok(got);
+      assert.equal(got.view.decisionId, "new3"); // the FIRST decision frame is the new one, not old1
+      assert.equal(got.id, 3);
+    },
+    { eventsPollMs: 20 },
+  );
+});
+
+test("GET /events?lastSeq=1 resumes: emits rows AFTER seq 1", async () => {
+  await withBridge(
+    (db) => {
+      recordDecision(db, { decisionId: "r1", request: req, facts: facts(), decision: ALLOW });
+      recordDecision(db, { decisionId: "r2", request: req, facts: facts(), decision: DENY });
+    },
+    async (base) => {
+      const got = await readUntilDecision(base, "/events?lastSeq=1", () => {});
+      assert.ok(got);
+      assert.equal(got.view.decisionId, "r2"); // seq 2, resumed after seq 1
+      assert.equal(got.id, 2);
+    },
+    { eventsPollMs: 20 },
   );
 });

@@ -645,6 +645,44 @@ function mapRow(db: LedgerDb, row: DecisionRow): DecisionRecord {
   };
 }
 
+/** One decision plus its monotonic chain `seq` — for tailing the log in order. */
+export interface SeqDecision {
+  readonly seq: number;
+  readonly record: DecisionRecord;
+}
+
+/** The highest `seq` currently in the log (0 if empty) — the live tail position. */
+export function latestDecisionSeq(db: LedgerDb): number {
+  const row = db.prepare("SELECT COALESCE(MAX(seq), 0) AS head FROM decisions").get() as {
+    head: number;
+  };
+  return Number(row.head);
+}
+
+/**
+ * Decisions with `seq > sinceSeq`, OLDEST FIRST, capped at `limit`. This is the
+ * READ-ONLY tail the real-time SSE feed polls: the append-only log only ever grows,
+ * and `seq` is the monotonic, unique, indexed chain position (idx_decisions_seq),
+ * so walking `seq > lastSeen` never skips or repeats a row even under concurrent
+ * appends — unlike a second-resolution `ts` cursor. Each row carries its `seq` so a
+ * client can resume exactly where it left off (SSE `Last-Event-ID`).
+ */
+export function tailDecisions(
+  db: LedgerDb,
+  sinceSeq: number,
+  limit = 200,
+): SeqDecision[] {
+  const rows = db
+    .prepare(
+      `SELECT seq, decision_id, request_id, status, outcome, agent_id, vendor_id,
+              amount, category, attestation_present, kernel_id, request_json,
+              facts_json, decision_json, ts
+         FROM decisions WHERE seq > ? ORDER BY seq ASC LIMIT ?`,
+    )
+    .all(sinceSeq, limit) as unknown as Array<DecisionRow & { seq: number }>;
+  return rows.map((r) => ({ seq: Number(r.seq), record: mapRow(db, r) }));
+}
+
 /** Fetch a single decision by id, or `undefined` if there is none. */
 export function getDecision(
   db: LedgerDb,

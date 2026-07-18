@@ -7,7 +7,7 @@
  * SQLite concurrency behaviour (WAL readers-during-writes, busy contention,
  * rollback-leaves-no-partial). Run with `node --test` (Node 24 + node:sqlite).
  */
-import { test } from "node:test";
+import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -20,6 +20,8 @@ import {
   recordDecision,
   getDecision,
   listDecisions,
+  tailDecisions,
+  latestDecisionSeq,
   MAX_LIMIT,
 } from "./decision-log.js";
 
@@ -493,5 +495,59 @@ test("write contention surfaces explicitly (SQLITE_BUSY), never silent loss", ()
       contender.close();
       closeLedger(holder);
     }
+  });
+});
+
+// --- the real-time SSE tail (seq-ordered read) -------------------------------
+describe("tailDecisions / latestDecisionSeq — the live tail the SSE feed polls", () => {
+  test("latestDecisionSeq is 0 on an empty log and increments per recorded decision", () => {
+    withDb((db) => {
+      assert.equal(latestDecisionSeq(db), 0);
+      recordDecision(db, { decisionId: "d1", request: heroReq, facts: facts(), decision: ALLOW });
+      assert.equal(latestDecisionSeq(db), 1);
+      recordDecision(db, { decisionId: "d2", request: heroReq, facts: facts(), decision: ALLOW });
+      assert.equal(latestDecisionSeq(db), 2);
+    });
+  });
+
+  test("tailDecisions(db, 0) returns every decision OLDEST-FIRST with increasing seq", () => {
+    withDb((db) => {
+      recordDecision(db, { decisionId: "a", request: heroReq, facts: facts(), decision: ALLOW });
+      recordDecision(db, { decisionId: "b", request: heroReq, facts: facts(), decision: deny(["deny/over_per_txn_cap"]) });
+      recordDecision(db, { decisionId: "c", request: heroReq, facts: facts(), decision: ALLOW });
+      const tail = tailDecisions(db, 0);
+      assert.deepEqual(tail.map((t) => t.record.decisionId), ["a", "b", "c"]);
+      assert.deepEqual(tail.map((t) => t.seq), [1, 2, 3]);
+      // rows are full records the SSE feed can serve
+      assert.equal(tail[1]!.record.outcome, "deny");
+      assert.ok(tail[1]!.record.firedRules.includes("deny/over_per_txn_cap"));
+    });
+  });
+
+  test("tailDecisions resumes: sinceSeq returns ONLY newer rows (no gaps, no repeats)", () => {
+    withDb((db) => {
+      recordDecision(db, { decisionId: "a", request: heroReq, facts: facts(), decision: ALLOW });
+      recordDecision(db, { decisionId: "b", request: heroReq, facts: facts(), decision: ALLOW });
+      const first = tailDecisions(db, 0);
+      const lastSeq = first[first.length - 1]!.seq;
+      // nothing new yet
+      assert.equal(tailDecisions(db, lastSeq).length, 0);
+      // append one more → only it comes back
+      recordDecision(db, { decisionId: "c", request: heroReq, facts: facts(), decision: ALLOW });
+      const next = tailDecisions(db, lastSeq);
+      assert.equal(next.length, 1);
+      assert.equal(next[0]!.record.decisionId, "c");
+      assert.equal(next[0]!.seq, lastSeq + 1);
+    });
+  });
+
+  test("tailDecisions respects its limit", () => {
+    withDb((db) => {
+      for (let i = 0; i < 5; i++) {
+        recordDecision(db, { decisionId: `d${i}`, request: heroReq, facts: facts(), decision: ALLOW });
+      }
+      assert.equal(tailDecisions(db, 0, 2).length, 2);
+      assert.equal(tailDecisions(db, 0, 2)[0]!.seq, 1); // still oldest-first within the page
+    });
   });
 });

@@ -29,6 +29,8 @@ import type { LedgerDb } from "./db.js";
 import {
   getDecision,
   listDecisions,
+  tailDecisions,
+  latestDecisionSeq,
   type DecisionRecord,
   type ListDecisionsQuery,
 } from "./decision-log.js";
@@ -57,6 +59,8 @@ export interface LedgerBridgeOptions {
    * reference kernel.
    */
   readonly kernel?: PolicyKernel;
+  /** How often the `/events` SSE tail polls for new decisions, ms. Default `EVENTS_POLL_MS`. */
+  readonly eventsPollMs?: number;
 }
 
 /**
@@ -74,6 +78,9 @@ export interface DecisionView extends DecisionRecord {
 
 const DEFAULT_MAX_URL_LENGTH = 2048;
 const DEFAULT_MAX_BODY_BYTES = 0;
+
+/** How often the SSE tail polls the append-only log for new decisions. */
+const EVENTS_POLL_MS = Number(process.env.RAMP_EVENTS_POLL_MS ?? 800);
 
 const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
 
@@ -200,6 +207,7 @@ export function createLedgerBridge(options: LedgerBridgeOptions): Server {
   const { db, allowedOrigin } = options;
   const maxUrlLength = options.maxUrlLength ?? DEFAULT_MAX_URL_LENGTH;
   const maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
+  const eventsPollMs = options.eventsPollMs ?? EVENTS_POLL_MS;
 
   return createServer((req: IncomingMessage, res: ServerResponse) => {
     // CORS headers computed once per request. ACAO is set ONLY when the request's
@@ -314,6 +322,52 @@ export function createLedgerBridge(options: LedgerBridgeOptions): Server {
         }
         send(200, result);
         return;
+      }
+
+      // GET /events — a real-time Server-Sent-Events TAIL of the append-only log.
+      //
+      // Read-only by construction: SSE is a GET returning `text/event-stream`; it
+      // adds ZERO write capability and rides the same 405/413/CORS guards. It polls
+      // the log for rows with `seq` beyond what this client has seen and streams the
+      // SAME `DecisionView` payload as `GET /decisions`. Resumable: the browser's
+      // auto-sent `Last-Event-ID` (or `?lastSeq=`) tells us where to continue, so a
+      // reconnect never drops or duplicates a decision. This never decides, never
+      // writes — it only lets the read-only dashboard update without a manual reload.
+      if (segments.length === 1 && segments[0] === "events") {
+        const headerLast = req.headers["last-event-id"];
+        const queryLast = parsed.searchParams.get("lastSeq");
+        // Careful: `Number("")` is 0, not NaN — an empty cursor must NOT be read as
+        // "replay from seq 0" (the whole log). Only parse when a value is present.
+        const rawLast = typeof headerLast === "string" ? headerLast : queryLast;
+        const parsedLast = rawLast != null && rawLast !== "" ? Number(rawLast) : Number.NaN;
+        // No cursor supplied → tail only NEW decisions from the current head.
+        let lastSeq = Number.isFinite(parsedLast) && parsedLast >= 0 ? parsedLast : latestDecisionSeq(db);
+
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+          "X-Accel-Buffering": "no", // disable proxy buffering if one sits in front
+          ...corsHeaders,
+        });
+        res.write("retry: 2000\n"); // client reconnect backoff
+        res.write(": connected\n\n");
+
+        const tick = (): void => {
+          try {
+            const rows = tailDecisions(db, lastSeq);
+            for (const { seq, record } of rows) {
+              res.write(`id: ${seq}\nevent: decision\ndata: ${JSON.stringify(toDecisionView(record))}\n\n`);
+              lastSeq = seq;
+            }
+            res.write(": hb\n\n"); // heartbeat keeps the connection (and proxies) alive
+          } catch {
+            /* a transient read error must not tear down the stream */
+          }
+        };
+        const interval = setInterval(tick, eventsPollMs);
+        req.on("close", () => clearInterval(interval));
+        return; // keep the connection open — do NOT call send()
       }
 
       send(404, { error: "not_found" });
