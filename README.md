@@ -11,12 +11,13 @@ are true.
 
 > **The canonical pitch is [`PITCH.md`](./PITCH.md).** (`hackathon-plan.html` and
 > `pitch-deck.html` derive from it — see `CLAUDE.md` → "Keeping the pitch in sync".)
+> **To run the live demo end to end, follow [`LAUNCH.md`](./LAUNCH.md).**
 
 **All four pillars are built and enforced.** One-liner: *everyone else scopes the card; we prove the
 decision.*
 
 ```bash
-pnpm install && pnpm db:reset && pnpm build && pnpm test   # 544 tests
+pnpm install && pnpm db:reset && pnpm build && pnpm test   # 575 tests
 pnpm demo     # drive every pitch beat through the REAL hook; assert exit codes
 pnpm proof    # independently re-verify the bundles the gate sealed
 ```
