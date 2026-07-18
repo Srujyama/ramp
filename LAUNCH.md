@@ -23,6 +23,7 @@ pnpm proof                                    # independently re-verify the seal
 pnpm bridge          # read-only audit bridge   → http://localhost:8787
 pnpm control-plane   # demo control plane        → http://localhost:8788
 pnpm dev             # dashboard (Vite)          → http://localhost:5173
+pnpm notary-server        # standalone HTTP notary on :8790 (NOTARY_PORT to override)
 ```
 
 Open <http://localhost:5173/app>, then jump to [§4 the demo script](#4-the-demo-script).
@@ -162,6 +163,32 @@ the attestation or push the amount over the cap and it denies — for a real, re
 > hook present**. The hook is the second, non-bypassable gate over the same kernel. See
 > [`hook/README.md`](./hook/README.md) for the fail-closed design.
 
+### 5a. Attest from an independent process, not the agent itself
+
+Don't have the agent call `scripts/notary.mjs` in-process to mint its own attestation — that makes
+the payer notarize its own invoice on screen, which is the exact self-attestation failure pillar 4
+exists to rule out (see `packages/attestation/README.md`). Instead run the demo notary as its own
+process, on its own port, and have the agent fetch from it like it would fetch from any other
+external service:
+
+```bash
+pnpm notary-server        # standalone HTTP notary on :8790 (NOTARY_PORT to override)
+```
+
+```
+GET /health
+GET /attestation/hero
+GET /attestation?amount=340&category=office_supplies[&vendor-domain=...&invoice-ref=...&invoice-text=...]
+```
+
+Then prompt the agent with something like *"fetch an attestation from
+`http://localhost:8790/attestation/hero`, then pay acme_corp using `pay_vendor` with whatever it
+returns"* — the agent never signs anything itself, it only consumes a signature from a process it
+doesn't control. Same underlying `mintAttestation` logic as `scripts/notary.mjs`; the only thing
+that changed is the process boundary, which is what makes the demo topology match the real claim
+(an independent notary witnesses the invoice) instead of quietly contradicting it. Still not real
+TLSNotary MPC — see the attestation README's "Scope" section before overclaiming this on stage.
+
 ---
 
 ## 6. Honest caveats — read these; they are the whole point
@@ -200,6 +227,7 @@ This project's thesis is *provability*, so it is precise about what is proven an
 | `pnpm control-plane` | Demo-only control plane (**:8788**) — pricing, real gated transactions, input-table admin. |
 | `pnpm dev` | Dashboard (Vite dev server, **:5173**). |
 | `pnpm mcp` | Start the payments MCP server over stdio. |
+| `pnpm notary-server` | Standalone attestation notary over HTTP (**:8790**) — for demoing from an agent without the agent minting its own attestation. |
 
 The full script catalogue (explain, simulate, policy-diff, receipt, notary, approve, head, stats) is
 in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
@@ -215,8 +243,13 @@ in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
   `pnpm control-plane` running on :8788. (Activity, Decisions, Overview need `pnpm bridge` on :8787.)
 - **One test skipped.** The `wasm kernel — 4-way parity` test skips without Rust + `wasm-pack`
   installed. That is expected locally; CI runs it for real.
-- **Ports busy.** Override with `PORT` (the bridge), `CONTROL_PLANE_PORT` (the control plane), and
-  Vite's `--port` (the dashboard).
+- **Ports busy.** Override with `PORT` (the bridge), `CONTROL_PLANE_PORT` (the control plane), `NOTARY_PORT`
+  (the notary server), and Vite's `--port` (the dashboard).
+- **A rehearsed "allow" beat starts denying.** The hero beat only allows because
+  `1140 (seed) + 340 ≤ 1500`. Every prior demo/test run against the same DB adds to that agent's
+  daily total, so repeated rehearsals — or anyone else's MCP/agent testing against the same shared
+  `RAMP_DB_PATH` — eat the headroom until the same request denies. `pnpm db:reset` (then restart the
+  bridge and control plane, per above) right before you actually demo, not hours before.
 
 ---
 

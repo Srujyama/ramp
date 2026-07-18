@@ -1,0 +1,3 @@
+[mcp_servers.payments]
+command = "node"
+args = ["/Users/jonkach/Documents/Projects/VSCodeProjects/RampHackathon/ramp/apps/payments-mcp/dist/server.js"]

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__payments__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/Users/jonkach/Documents/Projects/VSCodeProjects/RampHackathon/ramp/.codex/hooks/evaluate.mjs'"
+          }
+        ]
+      }
+    ]
+  }
+}
