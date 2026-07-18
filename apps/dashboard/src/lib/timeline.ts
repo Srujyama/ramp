@@ -80,7 +80,7 @@ function policyStage(v: DecisionView): TimelineStage {
       key: "policy",
       title: "Policy evaluated",
       state: "skipped",
-      detail: "Policy was not evaluated — this row recorded an error, not a decision.",
+      detail: "Policy was not evaluated. This row recorded an error, not a decision.",
       meta: policyDigest,
     };
   }
@@ -100,7 +100,7 @@ function policyStage(v: DecisionView): TimelineStage {
     key: "policy",
     title: "Policy evaluated",
     state: "done",
-    detail: `${verdict} — ${rules}.`,
+    detail: `${verdict}: ${rules}.`,
     meta: policyDigest,
   };
 }
@@ -112,7 +112,7 @@ function decisionStage(v: DecisionView): TimelineStage {
       key: "decision",
       title: "Decision recorded",
       state: "failed",
-      detail: "Infrastructure or validation error — no policy decision was recorded.",
+      detail: "Infrastructure or validation error, so no policy decision was recorded.",
       meta: v.decisionId || undefined,
     };
   }
@@ -129,7 +129,7 @@ function decisionStage(v: DecisionView): TimelineStage {
     title: "Decision recorded",
     state: "done",
     detail: v.corrupt
-      ? "Written to the append-only ledger, but a stored blob failed to parse — treat fields as suspect."
+      ? "Written to the append-only ledger, but a stored blob failed to parse, so treat fields as suspect."
       : "Written to the append-only audit ledger.",
     meta: v.decisionId,
   };
@@ -144,14 +144,14 @@ function proofStage(v: DecisionView): TimelineStage {
       return {
         ...base,
         state: "done",
-        detail: "Proof valid — independently recomputed and matches.",
+        detail: "Proof valid. Independently recomputed and matches.",
         meta: proofId,
       };
     case "mismatch":
       return {
         ...base,
         state: "failed",
-        detail: "Tampered — recomputes to a different id.",
+        detail: "Tampered. Recomputes to a different id.",
         meta: proofId,
       };
     case "corrupt":
@@ -208,7 +208,7 @@ function paymentStage(v: DecisionView, resolution?: Resolution | null): Timeline
         key: "payment",
         title: "Payment executed",
         state: "done",
-        detail: "Sandbox payment settled — no real money moves.",
+        detail: "Sandbox payment settled. No real money moves.",
         meta: receiptId,
       };
     }
@@ -216,7 +216,7 @@ function paymentStage(v: DecisionView, resolution?: Resolution | null): Timeline
       key: "payment",
       title: "Payment failed",
       state: "failed",
-      detail: "Payment executor failed — no settlement.",
+      detail: "Payment executor failed. No settlement.",
       meta: receiptId,
     };
   }
@@ -225,7 +225,7 @@ function paymentStage(v: DecisionView, resolution?: Resolution | null): Timeline
       key: "payment",
       title: "Payment blocked",
       state: "blocked",
-      detail: "Denied by policy — executor never called.",
+      detail: "Denied by policy. Executor never called.",
     };
   }
   if (v.outcome === "escalate") {

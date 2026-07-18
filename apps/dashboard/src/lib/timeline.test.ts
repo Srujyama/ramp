@@ -68,7 +68,7 @@ test("path: allow + settled — everything done", () => {
   });
   const stages = byKey(buildTimeline(mkView({ execution: settledExec })));
   assert.equal(stages.payment.title, "Payment executed");
-  assert.match(stages.payment.detail, /no real money moves/);
+  assert.match(stages.payment.detail, /no real money moves/i);
 });
 
 test("path: deny + blocked — payment blocked, not failed", () => {
@@ -82,16 +82,16 @@ test("path: deny + blocked — payment blocked, not failed", () => {
   const stages = byKey(buildTimeline(v));
   assert.equal(stages.payment.state, "blocked");
   assert.equal(stages.payment.title, "Payment blocked");
-  assert.match(stages.payment.detail, /executor never called/);
+  assert.match(stages.payment.detail, /executor never called/i);
   assert.equal(stages.policy.state, "done");
-  assert.match(stages.policy.detail, /Denied — Vendor not verified/);
+  assert.match(stages.policy.detail, /Denied: Vendor not verified/);
 });
 
 test("path: allow + executor failed — payment failed (distinct from blocked)", () => {
   const stages = byKey(buildTimeline(mkView({ execution: failedExec })));
   assert.equal(stages.payment.state, "failed");
   assert.equal(stages.payment.title, "Payment failed");
-  assert.match(stages.payment.detail, /no settlement/);
+  assert.match(stages.payment.detail, /no settlement/i);
   assert.equal(stages.payment.meta, "rcpt_1");
 });
 

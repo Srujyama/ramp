@@ -69,7 +69,7 @@ export function Approvals(): JSX.Element {
         <div>
           <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Approvals</h1>
           <p className="mt-0.5 max-w-2xl text-[13.5px] text-ink-muted">
-            Held payments the gate could not settle on its own — a human must resolve each one. Every resolution is a{" "}
+            Held payments the gate could not settle on its own. A human must resolve each one. Every resolution is a{" "}
             <span className="font-medium text-ink">real Ed25519-signed record</span> bound to the decision's digest: the
             identity comes from the key, not a typed name.
           </p>
@@ -119,7 +119,7 @@ export function Approvals(): JSX.Element {
               <ShieldCheck className="size-4 shrink-0 text-lime" />
               <span className="text-ink">
                 {r.verdict === "approved" ? "Approved" : "Rejected"} by{" "}
-                <span className="font-semibold">{r.by}</span> — signed &amp; recorded.
+                <span className="font-semibold">{r.by}</span>, signed &amp; recorded.
               </span>
               <Link
                 to={`/app/activity/${encodeURIComponent(r.decisionId)}`}
@@ -138,7 +138,7 @@ export function Approvals(): JSX.Element {
             <Clock className="size-4 text-amber" /> Awaiting a human
           </span>
           <span className="tabular text-[12.5px] text-ink-faint">
-            {pending === null ? "—" : `${pending.length} held`}
+            {pending === null ? "…" : `${pending.length} held`}
           </span>
         </div>
 

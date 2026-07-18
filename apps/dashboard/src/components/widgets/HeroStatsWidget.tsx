@@ -47,7 +47,7 @@ export function HeroStatsWidget({ decisions }: { decisions: readonly DecisionVie
       <Stat
         overline="Proofs verified"
         value={s.verified.toLocaleString()}
-        sub={s.tampered === 0 ? "0 tampered · chain intact" : `${s.tampered} tampered — flagged`}
+        sub={s.tampered === 0 ? "0 tampered · chain intact" : `${s.tampered} tampered · flagged`}
         badge={s.tampered === 0}
       />
     </div>
