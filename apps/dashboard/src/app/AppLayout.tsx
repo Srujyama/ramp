@@ -36,6 +36,7 @@ import {
 } from "../components/ui/dropdown-menu.js";
 import { Dialog, DialogContent, DialogTitle } from "../components/ui/dialog.js";
 import { Badge } from "../components/ui/badge.js";
+import { MoneyBagIcon } from "../components/MoneyBagIcon.js";
 import { SkipLink } from "../components/ui/skip-link.js";
 
 const NAV = [
@@ -77,8 +78,8 @@ function useSidebarCollapsed(): { collapsed: boolean; toggle: () => void } {
 function Logo({ collapsed }: { collapsed: boolean }): JSX.Element {
   return (
     <div className="flex items-center gap-2 px-1">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-[--radius-sm] bg-ink font-display text-[15px] font-bold text-canvas">
-        💰
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-[--radius-sm] border border-line bg-white text-black">
+        <MoneyBagIcon className="size-5" />
       </div>
       <span className={cn("font-display text-[15px] font-semibold tracking-tight text-ink", collapsed && "sr-only")}>
         Warrant
