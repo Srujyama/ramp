@@ -1,0 +1,217 @@
+{
+  "total": 18,
+  "blocked": 18,
+  "breaches": 0,
+  "attacks": [
+    {
+      "id": "injection/over-limit",
+      "category": "Prompt injection",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/over_per_txn_cap",
+        "deny/daily_limit_exceeded",
+        "deny/budget_exceeded"
+      ]
+    },
+    {
+      "id": "injection/unverified",
+      "category": "Prompt injection",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/vendor_not_verified",
+        "deny/daily_limit_exceeded",
+        "deny/attestation_invalid"
+      ]
+    },
+    {
+      "id": "attestation/spoof-domain",
+      "category": "Attestation forgery",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/daily_limit_exceeded",
+        "deny/attestation_invalid",
+        "deny/budget_exceeded"
+      ]
+    },
+    {
+      "id": "attestation/replay",
+      "category": "Attestation forgery",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/daily_limit_exceeded",
+        "deny/attestation_invalid",
+        "deny/budget_exceeded"
+      ]
+    },
+    {
+      "id": "attestation/forged-signature",
+      "category": "Attestation forgery",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/daily_limit_exceeded",
+        "deny/attestation_invalid",
+        "deny/budget_exceeded"
+      ]
+    },
+    {
+      "id": "attestation/none",
+      "category": "Attestation forgery",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/daily_limit_exceeded",
+        "deny/attestation_invalid",
+        "deny/budget_exceeded"
+      ]
+    },
+    {
+      "id": "tamper/amount",
+      "category": "Binding tampering",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/over_per_txn_cap",
+        "deny/daily_limit_exceeded",
+        "deny/attestation_invalid",
+        "deny/budget_exceeded",
+        "deny/budget_exceeded"
+      ]
+    },
+    {
+      "id": "tamper/currency",
+      "category": "Binding tampering",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/daily_limit_exceeded",
+        "deny/attestation_invalid",
+        "deny/budget_exceeded"
+      ]
+    },
+    {
+      "id": "policy/unverified-vendor",
+      "category": "Policy bypass",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/vendor_not_verified",
+        "deny/daily_limit_exceeded",
+        "deny/attestation_invalid"
+      ]
+    },
+    {
+      "id": "policy/unapproved-category",
+      "category": "Policy bypass",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/category_not_approved",
+        "deny/agent_uncleared_for_category",
+        "deny/daily_limit_exceeded",
+        "deny/budget_exceeded"
+      ]
+    },
+    {
+      "id": "policy/uncleared-category",
+      "category": "Policy bypass",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/agent_uncleared_for_category",
+        "deny/daily_limit_exceeded",
+        "deny/budget_exceeded"
+      ]
+    },
+    {
+      "id": "policy/homoglyph-vendor",
+      "category": "Policy bypass",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/vendor_not_verified",
+        "deny/daily_limit_exceeded",
+        "deny/attestation_invalid",
+        "deny/budget_exceeded"
+      ]
+    },
+    {
+      "id": "policy/over-cap",
+      "category": "Policy bypass",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/over_per_txn_cap",
+        "deny/daily_limit_exceeded",
+        "deny/budget_exceeded",
+        "deny/budget_exceeded"
+      ]
+    },
+    {
+      "id": "malformed/float-amount",
+      "category": "Malformed input",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/malformed_facts"
+      ]
+    },
+    {
+      "id": "malformed/negative-amount",
+      "category": "Malformed input",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/malformed_facts"
+      ]
+    },
+    {
+      "id": "malformed/proto-pollution",
+      "category": "Malformed input",
+      "expect": "deny",
+      "got": "deny",
+      "blocked": true,
+      "rules": [
+        "deny/vendor_not_verified",
+        "deny/daily_limit_exceeded",
+        "deny/attestation_invalid"
+      ]
+    },
+    {
+      "id": "quarantine/coercion",
+      "category": "Quarantine escape",
+      "expect": "throw",
+      "got": "throw",
+      "blocked": true,
+      "rules": []
+    },
+    {
+      "id": "attestation/single-notary-compromise",
+      "category": "Attestation forgery",
+      "expect": "reject",
+      "got": "reject",
+      "blocked": true,
+      "rules": []
+    }
+  ],
+  "generatedAt": "2026-07-18T04:00:00.000Z"
+}
