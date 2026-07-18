@@ -175,6 +175,47 @@ export function updateDials(patch: DialPatchInput, signal?: AbortSignal): Promis
   return cpFetch<Dials>("/policy", { method: "PATCH", body: JSON.stringify(patch) }, signal);
 }
 
+// --- human approvals (resolve held/escalated decisions) ----------------------
+
+/** A held decision awaiting a human, as served by GET /approvals. */
+export interface PendingEscalation {
+  readonly decisionId: string;
+  readonly requestId: string;
+  readonly agentId: string;
+  readonly vendorId: string;
+  readonly amount: number;
+  readonly category: string;
+  readonly ts: string;
+}
+export interface Approver {
+  readonly keyId: string;
+  readonly identity: string;
+}
+export interface ApprovalsResponse {
+  readonly pending: readonly PendingEscalation[];
+  readonly approvers: readonly Approver[];
+}
+export interface ApprovalRecord {
+  readonly decisionId: string;
+  readonly verdict: "approved" | "rejected";
+  readonly approvedBy: string;
+  readonly note: string | null;
+  readonly resolvedAt: string;
+}
+
+/** The queue of held decisions + the demo approvers a viewer may act as. */
+export function fetchApprovals(signal?: AbortSignal): Promise<ApprovalsResponse> {
+  return cpFetch<ApprovalsResponse>("/approvals", undefined, signal);
+}
+
+/** Resolve a held decision as a chosen approver — mints a real signed approval. */
+export function resolveApproval(
+  input: { decisionId: string; verdict: "approved" | "rejected"; approverKeyId: string; note?: string },
+  signal?: AbortSignal,
+): Promise<ApprovalRecord> {
+  return cpFetch<ApprovalRecord>("/approvals", { method: "POST", body: JSON.stringify(input) }, signal);
+}
+
 /** Result of toggling the "Enable Dummy Data" switch (Admin tab). */
 export interface DemoDataResult {
   readonly enabled: boolean;
