@@ -83,9 +83,9 @@ function rederive(facts: Facts | null, recorded: Decision | null): Verdict {
 }
 
 function outcomeBadgeClass(outcome: Decision["decision"]): string {
-  if (outcome === "allow") return "border-lime/40 bg-lime-soft text-lime-ink";
-  if (outcome === "escalate") return "border-amber/40 bg-amber-soft text-amber-ink";
-  return "border-flag/40 bg-flag-soft text-flag-ink";
+  if (outcome === "allow") return "bg-badge-accent";
+  if (outcome === "escalate") return "bg-badge-warn";
+  return "bg-badge-deny";
 }
 
 function RuleList({ rules }: { rules: readonly RuleId[] }): JSX.Element {
@@ -114,8 +114,8 @@ export function Rederive({
 
   if (verdict.kind === "unavailable") {
     return (
-      <div className="rounded-lg border border-dashed border-line-strong bg-surface-sunken/50 p-4">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber/40 bg-amber-soft px-2.5 py-1 text-[12px] font-medium text-amber-ink">
+      <div className="rounded-[--radius-lg] border border-dashed border-line-strong bg-surface-sunken/50 p-4">
+        <span className="inline-flex items-center gap-1.5 rounded-[--radius-xs] bg-badge-warn px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
           <ShieldQuestion className="size-3.5" /> Cannot re-derive
         </span>
         <p className="mt-2 text-[13px] text-ink-muted">{verdict.why}</p>
@@ -125,8 +125,8 @@ export function Rederive({
 
   if (verdict.kind === "mismatch") {
     return (
-      <div className="rounded-lg border border-flag/30 bg-flag-soft/30 p-4">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-flag/40 bg-flag-soft px-2.5 py-1 text-[12px] font-semibold text-flag-ink">
+      <div className="rounded-[--radius-lg] border border-flag/30 bg-flag-soft/30 p-4">
+        <span className="inline-flex items-center gap-1.5 rounded-[--radius-xs] bg-badge-deny px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
           <ShieldX className="size-3.5" /> Does not follow
         </span>
         <p className="mt-2.5 text-[13px] text-ink-muted">
@@ -138,7 +138,7 @@ export function Rederive({
           <div className="flex flex-wrap items-center gap-2">
             <dt className="w-28 shrink-0 text-ink-faint">Recorded</dt>
             <dd className="flex flex-wrap items-center gap-1.5">
-              <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-medium", outcomeBadgeClass(verdict.recorded.decision))}>
+              <span className={cn("rounded-[--radius-xs] px-2 py-0.5 text-[11px] font-bold uppercase text-white", outcomeBadgeClass(verdict.recorded.decision))}>
                 {verdict.recorded.decision}
               </span>
               <RuleList rules={verdict.recorded.firedRules} />
@@ -147,7 +147,7 @@ export function Rederive({
           <div className="flex flex-wrap items-center gap-2">
             <dt className="w-28 shrink-0 text-ink-faint">Re-derived here</dt>
             <dd className="flex flex-wrap items-center gap-1.5">
-              <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-medium", outcomeBadgeClass(verdict.rederived.decision))}>
+              <span className={cn("rounded-[--radius-xs] px-2 py-0.5 text-[11px] font-bold uppercase text-white", outcomeBadgeClass(verdict.rederived.decision))}>
                 {verdict.rederived.decision}
               </span>
               <RuleList rules={verdict.rederived.firedRules} />
@@ -160,9 +160,9 @@ export function Rederive({
 
   const outcome = verdict.rederived.decision;
   return (
-    <div className="rounded-lg border border-lime/25 bg-lime-soft/30 p-4">
+    <div className="rounded-[--radius-lg] border border-lime/25 bg-lime-soft/30 p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-lime/40 bg-lime-soft px-2.5 py-1 text-[12px] font-semibold text-lime-ink">
+        <span className="inline-flex items-center gap-1.5 rounded-[--radius-xs] bg-badge-accent px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
           <ShieldCheck className="size-3.5" /> Re-derived in your browser
         </span>
         <span className="text-[11.5px] text-ink-faint">real policy engine · ran on your machine</span>
@@ -177,7 +177,7 @@ export function Rederive({
         <div className="flex flex-wrap items-center gap-2">
           <dt className="w-32 shrink-0 text-ink-faint">Outcome</dt>
           <dd>
-            <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-medium", outcomeBadgeClass(outcome))}>{outcome}</span>
+            <span className={cn("rounded-[--radius-xs] px-2 py-0.5 text-[11px] font-bold uppercase text-white", outcomeBadgeClass(outcome))}>{outcome}</span>
           </dd>
         </div>
         <div className="flex flex-wrap items-center gap-2">

@@ -8,11 +8,12 @@ import { cn } from "../lib/utils.js";
 
 /**
  * The signature element: an agent's clearances + spend limits + rolled-up
- * analytics, presented as a virtual corporate card. Everything on it is real
- * — derived from lib/agents.ts, which is itself derived only from decisions
- * this agent actually made. The card face keeps a fixed dark identity across
- * both app themes (see --cardface in index.css) so it reads as an object,
- * not another themed panel. Clickable: opens the agent's full detail page.
+ * analytics, presented as a physical corporate card — chip, embossed number,
+ * network mark, cardholder line. Everything on it is real — derived from
+ * lib/agents.ts, which is itself derived only from decisions this agent
+ * actually made. The card face keeps a fixed dark identity across both app
+ * themes (see --cardface in index.css) so it reads as an OBJECT, not another
+ * themed panel. Clickable: opens the agent's full detail page.
  *
  * The "$X / $Y today" figure is asymmetric on purpose: the NUMERATOR is
  * derived settled spend (money that moved), the DENOMINATOR is the policy
@@ -41,7 +42,7 @@ export function AgentCard({
   const allVerified = hasProofHistory && agent.flaggedCount === 0;
 
   const containerClass = cn(
-    "group flex flex-col gap-4 rounded-2xl bg-cardface p-5 text-cardface-ink shadow-card",
+    "group relative flex w-full min-w-[280px] flex-col gap-4 overflow-hidden rounded-[--radius-2xl] bg-cardface p-5 text-cardface-ink shadow-card",
     "ring-1 ring-inset ring-cardface-ring",
     linked &&
       "transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2",
@@ -50,46 +51,53 @@ export function AgentCard({
 
   const content: ReactNode = (
     <>
-      <div className="flex items-start justify-between">
-        <span className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-cardface-ink-muted">
-          Agent card
-        </span>
+      {/* network mark — a decorative overlapping-circle motif, not a real payment network */}
+      <div className="pointer-events-none absolute right-5 top-5 flex" aria-hidden="true">
+        <div className="size-6 rounded-full bg-lime/60" />
+        <div className="-ml-2.5 size-6 rounded-full bg-cardface-ink/20 mix-blend-screen" />
+      </div>
+
+      <div className="flex items-start justify-between pr-10">
+        {/* EMV-style chip */}
+        <div
+          className="h-6 w-8 rounded-[3px] bg-gradient-to-br from-[var(--cardface-chip-a)] to-[var(--cardface-chip-b)]"
+          aria-hidden="true"
+        />
+      </div>
+
+      <div>
+        <div className="font-mono text-[16px] tracking-[0.12em] text-cardface-ink">{maskedCardNumber(agent.agentId)}</div>
+      </div>
+
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[9.5px] font-semibold uppercase tracking-[0.1em] text-cardface-ink-muted">Cardholder</div>
+          <div className="truncate text-[14px] font-semibold">{agent.label}</div>
+        </div>
         {hasProofHistory ? (
           <span
-            className={cn(
-              "flex items-center gap-1 text-[11px] font-medium",
-              allVerified ? "text-lime" : "text-chart-escalate",
-            )}
+            className={cn("flex shrink-0 items-center gap-1 text-[11px] font-medium", allVerified ? "text-lime" : "text-chart-escalate")}
             title={`${agent.proofValidCount}/${agent.decisionCount} proofs independently verified`}
           >
             {allVerified ? <ShieldCheck className="size-3.5" /> : <ShieldAlert className="size-3.5" />}
-            {agent.proofValidCount}/{agent.decisionCount} verified
+            {agent.proofValidCount}/{agent.decisionCount}
           </span>
         ) : (
-          <span className="text-[11px] text-cardface-ink-muted">No activity</span>
+          <span className="shrink-0 text-[11px] text-cardface-ink-muted">No activity</span>
         )}
       </div>
 
-      <div>
-        <div className="truncate text-[15px] font-semibold">{agent.label}</div>
-        <div className="mt-0.5 font-mono text-[11px] tracking-wide text-cardface-ink-muted">
-          {maskedCardNumber(agent.agentId)}
-        </div>
-      </div>
-
-      <div>
+      <div className="border-t border-cardface-line pt-3.5">
         <div className="flex items-baseline gap-1.5">
-          <span className="tabular text-[26px] font-semibold leading-none">
-            {formatMoney(spentToday, "USD")}
-          </span>
+          <span className="tabular text-[24px] font-bold leading-none">{formatMoney(spentToday, "USD")}</span>
           <span className="text-[12px] text-cardface-ink-muted">
             {dailyLimit !== null ? <>/ {formatMoney(dailyLimit, "USD")} today</> : "settled today"}
           </span>
         </div>
         {pct !== null ? (
-          <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-cardface-2">
+          <div className="mt-2.5 h-1.5 w-full overflow-hidden bg-cardface-2">
             <div
-              className={cn("h-full origin-left rounded-full transition-transform duration-300", barTone)}
+              className={cn("h-full origin-left transition-transform duration-300", barTone)}
               style={{ transform: `scaleX(${Math.max(0, Math.min(1, pct))})`, width: "100%" }}
             />
           </div>
@@ -99,7 +107,7 @@ export function AgentCard({
       {agent.clearedCategories.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {agent.clearedCategories.map((c) => (
-            <span key={c} className="rounded-full bg-cardface-2 px-2 py-0.5 text-[10.5px] text-cardface-ink-muted">
+            <span key={c} className="rounded-[--radius-xs] bg-cardface-2 px-2 py-0.5 text-[10.5px] capitalize text-cardface-ink-muted">
               {c.replace(/_/g, " ")}
             </span>
           ))}

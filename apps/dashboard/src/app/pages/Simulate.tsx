@@ -62,8 +62,8 @@ export function Simulate(): JSX.Element {
         <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Simulate a transaction</h1>
         <p className="text-[13.5px] text-ink-muted">
           Trigger a spend request without an MCP terminal. Each run is a{" "}
-          <span className="font-medium text-ink">real gated decision</span> through the same policy kernel — the outcome
-          falls out of policy, it isn't faked — recorded in the append-only log and streamed live to Activity.
+          <span className="font-medium text-ink">real gated decision</span> through the same policy kernel: the outcome
+          falls out of policy, it isn't faked, and it's recorded in the append-only log and streamed live to Activity.
         </p>
       </div>
 
@@ -113,7 +113,7 @@ export function Simulate(): JSX.Element {
             <Button onClick={run} disabled={running}>
               <Play className="size-4" /> {running ? "Running…" : "Run transaction"}
             </Button>
-            <span className="text-[12px] text-ink-faint">Sandbox — no real money moves.</span>
+            <span className="text-[12px] text-ink-faint">Sandbox. No real money moves.</span>
           </div>
         </CardContent>
       </Card>

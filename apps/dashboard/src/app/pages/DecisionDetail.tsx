@@ -9,10 +9,11 @@ import { agentLabel, vendorLabel } from "../../lib/identity.js";
 import { BridgeErrorState, StateCard } from "../../components/ui/state-card.js";
 import { Skeleton } from "../../components/ui/skeleton.js";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card.js";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog.js";
+import { Button } from "../../components/ui/button.js";
 import { CopyId } from "../../components/ui/copy-id.js";
 import { StatusChip } from "../../components/StatusChip.js";
 import { ExecutionTimeline } from "../../components/ExecutionTimeline.js";
-import { ProvenanceFlow } from "../../components/ProvenanceFlow.js";
 import { Rederive } from "../../components/Rederive.js";
 import type { DecisionView } from "../../lib/types.js";
 
@@ -29,12 +30,42 @@ function KvList({ children }: { children: ReactNode }): JSX.Element {
   return <dl className="divide-y divide-line">{children}</dl>;
 }
 
+/** Full proof digests are a deep dive, not a default-open box — reachable, not omnipresent. */
+function ProofDetailsDialog({ v }: { v: DecisionView }): JSX.Element {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="secondary" size="sm">
+          View proof details
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Proof</DialogTitle>
+          <DialogDescription>Tamper-evident, independently recomputed on every read.</DialogDescription>
+        </DialogHeader>
+        <KvList>
+          <Row k="Verification">
+            <StatusChip chip={verificationChip(v.proofVerification.reason)} />
+          </Row>
+          <Row k="Proof id">{v.proof ? <CopyId id={v.proof.proofId} /> : "Not recorded"}</Row>
+          <Row k="Policy digest">{v.proof?.policyDigest ? <CopyId id={v.proof.policyDigest} /> : "Not recorded"}</Row>
+          <Row k="Request digest">{v.proof?.requestDigest ? <CopyId id={v.proof.requestDigest} /> : "Not recorded"}</Row>
+          <Row k="Facts digest">{v.proof?.factsDigest ? <CopyId id={v.proof.factsDigest} /> : "Not recorded"}</Row>
+          <Row k="Attestation">{v.proof?.attestationStatus ?? "Not recorded"}</Row>
+          <Row k="Policy engine">{v.proof?.kernelId ?? v.kernelId ?? "Not recorded"}</Row>
+        </KvList>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function DetailBody({ v }: { v: DecisionView }): JSX.Element {
   const currency = v.request?.currency ?? "USD";
   const facts = v.facts;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <Link to="/app/activity" className="flex w-fit items-center gap-1.5 text-[13px] text-ink-muted hover:text-ink">
         <ArrowLeft className="size-3.5" /> All activity
       </Link>
@@ -59,7 +90,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
       </div>
 
       {v.corrupt ? (
-        <div role="alert" className="flex items-start gap-2 rounded-lg border border-flag/30 bg-flag-soft/40 p-3.5 text-[13px] text-flag-ink">
+        <div role="alert" className="flex items-start gap-2 rounded-[--radius-sm] border border-flag/30 bg-flag-soft/40 p-3.5 text-[13px] text-flag-ink">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" />
           <div>
             <strong>Corrupt record.</strong> At least one stored blob for this decision failed to parse or
@@ -72,10 +103,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
         <CardHeader>
           <div>
             <CardTitle>Execution timeline</CardTitle>
-            <CardDescription>
-              The full lifecycle of this spend, top to bottom. Every stage is derived only from what the audit
-              trail records.
-            </CardDescription>
+            <CardDescription>The full lifecycle of this spend, top to bottom, derived only from the audit trail.</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -83,55 +111,66 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Request &amp; facts</CardTitle>
+            <CardDescription>What the agent asked for, next to what the policy engine evaluated it against.</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
             <div>
-              <CardTitle>Purchase request</CardTitle>
-              <CardDescription>The structured spend request the agent submitted (untrusted input).</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <KvList>
-              <Row k="Agent">{agentLabel(v.agentId)}</Row>
-              <Row k="Vendor">{vendorLabel(v.vendorId)}</Row>
-              <Row k="Amount">{formatMoney(v.amount, currency)}</Row>
-              <Row k="Category">{v.category.replace(/_/g, " ")}</Row>
-              {v.request?.invoiceRef ? <Row k="Invoice">{v.request.invoiceRef}</Row> : null}
-              <Row k="Request id">
-                <span className="font-mono text-[12px]">{v.requestId}</span>
-              </Row>
-            </KvList>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Trusted facts</CardTitle>
-              <CardDescription>What the policy engine evaluated, sourced from the ledger and registry, never model narration.</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {facts ? (
+              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+                Purchase request <span className="normal-case font-normal">(untrusted input)</span>
+              </div>
               <KvList>
-                <Row k="Vendor verified">{facts.vendor_verified ? "Yes" : "No"}</Row>
-                <Row k="Vendor risk tier">{facts.vendor_risk_tier}</Row>
-                <Row k="Per-txn cap">{formatMoney(facts.per_txn_cap, currency)}</Row>
-                <Row k="Daily limit">{formatMoney(facts.daily_limit, currency)}</Row>
-                {/* A pre-decision snapshot, not a live total — label it as the
-                    historical input it is, so it can't be read as spend-to-date. */}
-                <Row k="Spent today, before this">{formatMoney(facts.daily_total_so_far, currency)}</Row>
-                <Row k="Approved categories">{facts.approved_categories.join(", ") || "—"}</Row>
-                <Row k="Agent cleared for">{facts.agent_cleared_categories.join(", ") || "—"}</Row>
-                <Row k="Attestation">{facts.attestation_present ? "Present" : "Absent"}</Row>
+                <Row k="Agent">{agentLabel(v.agentId)}</Row>
+                <Row k="Vendor">{vendorLabel(v.vendorId)}</Row>
+                <Row k="Amount">{formatMoney(v.amount, currency)}</Row>
+                <Row k="Category">{v.category.replace(/_/g, " ")}</Row>
+                {v.request?.invoiceRef ? <Row k="Invoice">{v.request.invoiceRef}</Row> : null}
+                <Row k="Request id">
+                  <span className="font-mono text-[12px]">{v.requestId}</span>
+                </Row>
               </KvList>
-            ) : (
-              <p className="text-[13px] text-ink-muted">No facts were recorded for this row.</p>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+            <div className="mt-4 sm:mt-0">
+              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+                Trusted facts <span className="normal-case font-normal">(ledger + registry)</span>
+              </div>
+              {facts ? (
+                <KvList>
+                  <Row k="Vendor verified">{facts.vendor_verified ? "Yes" : "No"}</Row>
+                  <Row k="Vendor risk tier">{facts.vendor_risk_tier}</Row>
+                  <Row k="Per-txn cap">{formatMoney(facts.per_txn_cap, currency)}</Row>
+                  <Row k="Daily limit">{formatMoney(facts.daily_limit, currency)}</Row>
+                  {/* A pre-decision snapshot, not a live total — label it as the
+                      historical input it is, so it can't be read as spend-to-date. */}
+                  <Row k="Spent today, before this">{formatMoney(facts.daily_total_so_far, currency)}</Row>
+                  <Row k="Approved categories">{facts.approved_categories.join(", ") || "None recorded"}</Row>
+                  <Row k="Agent cleared for">{facts.agent_cleared_categories.join(", ") || "None recorded"}</Row>
+                  <Row k="Attestation">{facts.attestation_present ? "Present" : "Absent"}</Row>
+                </KvList>
+              ) : (
+                <p className="text-[13px] text-ink-muted">No facts were recorded for this row.</p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3.5">
+          <div className="flex items-center gap-3">
+            <span className="text-[13px] font-semibold text-ink">Proof</span>
+            <StatusChip chip={verificationChip(v.proofVerification.reason)} />
+          </div>
+          <ProofDetailsDialog v={v} />
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <div>
@@ -140,14 +179,11 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <StatusChip chip={outcomeChip(v)} />
-              {v.kernelId ? <span className="text-[11.5px] text-ink-faint">engine · {v.kernelId}</span> : null}
-            </div>
+            {v.kernelId ? <p className="mb-2.5 text-[11.5px] text-ink-faint">engine · {v.kernelId}</p> : null}
             {v.firedRules.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 {v.firedRules.map((r) => (
-                  <span key={r} title={ruleBlurb(r)} className="rounded bg-surface-sunken px-2 py-1 text-[11.5px] text-ink-muted">
+                  <span key={r} title={ruleBlurb(r)} className="rounded-[--radius-xs] bg-surface-sunken px-2 py-1 text-[11.5px] text-ink-muted">
                     {ruleTitle(r)}
                   </span>
                 ))}
@@ -162,40 +198,6 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
                 ))}
               </ul>
             ) : null}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Provenance</CardTitle>
-              <CardDescription>How the decision was produced, from trusted context only.</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ProvenanceFlow view={v} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Proof</CardTitle>
-              <CardDescription>Tamper-evident, independently recomputed on every read.</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <KvList>
-              <Row k="Verification">
-                <StatusChip chip={verificationChip(v.proofVerification.reason)} />
-              </Row>
-              <Row k="Proof id">{v.proof ? <CopyId id={v.proof.proofId} /> : "—"}</Row>
-              <Row k="Policy digest">{v.proof?.policyDigest ? <CopyId id={v.proof.policyDigest} /> : "—"}</Row>
-              <Row k="Request digest">{v.proof?.requestDigest ? <CopyId id={v.proof.requestDigest} /> : "—"}</Row>
-              <Row k="Facts digest">{v.proof?.factsDigest ? <CopyId id={v.proof.factsDigest} /> : "—"}</Row>
-              <Row k="Attestation">{v.proof?.attestationStatus ?? "—"}</Row>
-              <Row k="Policy engine">{v.proof?.kernelId ?? v.kernelId ?? "—"}</Row>
-            </KvList>
           </CardContent>
         </Card>
 

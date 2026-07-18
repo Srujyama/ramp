@@ -3,45 +3,34 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils.js";
 
 /**
- * Status pill. `tone` mirrors the console-wide semantic tones (see `Tone` in
+ * Status stamp. `tone` mirrors the console-wide semantic tones (see `Tone` in
  * lib/format.ts) so every chip in the app — outcome, proof, payment — draws
- * from one palette. A dot precedes the label so status is never color-only.
+ * from one palette. A solid fill + bold label is the signal (each tone has a
+ * distinct word, e.g. "Allowed" vs "Denied" vs "Held"), not color alone.
  */
 const badgeVariants = cva(
-  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium leading-none whitespace-nowrap",
+  "inline-flex items-center rounded-[3px] px-2 py-[3px] text-[11px] font-bold uppercase tracking-[0.04em] text-white leading-none whitespace-nowrap",
   {
     variants: {
       tone: {
-        accent: "bg-lime-soft text-lime-ink",
-        deny: "bg-flag-soft text-flag-ink",
-        warn: "bg-amber-soft text-amber-ink",
-        info: "bg-info-soft text-info-ink",
-        neutral: "bg-surface-sunken text-ink-muted",
+        accent: "bg-badge-accent",
+        deny: "bg-badge-deny",
+        warn: "bg-badge-warn",
+        info: "bg-badge-info",
+        neutral: "bg-badge-neutral",
       },
     },
     defaultVariants: { tone: "neutral" },
   },
 );
 
-const dotTone: Record<string, string> = {
-  accent: "bg-lime",
-  deny: "bg-flag",
-  warn: "bg-amber",
-  info: "bg-info",
-  neutral: "bg-ink-faint",
-};
-
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLSpanElement>,
-    VariantProps<typeof badgeVariants> {
-  dot?: boolean;
-}
+    VariantProps<typeof badgeVariants> {}
 
-export function Badge({ className, tone, dot = true, children, ...props }: BadgeProps) {
-  const t = tone ?? "neutral";
+export function Badge({ className, tone, children, ...props }: BadgeProps) {
   return (
     <span className={cn(badgeVariants({ tone }), className)} {...props}>
-      {dot ? <span className={cn("size-1.5 rounded-full", dotTone[t])} aria-hidden="true" /> : null}
       {children}
     </span>
   );
