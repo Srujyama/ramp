@@ -9,6 +9,7 @@ import Approvals from "./app/pages/Approvals.js";
 import DecisionDetail from "./app/pages/DecisionDetail.js";
 import Vendors from "./app/pages/Vendors.js";
 import Policy from "./app/pages/Policy.js";
+import Security from "./app/pages/Security.js";
 import Simulate from "./app/pages/Simulate.js";
 import Admin from "./app/pages/Admin.js";
 import Landing from "./marketing/Landing.js";
@@ -34,6 +35,7 @@ export function App(): JSX.Element {
         <Route path="activity/:id" element={<DecisionDetail />} />
         <Route path="vendors" element={<Vendors />} />
         <Route path="policy" element={<Policy />} />
+        <Route path="security" element={<Security />} />
         <Route path="simulate" element={<Simulate />} />
         <Route path="admin" element={<Admin />} />
       </Route>
