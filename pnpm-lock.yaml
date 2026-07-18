@@ -36,9 +36,15 @@ importers:
 
   apps/control-plane:
     dependencies:
+      '@ramp/client':
+        specifier: workspace:*
+        version: link:../../packages/client
       '@ramp/ledger':
         specifier: workspace:*
         version: link:../../packages/ledger
+      '@ramp/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
     devDependencies:
       '@types/node':
         specifier: ^24.0.0

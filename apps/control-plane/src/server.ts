@@ -27,7 +27,33 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { LedgerDb } from "@ramp/ledger";
 import { listModelPricing } from "@ramp/ledger";
+import type { RampClient } from "@ramp/client";
 import { refreshPricing } from "./pricing.js";
+import { parseIntent, runTransaction } from "./transactions.js";
+
+/** What the control-plane request handler needs: the ledger + the real gate driver. */
+export interface ControlPlaneDeps {
+  readonly db: LedgerDb;
+  /** Drives the REAL requestPurchase lifecycle. The control plane never decides itself. */
+  readonly ramp: RampClient;
+}
+
+/** Read a JSON request body up to a small cap. Rejects oversized/malformed bodies. */
+async function readJsonBody(req: IncomingMessage, maxBytes = 16 * 1024): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of req) {
+    total += (chunk as Buffer).length;
+    if (total > maxBytes) {
+      req.destroy();
+      throw new Error("payload too large");
+    }
+    chunks.push(chunk as Buffer);
+  }
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (raw === "") return {};
+  return JSON.parse(raw);
+}
 
 /** The demo dashboard origin allowed to call this plane. `*` for local demos. */
 const ALLOW_ORIGIN = process.env.RAMP_CONTROL_PLANE_ORIGIN ?? "*";
@@ -48,8 +74,16 @@ function json(res: ServerResponse, status: number, body: unknown): void {
  * Build the control-plane request handler over an open ledger. Pure wiring — does
  * NOT open/close the DB or call listen(); importing this never starts a server.
  */
-export function createControlPlane(db: LedgerDb): Server {
+export function createControlPlane(deps: ControlPlaneDeps): Server {
+  const { db, ramp } = deps;
   return createServer((req: IncomingMessage, res: ServerResponse) => {
+    void handle(req, res).catch(() => {
+      // A handler that threw before responding — fail closed with a 500, never a stack.
+      if (!res.headersSent) json(res, 500, { error: "internal_error", plane: "demo-control-plane" });
+    });
+  });
+
+  async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const method = req.method ?? "GET";
     const url = new URL(req.url ?? "/", "http://localhost");
     const path = url.pathname;
@@ -79,8 +113,29 @@ export function createControlPlane(db: LedgerDb): Server {
       return;
     }
 
+    // POST /transaction — drive a REAL gated decision through requestPurchase. The
+    // control plane supplies only the untrusted intent; the kernel decides, the
+    // decision is recorded + hash-chained, and it appears live on the dashboard.
+    if (method === "POST" && path === "/transaction") {
+      let body: unknown;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        json(res, 400, { error: "request body must be small, well-formed JSON" });
+        return;
+      }
+      const intent = parseIntent(body);
+      if ("error" in intent) {
+        json(res, 400, { error: intent.error });
+        return;
+      }
+      const result = await runTransaction(ramp, db, intent, Date.now());
+      json(res, 200, result);
+      return;
+    }
+
     json(res, 404, { error: "not found", plane: "demo-control-plane" });
-  });
+  }
 }
 
 /**
@@ -90,8 +145,12 @@ export function createControlPlane(db: LedgerDb): Server {
  */
 export async function main(): Promise<void> {
   const { openLedgerStrict, closeLedger } = await import("@ramp/ledger");
+  const { createRampClient } = await import("@ramp/client");
   const port = Number(process.env.CONTROL_PLANE_PORT ?? 8788);
   const db = openLedgerStrict();
+  // The real gate driver. Writes to the SAME ledger (DEFAULT_DB_PATH) the bridge
+  // reads, so UI-triggered transactions are real, recorded, and appear live.
+  const ramp = createRampClient();
 
   // Seed static pricing + attempt a live refresh now, then on an interval. All
   // off the enforcement path; failures are logged, never fatal.
@@ -109,18 +168,19 @@ export async function main(): Promise<void> {
   const REFRESH_MS = Number(process.env.RAMP_PRICING_REFRESH_MS ?? 15 * 60 * 1000);
   const loop = setInterval(refresh, REFRESH_MS);
 
-  const server = createControlPlane(db);
+  const server = createControlPlane({ db, ramp });
   server.listen(port, () => {
     // eslint-disable-next-line no-console
     console.error(
       `[control-plane] DEMO control plane on http://localhost:${port} — NOT the audit bridge, NOT the gate.\n` +
-        `[control-plane]   GET /health · GET /pricing`,
+        `[control-plane]   GET /health · GET /pricing · POST /transaction`,
     );
   });
 
   const shutdown = () => {
     clearInterval(loop);
     server.close();
+    ramp.close();
     closeLedger(db);
     process.exit(0);
   };

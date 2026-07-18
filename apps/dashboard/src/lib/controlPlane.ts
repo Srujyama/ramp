@@ -52,6 +52,56 @@ function isPrice(v: unknown): v is ModelPrice {
   );
 }
 
+/** The intent a "Simulate Transaction" sends — only keys, never a verdict. */
+export interface TxIntent {
+  readonly agent: string;
+  readonly vendor: string;
+  readonly amount: number;
+  readonly category: string;
+  readonly currency?: string;
+  readonly attest: boolean;
+}
+
+/** The REAL recorded verdict the control plane returns. */
+export interface TxResult {
+  readonly status: string;
+  readonly outcome: "allow" | "deny" | "escalate" | null;
+  readonly decisionId: string | null;
+  readonly firedRules: readonly string[];
+  readonly reasons: readonly string[];
+}
+
+/**
+ * Drive a REAL gated transaction through the control plane (which runs
+ * requestPurchase — the kernel decides, the decision is recorded, and it appears
+ * live on the dashboard). NOT a fake row.
+ */
+export async function postTransaction(intent: TxIntent, signal?: AbortSignal): Promise<TxResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${CONTROL_PLANE_URL}/transaction`, {
+      method: "POST",
+      headers: { "content-type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(intent),
+      signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new ControlPlaneError("unavailable", `Could not reach the demo control plane at ${CONTROL_PLANE_URL}. Start it with \`pnpm control-plane\`.`);
+  }
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    throw new ControlPlaneError("malformed", "Control plane returned a non-JSON response.");
+  }
+  if (!res.ok) {
+    const msg = typeof (body as { error?: unknown }).error === "string" ? (body as { error: string }).error : `HTTP ${res.status}`;
+    throw new ControlPlaneError("http", msg);
+  }
+  return body as TxResult;
+}
+
 /** Fetch model pricing from the control plane. Never throws for a demo-down plane; surfaces a typed error. */
 export async function fetchPricing(signal?: AbortSignal): Promise<PricingResponse> {
   let res: Response;

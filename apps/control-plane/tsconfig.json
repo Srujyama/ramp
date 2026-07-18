@@ -5,7 +5,9 @@
     "rootDir": "src"
   },
   "references": [
-    { "path": "../../packages/ledger" }
+    { "path": "../../packages/ledger" },
+    { "path": "../../packages/client" },
+    { "path": "../../packages/shared" }
   ],
   "include": ["src/**/*.ts"]
 }

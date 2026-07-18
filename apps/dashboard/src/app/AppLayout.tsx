@@ -8,6 +8,7 @@ import {
   Building2,
   ShieldCheck,
   Coins,
+  Play,
   Search,
   Bell,
   Settings,
@@ -40,6 +41,7 @@ const NAV = [
   { to: "/app/vendors", label: "Vendors", icon: Building2 },
   { to: "/app/policy", label: "Policy", icon: ShieldCheck },
   { to: "/app/pricing", label: "Pricing", icon: Coins },
+  { to: "/app/simulate", label: "Simulate", icon: Play },
 ];
 
 function Logo(): JSX.Element {
