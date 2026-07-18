@@ -20,6 +20,10 @@
  *   node scripts/notary.mjs                       # print a hero attestation as JSON
  *   node scripts/notary.mjs --spoof               # a lookalike-domain attestation
  *   node scripts/notary.mjs --stale               # a genuine but expired one
+ *   node scripts/notary.mjs --amount 70 --category office_supplies \
+ *     [--vendor-domain acme.example.com] [--invoice-ref inv_xyz] [--invoice-text "..."]
+ *                                                  # a fresh custom attestation, for
+ *                                                  # ad-hoc demo beats beyond the hero
  */
 import {
   signAttestation,
@@ -81,21 +85,59 @@ export function heroAttestation(notarizedAt = new Date()) {
   });
 }
 
+/** Read `--flag value` out of an argv array without pulling in a CLI parser lib. */
+function flag(args, name) {
+  const i = args.indexOf(`--${name}`);
+  return i === -1 ? undefined : args[i + 1];
+}
+
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop())) {
-  const arg = process.argv[2];
-  let att;
+  const args = process.argv.slice(2);
+  const arg = args[0];
+  const customAmount = flag(args, "amount");
+
   if (arg === "--spoof") {
-    att = mintAttestation({
-      invoiceDocument: HERO_INVOICE,
-      serverDomain: "acme-corp-billing.example", // real TLS, real notary, wrong company
-      amount: 340,
-      currency: "USD",
-      invoiceRef: "inv_2026_07_0043",
-    });
+    process.stdout.write(
+      JSON.stringify(
+        mintAttestation({
+          invoiceDocument: HERO_INVOICE,
+          serverDomain: "acme-corp-billing.example", // real TLS, real notary, wrong company
+          amount: 340,
+          currency: "USD",
+          invoiceRef: "inv_2026_07_0043",
+        }),
+        null,
+        2,
+      ) + "\n",
+    );
   } else if (arg === "--stale") {
-    att = heroAttestation(new Date(Date.now() - 60 * 60 * 1000));
+    process.stdout.write(
+      JSON.stringify(heroAttestation(new Date(Date.now() - 60 * 60 * 1000)), null, 2) + "\n",
+    );
+  } else if (customAmount !== undefined) {
+    // Ad-hoc beat: any amount/category/vendor domain, minted fresh right now.
+    // Both invoiceDocument and attestation are printed together because
+    // pay_vendor needs the exact same bytes that were digested into the
+    // attestation — pass both fields through as-is.
+    const amount = Number(customAmount);
+    const category = flag(args, "category") ?? "office_supplies";
+    const serverDomain = flag(args, "vendor-domain") ?? "acme.example.com";
+    const invoiceRef = flag(args, "invoice-ref") ?? `inv_demo_${Date.now()}`;
+    const currency = flag(args, "currency") ?? "USD";
+    const invoiceDocument =
+      flag(args, "invoice-text") ??
+      `ACME CORP\nInvoice ${invoiceRef}\n${category.replace(/_/g, " ")}\nTotal: ${currency} ${amount}\n`;
+
+    const attestation = mintAttestation({
+      invoiceDocument,
+      serverDomain,
+      amount,
+      currency,
+      invoiceRef,
+    });
+
+    process.stdout.write(JSON.stringify({ invoiceDocument, attestation }, null, 2) + "\n");
   } else {
-    att = heroAttestation();
+    process.stdout.write(JSON.stringify(heroAttestation(), null, 2) + "\n");
   }
-  process.stdout.write(JSON.stringify(att, null, 2) + "\n");
 }
