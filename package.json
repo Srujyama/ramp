@@ -34,7 +34,8 @@
     "policy-diff": "node scripts/policy-diff.mjs",
     "receipt": "node scripts/receipt.mjs",
     "redteam": "node scripts/redteam.mjs",
-    "sdk-example": "node scripts/sdk-example.mjs"
+    "sdk-example": "node scripts/sdk-example.mjs",
+    "buy": "node scripts/buy.mjs"
   },
   "dependencies": {
     "@ramp/gate": "workspace:*",
