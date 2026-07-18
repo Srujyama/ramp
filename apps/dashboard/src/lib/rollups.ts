@@ -12,10 +12,18 @@
  * used to be spelled out inline in each rollup; it is imported now so that the
  * definition of "money that moved" can never drift between two copies.
  */
-import type { DecisionView } from "./types.js";
+import type { DecisionView, Facts } from "./types.js";
 import type { OutcomeCounts } from "./agents.js";
 import { vendorLabel, vendorDomain } from "./identity.js";
 import { isSettledSpend, dateKey } from "./spend.js";
+
+/** The org-wide policy config in force, from the most recent decision carrying facts. */
+export function latestFacts(decisions: readonly DecisionView[]): Facts | null {
+  for (const d of decisions) {
+    if (d.facts) return d.facts;
+  }
+  return null;
+}
 
 function emptyOutcomeCounts(): OutcomeCounts {
   return { allow: 0, deny: 0, escalate: 0, error: 0 };

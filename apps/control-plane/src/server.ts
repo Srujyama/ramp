@@ -31,6 +31,7 @@ import type { RampClient } from "@ramp/client";
 import { refreshPricing } from "./pricing.js";
 import { parseIntent, runTransaction } from "./transactions.js";
 import { adminState, runCreateAgent, runUpdateDials } from "./admin.js";
+import { runSetDemoData } from "./demo.js";
 
 /** What the control-plane request handler needs: the ledger + the real gate driver. */
 export interface ControlPlaneDeps {
@@ -179,6 +180,26 @@ export function createControlPlane(deps: ControlPlaneDeps): Server {
       return;
     }
 
+    // POST /demo/data — the "Enable Dummy Data" toggle (Admin tab). Populates or
+    // clears ~90 days of synthetic-but-kernel-derived decision history. Never
+    // writes a decision the kernel didn't itself produce; see demo.ts.
+    if (method === "POST" && path === "/demo/data") {
+      let body: unknown;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        json(res, 400, { error: "request body must be small, well-formed JSON" });
+        return;
+      }
+      const out = runSetDemoData(db, body);
+      if ("error" in out) {
+        json(res, 400, out);
+        return;
+      }
+      json(res, 200, out);
+      return;
+    }
+
     json(res, 404, { error: "not found", plane: "demo-control-plane" });
   }
 }
@@ -218,7 +239,7 @@ export async function main(): Promise<void> {
     // eslint-disable-next-line no-console
     console.error(
       `[control-plane] DEMO control plane on http://localhost:${port} — NOT the audit bridge, NOT the gate.\n` +
-        `[control-plane]   GET /health · GET /pricing · POST /transaction · GET /admin/state · POST /agents · PATCH /policy`,
+        `[control-plane]   GET /health · GET /pricing · POST /transaction · GET /admin/state · POST /agents · PATCH /policy · POST /demo/data`,
     );
   });
 

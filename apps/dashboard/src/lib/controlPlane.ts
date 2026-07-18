@@ -175,6 +175,23 @@ export function updateDials(patch: DialPatchInput, signal?: AbortSignal): Promis
   return cpFetch<Dials>("/policy", { method: "PATCH", body: JSON.stringify(patch) }, signal);
 }
 
+/** Result of toggling the "Enable Dummy Data" switch (Admin tab). */
+export interface DemoDataResult {
+  readonly enabled: boolean;
+  readonly written?: number;
+  readonly days?: number;
+  readonly problems?: readonly string[];
+}
+
+/**
+ * Populate (~90 days of synthetic-but-kernel-derived history) or clear the demo
+ * dataset. Fully reversible: disabling wipes the decision log and restores the
+ * base seed's calibrated spend — see @ramp/ledger's clearDemoHistory.
+ */
+export function setDemoData(enabled: boolean, signal?: AbortSignal): Promise<DemoDataResult> {
+  return cpFetch<DemoDataResult>("/demo/data", { method: "POST", body: JSON.stringify({ enabled }) }, signal);
+}
+
 /** Fetch model pricing from the control plane. Never throws for a demo-down plane; surfaces a typed error. */
 export async function fetchPricing(signal?: AbortSignal): Promise<PricingResponse> {
   let res: Response;

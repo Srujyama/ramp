@@ -1,20 +1,24 @@
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
 import { Link } from "react-router-dom";
-import { Plus, SlidersHorizontal, ShieldCheck, ArrowRight, CircleAlert, Check } from "lucide-react";
+import { Plus, SlidersHorizontal, ShieldCheck, ArrowRight, CircleAlert, Check, Database } from "lucide-react";
 import {
   fetchAdminState,
-  createAgent,
   updateDials,
+  setDemoData,
   ControlPlaneError,
   CONTROL_PLANE_URL,
   type AdminState,
   type Dials,
+  type DemoDataResult,
 } from "../../lib/controlPlane.js";
+import { useDecisionsWindow } from "../../lib/decisionsWindow.js";
 import { Card, CardContent } from "../../components/ui/card.js";
 import { Badge } from "../../components/ui/badge.js";
 import { Button } from "../../components/ui/button.js";
 import { Input } from "../../components/ui/input.js";
+import { CreateAgentModal } from "../../components/CreateAgentModal.js";
+import { cn } from "../../lib/utils.js";
 
 /** Turn an unknown error into a human line the control-plane-down case makes actionable. */
 function errline(e: unknown): JSX.Element {
@@ -22,23 +26,12 @@ function errline(e: unknown): JSX.Element {
     return (
       <>
         The demo control plane isn't reachable. Start it with{" "}
-        <code className="rounded bg-surface-sunken px-1 py-0.5 font-mono text-[12px]">pnpm control-plane</code> (
+        <code className="rounded-[--radius-xs] bg-surface-sunken px-1 py-0.5 font-mono text-[12px]">pnpm control-plane</code> (
         <span className="font-mono text-[12px]">{CONTROL_PLANE_URL}</span>).
       </>
     );
   }
   return <>{(e as Error)?.message ?? "Something went wrong."}</>;
-}
-
-function ErrorCard({ error }: { error: unknown }): JSX.Element {
-  return (
-    <Card>
-      <CardContent className="flex items-start gap-3 py-4">
-        <CircleAlert className="mt-0.5 size-4 shrink-0 text-flag" />
-        <p className="text-[13px] text-ink-muted">{errline(error)}</p>
-      </CardContent>
-    </Card>
-  );
 }
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: JSX.Element }): JSX.Element {
@@ -54,6 +47,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 export function Admin(): JSX.Element {
   const [state, setState] = useState<AdminState | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
+  const win = useDecisionsWindow();
 
   useEffect(() => {
     document.title = "Admin · Provable Agent Spend";
@@ -69,9 +63,9 @@ export function Admin(): JSX.Element {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Policy admin</h1>
+        <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Admin</h1>
         <p className="max-w-2xl text-[13.5px] text-ink-muted">
-          Register an agent or retune the org dials — the <span className="font-medium text-ink">inputs</span> a decision
+          Register an agent or retune the org dials, the <span className="font-medium text-ink">inputs</span> a decision
           is computed from. These change what the <span className="font-medium text-ink">next</span> decision will be; they
           can never rewrite one already sealed in the append-only log. Edit a dial here, then run the same transaction on{" "}
           <Link to="/app/simulate" className="font-medium text-lime-ink hover:underline">
@@ -81,52 +75,82 @@ export function Admin(): JSX.Element {
         </p>
       </div>
 
-      {loadError !== null ? <ErrorCard error={loadError} /> : null}
+      {loadError !== null ? (
+        <Card>
+          <CardContent className="flex items-start gap-3 py-4">
+            <CircleAlert className="mt-0.5 size-4 shrink-0 text-flag" />
+            <p className="text-[13px] text-ink-muted">{errline(loadError)}</p>
+          </CardContent>
+        </Card>
+      ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <CreateAgentCard categories={state?.categories ?? null} onCreated={() => void 0} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="flex flex-col gap-4">
+          <CreateAgentTrigger />
+          <DummyDataCard win={win} />
+        </div>
         <DialsCard dials={state?.dials ?? null} onSaved={(d) => setState((s) => (s ? { ...s, dials: d } : s))} />
       </div>
     </div>
   );
 }
 
-// --- create agent ------------------------------------------------------------
+// --- create agent (compact trigger onto the shared modal) --------------------
 
-function CreateAgentCard({
-  categories,
-  onCreated,
-}: {
-  categories: readonly string[] | null;
-  onCreated: () => void;
-}): JSX.Element {
-  const [agentId, setAgentId] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [cleared, setCleared] = useState<Set<string>>(new Set());
+function CreateAgentTrigger(): JSX.Element {
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3 py-5">
+        <div className="flex items-center gap-2">
+          <Plus className="size-4 text-ink-faint" />
+          <h2 className="font-display text-[15px] font-semibold text-ink">Register a new agent</h2>
+        </div>
+        <p className="text-[12.5px] leading-relaxed text-ink-muted">
+          An unregistered agent is refused facts by the gate, so this is what makes a new agent spendable.
+        </p>
+        <CreateAgentModal
+          trigger={
+            <Button className="self-start">
+              <Plus className="size-4" /> Create agent
+            </Button>
+          }
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+// --- dummy data toggle ---------------------------------------------------------
+
+type DecisionsWindow = ReturnType<typeof useDecisionsWindow>;
+
+/**
+ * "Enabled" is a DERIVED fact, not a flag this UI tracks: a decision the demo
+ * generator wrote always carries a request id prefixed `inv_h` (see
+ * packages/ledger/src/demo-data.ts), so the switch position always reflects
+ * what is actually in the log — it can never drift from server state the way a
+ * locally-remembered boolean could.
+ */
+function hasDummyData(win: DecisionsWindow): boolean {
+  return win.status === "success" && win.data.decisions.some((d) => d.requestId.startsWith("inv_h"));
+}
+
+function DummyDataCard({ win }: { win: DecisionsWindow }): JSX.Element {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const [ok, setOk] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<DemoDataResult | null>(null);
 
-  function toggle(cat: string): void {
-    setCleared((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat);
-      else next.add(cat);
-      return next;
-    });
-  }
+  const enabled = hasDummyData(win);
+  const ready = win.status === "success";
 
-  async function submit(): Promise<void> {
+  async function toggle(): Promise<void> {
     setBusy(true);
     setError(null);
-    setOk(null);
+    setLastResult(null);
     try {
-      const res = await createAgent({ agentId: agentId.trim(), displayName: displayName.trim(), clearedCategories: [...cleared] });
-      setOk(`Registered ${res.agentId} — cleared for ${res.clearedCategories.length || "no"} categor${res.clearedCategories.length === 1 ? "y" : "ies"}.`);
-      setAgentId("");
-      setDisplayName("");
-      setCleared(new Set());
-      onCreated();
+      const result = await setDemoData(!enabled);
+      setLastResult(result);
+      win.reload();
     } catch (e) {
       setError(e);
     } finally {
@@ -134,70 +158,55 @@ function CreateAgentCard({
     }
   }
 
-  const canSubmit = agentId.trim() !== "" && displayName.trim() !== "" && !busy;
-
   return (
     <Card>
       <CardContent className="flex flex-col gap-4 py-5">
         <div className="flex items-center gap-2">
-          <Plus className="size-4 text-ink-faint" />
-          <h2 className="font-display text-[15px] font-semibold text-ink">New agent card</h2>
+          <Database className="size-4 text-ink-faint" />
+          <h2 className="font-display text-[15px] font-semibold text-ink">Dummy data</h2>
         </div>
-        <p className="text-[12.5px] text-ink-muted">
-          Provisions the agent registry + its category clearances. An unregistered agent is refused facts by the gate — so
-          this is what makes a new agent spendable.
+        <p className="text-[12.5px] leading-relaxed text-ink-muted">
+          Populates ~90 days of realistic purchasing history so the dashboard, charts, and Activity log are full
+          immediately. Every decision is still judged by the real kernel and proof-sealed, only the requests are
+          synthetic. Fully reversible: disabling wipes it and restores the calibrated base seed.
         </p>
 
-        <Field label="Agent id" hint="A stable key, e.g. agent_88. Must be unique.">
-          <Input value={agentId} onChange={(e) => setAgentId(e.target.value)} placeholder="agent_88" />
-        </Field>
-        <Field label="Display name">
-          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Marketing Bot" />
-        </Field>
+        <label className="flex items-center justify-between gap-3">
+          <span className="text-[13px] font-medium text-ink">Enable dummy data</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            aria-label="Enable dummy data"
+            onClick={toggle}
+            disabled={busy || !ready}
+            className={cn(
+              "relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50",
+              enabled ? "bg-lime" : "border border-line-strong bg-surface-sunken",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform",
+                enabled ? "translate-x-[22px]" : "translate-x-0.5",
+              )}
+            />
+          </button>
+        </label>
 
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-medium text-ink-faint">Cleared categories</span>
-          {categories === null ? (
-            <span className="text-[12px] text-ink-faint">Loading approved categories…</span>
-          ) : categories.length === 0 ? (
-            <span className="text-[12px] text-ink-faint">No approved categories.</span>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {categories.map((cat) => {
-                const on = cleared.has(cat);
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => toggle(cat)}
-                    className={
-                      "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors " +
-                      (on ? "border-lime/50 bg-lime-soft text-lime-ink" : "border-line bg-surface text-ink-muted hover:bg-surface-hover")
-                    }
-                  >
-                    {on ? <Check className="size-3.5" /> : null}
-                    {cat}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3 pt-1">
-          <Button onClick={submit} disabled={!canSubmit}>
-            <Plus className="size-4" /> {busy ? "Creating…" : "Create agent"}
-          </Button>
-        </div>
-
-        {ok !== null ? (
-          <div className="flex items-start gap-2 rounded-lg border border-lime/40 bg-lime-soft px-3 py-2.5 text-[12.5px] text-lime-ink">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0" />
-            <span>{ok}</span>
+        {busy ? <p className="text-[12px] text-ink-faint">{enabled ? "Clearing…" : "Populating ~90 days…"}</p> : null}
+        {lastResult !== null && !busy ? (
+          <div className="flex items-start gap-2 rounded-[--radius-sm] border border-lime/40 bg-lime-soft px-3 py-2.5 text-[12.5px] text-lime-ink">
+            <Check className="mt-0.5 size-4 shrink-0" />
+            <span>
+              {lastResult.enabled
+                ? `Populated ${lastResult.written ?? 0} decisions across ${lastResult.days ?? 90} days.`
+                : "Cleared. Back to the base seed."}
+            </span>
           </div>
         ) : null}
         {error !== null ? (
-          <div className="flex items-start gap-2 rounded-lg border border-flag/40 px-3 py-2.5 text-[12.5px] text-ink-muted">
+          <div className="flex items-start gap-2 rounded-[--radius-sm] border border-flag/40 px-3 py-2.5 text-[12.5px] text-ink-muted">
             <CircleAlert className="mt-0.5 size-4 shrink-0 text-flag" />
             <span>{errline(error)}</span>
           </div>
@@ -212,7 +221,7 @@ function CreateAgentCard({
 const DIALS: { key: keyof Dials; label: string; hint: string }[] = [
   { key: "perTxnCap", label: "Per-transaction cap", hint: "The most an agent may ever spend in one payment." },
   { key: "dailyLimit", label: "Daily limit", hint: "Max total an agent may spend in a day." },
-  { key: "escalationThreshold", label: "Escalation threshold", hint: "Above this, a human must approve — even within the caps." },
+  { key: "escalationThreshold", label: "Escalation threshold", hint: "Above this, a human must approve, even within the caps." },
   { key: "velocityLimit", label: "Velocity limit", hint: "Payment count that trips escalation over the rolling window." },
 ];
 
@@ -248,7 +257,7 @@ function DialsCard({ dials, onSaved }: { dials: Dials | null; onSaved: (d: Dials
       patch[key] = n;
     }
     if (Object.keys(patch).length === 0) {
-      setError(new Error("Nothing changed — edit a dial before saving."));
+      setError(new Error("Nothing changed. Edit a dial before saving."));
       return;
     }
     setBusy(true);
@@ -273,8 +282,8 @@ function DialsCard({ dials, onSaved }: { dials: Dials | null; onSaved: (d: Dials
           <h2 className="font-display text-[15px] font-semibold text-ink">Policy dials</h2>
           <Badge tone="neutral">org-wide</Badge>
         </div>
-        <p className="text-[12.5px] text-ink-muted">
-          Whole-unit money, exactly as the kernel measures it. Retuning a dial re-decides nothing already sealed — it
+        <p className="text-[12.5px] leading-relaxed text-ink-muted">
+          Whole-unit money, exactly as the kernel measures it. Retuning a dial re-decides nothing already sealed, it
           changes what the next decision is compared against.
         </p>
 
@@ -302,13 +311,13 @@ function DialsCard({ dials, onSaved }: { dials: Dials | null; onSaved: (d: Dials
         </div>
 
         {ok !== null ? (
-          <div className="flex items-start gap-2 rounded-lg border border-lime/40 bg-lime-soft px-3 py-2.5 text-[12.5px] text-lime-ink">
-            <Check className="mt-0.5 size-4 shrink-0" />
+          <div className="flex items-start gap-2 rounded-[--radius-sm] border border-lime/40 bg-lime-soft px-3 py-2.5 text-[12.5px] text-lime-ink">
+            <ShieldCheck className="mt-0.5 size-4 shrink-0" />
             <span>{ok}</span>
           </div>
         ) : null}
         {error !== null ? (
-          <div className="flex items-start gap-2 rounded-lg border border-flag/40 px-3 py-2.5 text-[12.5px] text-ink-muted">
+          <div className="flex items-start gap-2 rounded-[--radius-sm] border border-flag/40 px-3 py-2.5 text-[12.5px] text-ink-muted">
             <CircleAlert className="mt-0.5 size-4 shrink-0 text-flag" />
             <span>{errline(error)}</span>
           </div>

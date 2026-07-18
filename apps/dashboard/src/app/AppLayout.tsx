@@ -1,13 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent, JSX } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutGrid,
-  CreditCard,
   Activity as ActivityIcon,
   Building2,
   ShieldCheck,
-  Coins,
   Play,
   SlidersHorizontal,
   Search,
@@ -16,10 +14,11 @@ import {
   Moon,
   Sun,
   Menu,
+  ChevronsLeft,
 } from "lucide-react";
 import { cn } from "../lib/utils.js";
 import { useTheme } from "../lib/useTheme.js";
-import { useBridgeHealth } from "../lib/useBridgeHealth.js";
+import { useBridgeHealth, type Health } from "../lib/useBridgeHealth.js";
 import { DecisionsWindowProvider, useDecisionsWindow } from "../lib/decisionsWindow.js";
 import { agentLabel, vendorLabel } from "../lib/identity.js";
 import { formatMoney, formatRelative } from "../lib/format.js";
@@ -37,22 +36,45 @@ import { SkipLink } from "../components/ui/skip-link.js";
 
 const NAV = [
   { to: "/app", label: "Dashboard", icon: LayoutGrid, end: true },
-  { to: "/app/agents", label: "Agent cards", icon: CreditCard },
   { to: "/app/activity", label: "Activity", icon: ActivityIcon },
   { to: "/app/vendors", label: "Vendors", icon: Building2 },
   { to: "/app/policy", label: "Policy", icon: ShieldCheck },
-  { to: "/app/pricing", label: "Pricing", icon: Coins },
   { to: "/app/simulate", label: "Simulate", icon: Play },
   { to: "/app/admin", label: "Admin", icon: SlidersHorizontal },
 ];
 
-function Logo(): JSX.Element {
+const SIDEBAR_KEY = "ramp-sidebar-collapsed";
+
+function useSidebarCollapsed(): { collapsed: boolean; toggle: () => void } {
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_KEY, collapsed ? "1" : "0");
+    } catch {
+      /* ignore persistence failures */
+    }
+  }, [collapsed]);
+
+  const toggle = useCallback(() => setCollapsed((c) => !c), []);
+  return { collapsed, toggle };
+}
+
+function Logo({ collapsed }: { collapsed: boolean }): JSX.Element {
   return (
     <div className="flex items-center gap-2 px-1">
-      <div className="flex size-8 items-center justify-center rounded-lg bg-ink font-display text-[15px] font-bold text-white">
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-[--radius-sm] bg-ink font-display text-[15px] font-bold text-white">
         P
       </div>
-      <span className="font-display text-[15px] font-semibold tracking-tight text-ink">Provable</span>
+      <span className={cn("font-display text-[15px] font-semibold tracking-tight text-ink", collapsed && "sr-only")}>
+        Provable
+      </span>
     </div>
   );
 }
@@ -65,62 +87,95 @@ function ThemeToggle(): JSX.Element {
       onClick={toggle}
       aria-pressed={dark}
       title={dark ? "Switch to light theme" : "Switch to dark theme"}
-      className="flex size-9 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+      className="flex size-9 items-center justify-center rounded-[--radius-sm] text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
     >
       {dark ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
     </button>
   );
 }
 
-const HEALTH_LABEL: Record<string, string> = {
-  wait: "Connecting…",
-  live: "Bridge live",
+const HEALTH_LABEL: Record<Health, string> = {
+  wait: "Connecting",
+  live: "Bridge online",
   down: "Bridge offline",
 };
-const HEALTH_DOT: Record<string, string> = {
+const HEALTH_DOT: Record<Health, string> = {
   wait: "bg-ink-faint",
   live: "bg-chart-allow",
   down: "bg-chart-deny",
 };
 
-function Sidebar(): JSX.Element {
+/** A terse, bold connection indicator — a colored square + label, not a pill. */
+function ConnectionStatus({ collapsed }: { collapsed: boolean }): JSX.Element {
   const { health } = useBridgeHealth();
   const { live } = useDecisionsWindow();
+  const label = HEALTH_LABEL[health] + (health === "live" && live ? " · streaming" : "");
   return (
-    <aside className="flex h-screen w-[240px] shrink-0 flex-col gap-6 border-r border-line bg-surface px-4 py-5 max-lg:hidden">
-      <Logo />
+    <div
+      className={cn("flex items-center gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint", collapsed && "justify-center px-0")}
+      title={label}
+    >
+      <span className={cn("size-2 shrink-0", HEALTH_DOT[health])} aria-hidden="true" />
+      {collapsed ? null : <span className="truncate">{label}</span>}
+    </div>
+  );
+}
+
+function Sidebar({ collapsed, toggle }: { collapsed: boolean; toggle: () => void }): JSX.Element {
+  return (
+    <aside
+      className={cn(
+        "flex h-screen shrink-0 flex-col gap-6 border-r border-line bg-surface px-3 py-5 transition-[width] duration-150 max-lg:hidden",
+        collapsed ? "w-[68px]" : "w-[240px]",
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <Logo collapsed={collapsed} />
+        {!collapsed ? (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+            className="flex size-7 shrink-0 items-center justify-center rounded-[--radius-sm] text-ink-faint transition-colors hover:bg-surface-hover hover:text-ink"
+          >
+            <ChevronsLeft className="size-4" />
+          </button>
+        ) : null}
+      </div>
+      {collapsed ? (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label="Expand sidebar"
+          title="Expand sidebar"
+          className="flex size-7 items-center justify-center self-center rounded-[--radius-sm] text-ink-faint transition-colors hover:bg-surface-hover hover:text-ink"
+        >
+          <ChevronsLeft className="size-4 rotate-180" />
+        </button>
+      ) : null}
       <nav className="flex flex-col gap-1" aria-label="Primary">
         {NAV.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.end}
+            title={collapsed ? item.label : undefined}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-2.5 rounded-md px-3 py-2 text-[13.5px] font-medium transition-colors",
+                "flex items-center gap-2.5 rounded-[--radius-md] px-3 py-2 text-[13.5px] font-medium transition-colors",
+                collapsed && "justify-center px-0",
                 isActive ? "bg-lime-soft text-lime-ink" : "text-ink-muted hover:bg-surface-hover hover:text-ink",
               )
             }
           >
-            <item.icon className="size-[17px]" strokeWidth={2} />
-            {item.label}
+            <item.icon className="size-[17px] shrink-0" strokeWidth={2} />
+            <span className={cn(collapsed && "sr-only")}>{item.label}</span>
           </NavLink>
         ))}
       </nav>
       <div className="mt-auto flex flex-col gap-3 border-t border-line pt-4">
-        <div className="flex items-center gap-2 px-1 text-[12px] text-ink-faint">
-          <span className={cn("size-1.5 rounded-full", HEALTH_DOT[health])} aria-hidden="true" />
-          {HEALTH_LABEL[health]}
-        </div>
-        {live ? (
-          <div className="flex items-center gap-2 px-1 text-[12px] text-chart-allow">
-            <span className="size-1.5 animate-pulse rounded-full bg-chart-allow" aria-hidden="true" />
-            Real-time · new decisions stream in
-          </div>
-        ) : null}
-        <div className="rounded-md bg-surface-sunken px-3 py-2 text-[11px] leading-snug text-ink-faint">
-          Demo environment · sandbox payments. No real money moves.
-        </div>
+        <ConnectionStatus collapsed={collapsed} />
       </div>
     </aside>
   );
@@ -134,14 +189,14 @@ function MobileNav(): JSX.Element {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex size-9 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink lg:hidden"
+        className="flex size-9 items-center justify-center rounded-[--radius-sm] text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink lg:hidden"
         aria-label="Open navigation"
       >
         <Menu className="size-[19px]" />
       </button>
-      <DialogContent className="top-0 max-w-none translate-y-0 rounded-none border-0 border-r data-[state=open]:animate-in sm:max-w-xs sm:rounded-r-2xl">
+      <DialogContent className="top-0 max-w-none translate-y-0 rounded-none border-0 border-r data-[state=open]:animate-in sm:max-w-xs">
         <DialogTitle className="sr-only">Navigation</DialogTitle>
-        <Logo />
+        <Logo collapsed={false} />
         <nav className="mt-6 flex flex-col gap-1" aria-label="Primary">
           {NAV.map((item) => (
             <NavLink
@@ -151,7 +206,7 @@ function MobileNav(): JSX.Element {
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[14px] font-medium transition-colors",
+                  "flex items-center gap-2.5 rounded-[--radius-md] px-3 py-2.5 text-[14px] font-medium transition-colors",
                   isActive ? "bg-lime-soft text-lime-ink" : "text-ink-muted hover:bg-surface-hover hover:text-ink",
                 )
               }
@@ -187,12 +242,12 @@ function NotificationsMenu(): JSX.Element {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="relative flex size-9 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+          className="relative flex size-9 items-center justify-center rounded-[--radius-sm] text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
           aria-label={`Notifications${items.length > 0 ? ` (${items.length})` : ""}`}
         >
           <Bell className="size-[18px]" />
           {items.length > 0 && (
-            <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-chart-deny ring-2 ring-surface" />
+            <span className="absolute right-1.5 top-1.5 size-2 bg-chart-deny ring-2 ring-surface" />
           )}
         </button>
       </DropdownMenuTrigger>
@@ -247,7 +302,7 @@ function QuickSearch(): JSX.Element {
         onChange={(e) => setQ(e.target.value)}
         type="text"
         placeholder="Search by agent id…"
-        className="h-9 w-full rounded-md border border-line bg-field pl-9 pr-3 text-[13px] text-ink placeholder:text-ink-faint outline-none transition-colors focus-visible:border-info focus-visible:ring-2 focus-visible:ring-info/20"
+        className="h-9 w-full rounded-[--radius-sm] border border-line bg-field pl-9 pr-3 text-[13px] text-ink placeholder:text-ink-faint outline-none transition-colors focus-visible:border-info focus-visible:ring-2 focus-visible:ring-info/20"
       />
     </form>
   );
@@ -255,7 +310,7 @@ function QuickSearch(): JSX.Element {
 
 function Topbar(): JSX.Element {
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-4 sm:px-6">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-4 sm:px-6">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <MobileNav />
         <QuickSearch />
@@ -264,22 +319,13 @@ function Topbar(): JSX.Element {
         <NotificationsMenu />
         <NavLink
           to="/app/policy"
-          className="flex size-9 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+          className="flex size-9 items-center justify-center rounded-[--radius-sm] text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
           aria-label="Policy settings"
           title="Policy settings"
         >
           <Settings className="size-[18px]" />
         </NavLink>
         <ThemeToggle />
-        <div className="ml-2 flex items-center gap-2 border-l border-line pl-3">
-          <div className="flex size-8 items-center justify-center rounded-full bg-surface-sunken text-[12px] font-semibold text-ink-muted">
-            DW
-          </div>
-          <div className="hidden flex-col leading-tight sm:flex">
-            <span className="text-[12.5px] font-medium text-ink">Demo Workspace</span>
-            <span className="text-[11px] text-ink-faint">Sandbox</span>
-          </div>
-        </div>
       </div>
     </header>
   );
@@ -296,11 +342,12 @@ function useDocTitleFromPath(): void {
 
 export function AppLayout(): JSX.Element {
   useDocTitleFromPath();
+  const { collapsed, toggle } = useSidebarCollapsed();
   return (
     <DecisionsWindowProvider>
       <div className="flex h-screen overflow-hidden bg-canvas">
         <SkipLink />
-        <Sidebar />
+        <Sidebar collapsed={collapsed} toggle={toggle} />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar />
           <main id="main" className="min-w-0 flex-1 overflow-y-auto px-6 py-6 lg:px-8 lg:py-8">

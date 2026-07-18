@@ -106,6 +106,12 @@ export type { ModelPrice, PricingSource } from "./model-pricing.js";
 export { createAgent, updatePolicyDials, readDials } from "./admin-writes.js";
 export type { NewAgent, CreatedAgent, DialPatch, Dials } from "./admin-writes.js";
 
+// DEMO-ONLY synthetic decision history (the "Enable Dummy Data" toggle's engine).
+// Never on the enforcement path. Every decision is still kernel-derived and
+// proof-sealed — only the requests are synthetic. See demo-data.ts.
+export { seedDemoHistory, clearDemoHistory } from "./demo-data.js";
+export type { DemoSeedResult } from "./demo-data.js";
+
 // The audit trail: persist every gate decision and read it back (read-only API).
 export {
   recordDecision,

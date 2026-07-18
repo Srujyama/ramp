@@ -19,8 +19,8 @@ export function TrustSummaryWidget({ decisions }: { decisions: readonly Decision
     <Card>
       <CardHeader>
         <div>
-          <CardTitle>Trust summary</CardTitle>
-          <CardDescription>Independent proof verification, in window</CardDescription>
+          <CardTitle>Proof verification</CardTitle>
+          <CardDescription>Independently recomputed, not trusted from stored bytes</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

@@ -1,30 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent, JSX } from "react";
+import { useEffect } from "react";
+import type { JSX } from "react";
+import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import { useDecisionsWindow } from "../../lib/decisionsWindow.js";
-import { simulatePolicy } from "../../lib/bridge.js";
-import { formatMoney, ruleTitle, explainSimulation, type StatusChip as StatusChipModel } from "../../lib/format.js";
+import { formatMoney } from "../../lib/format.js";
 import { agentLabel } from "../../lib/identity.js";
-import {
-  EMPTY_SIM_FORM,
-  SCENARIOS,
-  policyChecks,
-  scenarioToForm,
-  truncateDigest,
-  validateSimForm,
-  type SimField,
-  type SimFormValues,
-} from "../../lib/simulator.js";
 import { settledSpendOn, todayKey } from "../../lib/spend.js";
-import type { DecisionView, Facts, SimulationResult } from "../../lib/types.js";
+import type { DecisionView, Facts } from "../../lib/types.js";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card.js";
 import { BridgeErrorState, StateCard } from "../../components/ui/state-card.js";
-import { StatusChip } from "../../components/StatusChip.js";
 import { Skeleton } from "../../components/ui/skeleton.js";
-import { Button } from "../../components/ui/button.js";
-import { Input } from "../../components/ui/input.js";
 import { Progress } from "../../components/ui/progress.js";
-import { CopyId } from "../../components/ui/copy-id.js";
-import { Check, X } from "lucide-react";
 
 // --- org policy overview (derived from recorded facts, never hand-entered) --
 
@@ -135,7 +121,7 @@ function PolicyOverview({ p }: { p: PolicyModel }): JSX.Element {
             {p.approvedCategories.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 {p.approvedCategories.map((c) => (
-                  <span key={c} className="rounded bg-surface-sunken px-2 py-1 text-[11.5px] text-ink-muted">
+                  <span key={c} className="rounded-[--radius-xs] bg-surface-sunken px-2 py-1 text-[11.5px] capitalize text-ink-muted">
                     {c.replace(/_/g, " ")}
                   </span>
                 ))}
@@ -171,7 +157,7 @@ function PolicyOverview({ p }: { p: PolicyModel }): JSX.Element {
                       {c.categories.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
                           {c.categories.map((cat) => (
-                            <span key={cat} className="rounded bg-surface-sunken px-2 py-1 text-[11.5px] text-ink-muted">
+                            <span key={cat} className="rounded-[--radius-xs] bg-surface-sunken px-2 py-1 text-[11.5px] capitalize text-ink-muted">
                               {cat.replace(/_/g, " ")}
                             </span>
                           ))}
@@ -191,229 +177,6 @@ function PolicyOverview({ p }: { p: PolicyModel }): JSX.Element {
   );
 }
 
-// --- policy simulator (read-only, hypothetical) ------------------------------
-
-type SimRun =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "error"; error: unknown }
-  | { status: "success"; result: SimulationResult };
-
-function verdictChip(outcome: SimulationResult["outcome"]): StatusChipModel {
-  if (outcome === "allow") {
-    return { label: "Allowed", tone: "accent", title: "The policy would allow this hypothetical spend: every condition held." };
-  }
-  if (outcome === "escalate") {
-    return { label: "Needs approval", tone: "warn", title: "The policy would hold this for a human: not denied, not paid." };
-  }
-  return { label: "Denied", tone: "deny", title: "The policy would deny this hypothetical spend." };
-}
-
-function PolicySimulator(): JSX.Element {
-  const [form, setForm] = useState<SimFormValues>(EMPTY_SIM_FORM);
-  const [errors, setErrors] = useState<Partial<Record<SimField, string>>>({});
-  const [run, setRun] = useState<SimRun>({ status: "idle" });
-  const acRef = useRef<AbortController | null>(null);
-
-  useEffect(() => () => acRef.current?.abort(), []);
-
-  const setField = (field: SimField) => (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setForm((f) => ({ ...f, [field]: value }));
-  };
-
-  const execute = useCallback(() => {
-    const v = validateSimForm(form);
-    setErrors(v.errors);
-    if (!v.valid) return;
-
-    acRef.current?.abort();
-    const ac = new AbortController();
-    acRef.current = ac;
-    setRun({ status: "loading" });
-
-    simulatePolicy(
-      {
-        agent: form.agent.trim(),
-        vendor: form.vendor.trim(),
-        amount: v.amount,
-        category: form.category.trim(),
-        currency: form.currency.trim() || undefined,
-      },
-      ac.signal,
-    ).then(
-      (result) => {
-        if (!ac.signal.aborted) setRun({ status: "success", result });
-      },
-      (error: unknown) => {
-        if (ac.signal.aborted) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setRun({ status: "error", error });
-      },
-    );
-  }, [form]);
-
-  function onSubmit(e: FormEvent): void {
-    e.preventDefault();
-    execute();
-  }
-
-  const loading = run.status === "loading";
-
-  return (
-    <Card>
-      <CardHeader>
-        <div>
-          <CardTitle>Policy simulator</CardTitle>
-          <CardDescription>
-            Test a <strong>hypothetical</strong> purchase against the exact enforced policy. Side-effect free: no
-            decision, proof, or payment.
-          </CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-4 flex flex-wrap gap-1.5">
-          {SCENARIOS.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              title={`${s.note} (prefills the form, does not run)`}
-              onClick={() => {
-                setForm(scenarioToForm(s));
-                setErrors({});
-              }}
-              className="rounded-full border border-line px-2.5 py-1 text-[11.5px] text-ink-muted transition-colors hover:border-line-strong hover:bg-surface-hover hover:text-ink"
-            >
-              {s.expect === "allow" ? "✓ " : s.expect === "escalate" ? "◐ " : "✗ "}
-              {s.title}
-            </button>
-          ))}
-        </div>
-
-        <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="sim-agent" className="text-[11px] font-medium text-ink-faint">
-              Agent
-            </label>
-            <Input id="sim-agent" value={form.agent} onChange={setField("agent")} placeholder="agent_47" autoComplete="off" className="h-8 w-36 text-[12.5px]" aria-invalid={errors.agent ? true : undefined} />
-            {errors.agent ? <span className="text-[11px] text-flag-ink">{errors.agent}</span> : null}
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="sim-vendor" className="text-[11px] font-medium text-ink-faint">
-              Vendor
-            </label>
-            <Input id="sim-vendor" value={form.vendor} onChange={setField("vendor")} placeholder="acme_corp" autoComplete="off" className="h-8 w-36 text-[12.5px]" aria-invalid={errors.vendor ? true : undefined} />
-            {errors.vendor ? <span className="text-[11px] text-flag-ink">{errors.vendor}</span> : null}
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="sim-amount" className="text-[11px] font-medium text-ink-faint">
-              Amount
-            </label>
-            <Input id="sim-amount" type="number" inputMode="numeric" min={0} step={1} value={form.amount} onChange={setField("amount")} placeholder="340" className="h-8 w-28 text-[12.5px]" aria-invalid={errors.amount ? true : undefined} />
-            {errors.amount ? <span className="text-[11px] text-flag-ink">{errors.amount}</span> : null}
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="sim-category" className="text-[11px] font-medium text-ink-faint">
-              Category
-            </label>
-            <Input id="sim-category" value={form.category} onChange={setField("category")} placeholder="office_supplies" autoComplete="off" className="h-8 w-40 text-[12.5px]" aria-invalid={errors.category ? true : undefined} />
-            {errors.category ? <span className="text-[11px] text-flag-ink">{errors.category}</span> : null}
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="sim-currency" className="text-[11px] font-medium text-ink-faint">
-              Currency
-            </label>
-            <Input id="sim-currency" value={form.currency} onChange={setField("currency")} placeholder="USD" maxLength={3} autoComplete="off" className="h-8 w-20 text-[12.5px] uppercase" />
-          </div>
-          <Button type="submit" size="sm" disabled={loading} className="h-8">
-            {loading ? "Simulating…" : "Simulate"}
-          </Button>
-        </form>
-
-        <SimOutput run={run} onRetry={execute} />
-      </CardContent>
-    </Card>
-  );
-}
-
-function SimOutput({ run, onRetry }: { run: SimRun; onRetry: () => void }): JSX.Element | null {
-  if (run.status === "idle") {
-    return (
-      <p className="mt-4 text-[13px] text-ink-muted">
-        Fill the form (or pick a scenario above) and run a simulation to see the verdict, the checks the policy
-        examined, and the policy digest it was evaluated against.
-      </p>
-    );
-  }
-  if (run.status === "loading") {
-    return <Skeleton className="mt-4 h-32 w-full" />;
-  }
-  if (run.status === "error") {
-    return (
-      <div className="mt-4">
-        <BridgeErrorState error={run.error} onRetry={onRetry} />
-      </div>
-    );
-  }
-
-  const { result } = run;
-  const checks = policyChecks(result.facts, result.currency);
-
-  return (
-    <div className="mt-4 border-t border-line pt-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusChip chip={verdictChip(result.outcome)} />
-        <span
-          title="This tool only simulates. It never records a decision, produces a proof, or executes a payment."
-          className="rounded-full bg-surface-sunken px-2.5 py-1 text-[11.5px] text-ink-faint"
-        >
-          Simulation only. No payment executed.
-        </span>
-      </div>
-
-      <p className="mt-3 text-[14px] text-ink">{explainSimulation(result.outcome, result.firedRules)}</p>
-
-      <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div>
-          <h4 className="mb-2 text-[12.5px] font-semibold text-ink">Rules that fired</h4>
-          {result.firedRules.length > 0 ? (
-            <ul className="flex flex-col gap-2">
-              {result.firedRules.map((id) => (
-                <li key={id}>
-                  <div className="text-[13px] font-medium text-ink">{ruleTitle(id)}</div>
-                  <span className="font-mono text-[11px] text-ink-faint">{id}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-[13px] text-ink-muted">No rules fired.</p>
-          )}
-        </div>
-
-        <div>
-          <h4 className="mb-2 text-[12.5px] font-semibold text-ink">Policy checks evaluated</h4>
-          <ul className="flex flex-col gap-2.5">
-            {checks.map((c) => (
-              <li key={c.key} className="flex items-start gap-2">
-                {c.pass ? <Check className="mt-0.5 size-3.5 shrink-0 text-lime" /> : <X className="mt-0.5 size-3.5 shrink-0 text-flag" />}
-                <div>
-                  <div className="text-[13px] text-ink">{c.label}</div>
-                  <div className="text-[12px] text-ink-faint">{c.detail}</div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <CopyId id={result.policyDigest} label={`Policy digest: ${truncateDigest(result.policyDigest)}`} />
-        <span className="text-[12px] text-ink-faint">ties this simulation to the exact policy identity</span>
-      </div>
-    </div>
-  );
-}
-
 export function Policy(): JSX.Element {
   const win = useDecisionsWindow();
 
@@ -423,12 +186,14 @@ export function Policy(): JSX.Element {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Policy</h1>
-        <p className="text-[13.5px] text-ink-muted">
-          The caps and clearances the deterministic policy engine enforces, derived from recorded facts, plus a
-          read-only simulator to preview any purchase.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-[22px] font-semibold tracking-tight text-ink">Policy</h1>
+          <p className="text-[13.5px] text-ink-muted">The caps and clearances the deterministic policy engine enforces, derived from recorded facts.</p>
+        </div>
+        <Link to="/app/simulate" className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-lime-ink hover:underline">
+          Test a purchase on Simulate <ArrowRight className="size-3.5" />
+        </Link>
       </div>
 
       {win.status === "loading" ? (
@@ -454,8 +219,6 @@ export function Policy(): JSX.Element {
           );
         })()
       )}
-
-      <PolicySimulator />
     </div>
   );
 }

@@ -37,8 +37,8 @@ export function AgentDetail(): JSX.Element {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link to="/app/agents" className="flex w-fit items-center gap-1.5 text-[13px] text-ink-muted hover:text-ink">
-        <ArrowLeft className="size-3.5" /> All agent cards
+      <Link to="/app" className="flex w-fit items-center gap-1.5 text-[13px] text-ink-muted hover:text-ink">
+        <ArrowLeft className="size-3.5" /> Dashboard
       </Link>
 
       {win.status === "success" ? <TruncationNotice truncated={win.data.truncated} /> : null}

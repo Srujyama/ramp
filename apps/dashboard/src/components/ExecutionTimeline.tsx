@@ -16,12 +16,12 @@ const DOT_TONE: Record<StageState, string> = {
 };
 
 const PILL: Record<StageState, { label: string; className: string }> = {
-  done: { label: "Done", className: "border-lime/40 text-lime-ink" },
-  blocked: { label: "Blocked", className: "border-amber/40 text-amber-ink" },
-  failed: { label: "Failed", className: "border-flag/40 text-flag-ink" },
-  corrupt: { label: "Corrupt", className: "border-flag/40 text-flag-ink" },
-  skipped: { label: "Skipped", className: "border-line-strong text-ink-faint" },
-  pending: { label: "Pending", className: "border-info/40 text-info-ink" },
+  done: { label: "Done", className: "bg-badge-accent" },
+  blocked: { label: "Blocked", className: "bg-badge-warn" },
+  failed: { label: "Failed", className: "bg-badge-deny" },
+  corrupt: { label: "Corrupt", className: "bg-badge-deny" },
+  skipped: { label: "Skipped", className: "bg-badge-neutral" },
+  pending: { label: "Pending", className: "bg-badge-info" },
 };
 
 const META_LABEL: Record<string, string> = {
@@ -65,7 +65,7 @@ export function ExecutionTimeline({ view }: { view: DecisionView }): JSX.Element
                 <span className="text-[14px] font-semibold text-ink">{s.title}</span>
                 <span
                   className={cn(
-                    "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                    "rounded-[--radius-xs] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white",
                     PILL[s.state].className,
                   )}
                 >
