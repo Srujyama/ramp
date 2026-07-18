@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// Provable Agent Spend — the GATE (PreToolUse hook) — hook/evaluate.mjs
+// Warrant — the GATE (PreToolUse hook) — hook/evaluate.mjs
 // ============================================================================
 // This is the ONLY enforcement point. The MCP payments tool is an honest,
 // non-enforcing stub; policy is decided HERE, out of band, before the tool is
@@ -174,6 +174,44 @@ async function main() {
   }
 
   try {
+    // ---- 4.5. AUTHENTICATE THE CALLER (before the id is trusted) --------
+    // `requestingAgent` is untrusted transport — any process can name any agent.
+    // If this agent has a PUBLIC key registered in the ledger, the request MUST
+    // carry a valid Ed25519 signature by the matching private key, verified HERE
+    // before the id is used to look anything up. This closes the impersonation
+    // hole: claiming an id you were not issued a key for buys nothing. Agents with
+    // no registered key are legacy (unauthenticated) — issuing a key turns this on.
+    // Fail-closed: a missing/forged/stale signature, or an unusable registry key,
+    // denies. Modelled on the attestation precondition; only the boolean matters.
+    const agentPubkey = factSource.getAgentPublicKey(req.requestingAgent);
+    let agentAuth = { authenticated: null, keyId: null };
+    if (agentPubkey) {
+      let agentPublicKey;
+      try {
+        agentPublicKey = attestationLib.agentPublicKeyFromRegistry(agentPubkey);
+      } catch (err) {
+        closeQuietly(ledger, db);
+        denyAndExit("denied (fail-closed): agent registry key unusable (" + errMsg(err) + ")");
+        return;
+      }
+      agentAuth = attestationLib.verifyAgentRequest(req, req.agentSignature, {
+        publicKey: agentPublicKey,
+        now: Date.now(),
+      });
+      if (agentAuth.authenticated !== true) {
+        closeQuietly(ledger, db);
+        denyAndExit(
+          "deny/agent_unauthenticated: " +
+            agentAuth.reason +
+            " (caller cannot prove it is " +
+            req.requestingAgent +
+            ")",
+          ["agent_unauthenticated"],
+        );
+        return;
+      }
+    }
+
     // ---- 5. PILLAR 4: verify the attestation ---------------------------
     // The vendor's registered domain comes from the LEDGER, not the attestation.
     // That is the whole point: an attestation proves "these bytes came from
@@ -365,6 +403,9 @@ async function main() {
     }
     if (attestationResult.verified === false) {
       notes.push(`[attestation] ${attestationResult.code}: ${attestationResult.reason}`);
+    }
+    if (agentPubkey) {
+      notes.push(`[identity] caller authenticated as ${req.requestingAgent} via ${agentAuth.keyId}`);
     }
     if (bundleWrite.error) {
       notes.push(`[provenance] bundle not persisted: ${bundleWrite.error}`);

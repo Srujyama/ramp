@@ -50,7 +50,7 @@ export function Admin(): JSX.Element {
   const win = useDecisionsWindow();
 
   useEffect(() => {
-    document.title = "Admin · Provable Agent Spend";
+    document.title = "Admin · Warrant";
     const ac = new AbortController();
     fetchAdminState(ac.signal)
       .then(setState)

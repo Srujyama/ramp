@@ -1,6 +1,6 @@
 # @ramp/dashboard
 
-The **read-only audit console** for **Provable Agent Spend** — the trust layer
+The **read-only audit console** for **Warrant** — the trust layer
 between AI agents and money. Every autonomous purchase is policy-controlled,
 recorded, traceable, and independently verifiable, and this console lets a human
 see and *independently confirm* all of it.

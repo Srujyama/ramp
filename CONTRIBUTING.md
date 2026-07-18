@@ -1,4 +1,4 @@
-# Contributing to Provable Agent Spend
+# Contributing to Warrant
 
 Thanks for building on the gate. This repo is a small pnpm monorepo with a **frozen
 contract** at its core — read the guardrails before you push.
@@ -40,7 +40,7 @@ pnpm install            # installs the whole workspace
 | `pnpm receipt [<id>]`   | Emit a **self-contained `.mjs` proof receipt** for a decision (the real verifier inlined + the bundle + the gate public key). `node ramp-receipt-<id>.mjs` re-verifies it with zero deps. Default: newest deny; pass a requestId or bundle-digest prefix; `-- --out <path>`. |
 | `pnpm redteam`          | **The attacker's playbook, fired at the real hook** — injection, forged signature, spoofed domain, replay, amount/currency tampering, homoglyph, malformed money, quarantine coercion. Every attack must be blocked; exits non-zero on any breach (a CI gate). `-- --json` for the scorecard. |
 | `pnpm approve`          | **The HUMAN channel** — `--as <approver>` SIGNS the approval; identity is proven, not typed. Never an MCP tool. |
-| `pnpm notary`           | Mint a demo attestation (`--spoof` / `--stale` for the deny beats). |
+| `pnpm notary`           | Mint a demo attestation (`--spoof` / `--stale` for the deny beats; `-- --amount <n> --category <c>` for a fresh custom one — prints `{ invoiceDocument, attestation }` for ad-hoc `pay_vendor` calls). |
 | `pnpm sdk-example`      | Runnable ~15-line agent built on the `@ramp/client` SDK — the honest happy path end to end. |
 | `pnpm dev`              | Start the dashboard shell (Vite dev server).                       |
 | `pnpm bridge`           | Start the **read-only** audit bridge (:8787) the dashboard reads.  |

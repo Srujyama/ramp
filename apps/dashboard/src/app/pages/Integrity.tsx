@@ -31,7 +31,7 @@ export function Integrity(): JSX.Element {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    document.title = "Integrity · Provable Agent Spend";
+    document.title = "Integrity · Warrant";
     const ac = new AbortController();
     fetchChainHead(ac.signal)
       .then(setHead)

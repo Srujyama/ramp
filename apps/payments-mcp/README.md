@@ -1,6 +1,6 @@
 # @ramp/payments-mcp — the enforcing payments MCP server
 
-**Provable Agent Spend** is a secure payment layer for AI agents. This package is
+**Warrant** is a secure payment layer for AI agents. This package is
 its agent-facing surface: a [Model Context Protocol](https://modelcontextprotocol.io)
 server that exposes one tool, **`pay_vendor`** (full MCP name
 **`mcp__payments__pay_vendor`**), over stdio.

@@ -2,7 +2,7 @@
   "name": "@ramp/ledger",
   "version": "0.0.0",
   "private": true,
-  "description": "Provable Agent Spend \u2014 the AUTHORITATIVE fact source. Reads security-critical facts (daily_total_so_far, vendor_verified, caps, approved/cleared categories) from SQLite, never from model narration.",
+  "description": "Warrant \u2014 the AUTHORITATIVE fact source. Reads security-critical facts (daily_total_so_far, vendor_verified, caps, approved/cleared categories) from SQLite, never from model narration.",
   "type": "module",
   "exports": {
     ".": {
@@ -29,6 +29,7 @@
     "bridge": "node dist/src/http-bridge.js"
   },
   "dependencies": {
+    "@ramp/attestation": "workspace:*",
     "@ramp/gate": "workspace:*",
     "@ramp/provenance": "workspace:*",
     "@ramp/shared": "workspace:*"

@@ -45,6 +45,29 @@ export {
   demoQuorumKeyring,
 } from "./notary.js";
 
+// Authenticated caller identity: bind the untrusted `requestingAgent` to a
+// registered per-agent key, so a request cannot impersonate an agent it was not
+// issued a key for. Verified before the id is trusted — see agent-identity.ts.
+export {
+  signAgentRequest,
+  verifyAgentRequest,
+  isAgentSignature,
+  encodeAgentPublicKey,
+  agentPublicKeyFromRegistry,
+  demoAgentKeyId,
+  demoAgentPrivateKey,
+  demoAgentPublicKey,
+  signAgentRequestDemo,
+  AGENT_REQUEST_DOMAIN,
+  AGENT_SIGNATURE_MAX_AGE_MS,
+  AGENT_SIGNATURE_SKEW_MS,
+} from "./agent-identity.js";
+export type {
+  SignableRequest,
+  AgentRequestSignature,
+  AgentAuthResult,
+} from "./agent-identity.js";
+
 // K-of-N threshold attestation: no single notary can authorise a payment.
 export { verifyQuorum, signQuorum } from "./quorum.js";
 export type {

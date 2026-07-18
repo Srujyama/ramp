@@ -20,7 +20,7 @@ export function AgentDetail(): JSX.Element {
   const win = useDecisionsWindow();
 
   useEffect(() => {
-    document.title = `${agentLabel(agentId)} · Provable Agent Spend`;
+    document.title = `${agentLabel(agentId)} · Warrant`;
   }, [agentId]);
 
   const agentDecisions = useMemo(

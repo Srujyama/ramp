@@ -14,13 +14,19 @@
 -- agent_47 is the hero. agent_12 is REGISTERED but has spent nothing today — it
 -- exists so tests can cover "an authoritative zero" separately from "I don't know
 -- who this is" (which now throws UnknownAgentError instead of reading as zero).
-INSERT INTO agents (agent_id, display_name) VALUES
-  ('agent_47', 'Procurement Agent 47'),
-  ('agent_12', 'Ops Agent 12'),
+INSERT INTO agents (agent_id, display_name, pubkey) VALUES
+  ('agent_47', 'Procurement Agent 47', NULL),
+  ('agent_12', 'Ops Agent 12', NULL),
   -- A busy automation agent: already at the velocity limit this hour, so its next
   -- payment escalates on rate even though every amount is tiny and within cap.
-  ('agent_burst', 'Batch Agent'),
-  ('agent_dup', 'Duplicate-prone Agent');
+  ('agent_burst', 'Batch Agent', NULL),
+  ('agent_dup', 'Duplicate-prone Agent', NULL),
+  -- KEY-ISSUED agent (authenticated identity — @ramp/attestation agent-identity).
+  -- Its PUBLIC key is registered here, so the gate REFUSES any request naming
+  -- agent_secure that is not signed by the matching private key: no other caller
+  -- can impersonate it. agent_47 above stays legacy (no key) on purpose, so every
+  -- existing beat/test keeps working — issuing a key is what turns auth ON.
+  ('agent_secure', 'Secure Procurement Agent', 'MCowBQYDK2VwAyEAcWFb7KbsmkeLEWBrunE9C9BKV7Vrx0rvahtUeKInprQ=');
 
 -- Vendor registry: one verified vendor + two unverified (for the spoof/deny beats).
 INSERT INTO vendors (vendor_id, display_name, verified, registry_domain, registry_verified_at, registry_method, risk_tier) VALUES
@@ -57,7 +63,10 @@ INSERT INTO agent_category_clearances (agent_id, category_id) VALUES
   ('agent_12', 'travel'),
   ('agent_12', 'subscriptions'),
   ('agent_burst', 'automation'),
-  ('agent_dup', 'subscriptions');
+  ('agent_dup', 'subscriptions'),
+  -- agent_secure is cleared for office_supplies, so a SIGNED request to a verified
+  -- vendor under the caps produces a clean ALLOW once identity is authenticated.
+  ('agent_secure', 'office_supplies');
 
 -- Prior spend today for agent_47 totalling 1140 (600 + 540) so 340 more still allows.
 INSERT INTO ledger_entries (agent_id, vendor_id, category_id, amount, currency, request_id, ts) VALUES

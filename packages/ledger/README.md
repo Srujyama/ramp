@@ -1,6 +1,6 @@
 # @ramp/ledger
 
-The **authoritative fact source** and **audit trail** for Provable Agent Spend.
+The **authoritative fact source** and **audit trail** for Warrant.
 Reads security-critical facts from SQLite (never from model narration) and
 persists every policy decision with a tamper-evident proof and independently
 derived provenance.

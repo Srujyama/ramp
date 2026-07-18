@@ -1,6 +1,6 @@
 # LAUNCH — run it, then demo it
 
-**Provable Agent Spend** — make every AI-agent payment decision *provable*, not trusted.
+**Warrant** — make every AI-agent payment decision *provable*, not trusted.
 One line: **"Everyone else scopes the card. We prove the decision."** The pitch itself
 lives in [`PITCH.md`](./PITCH.md); this file is the operator's guide — how to get the whole
 system running, walk the live demo, and drive a *real* gated payment from a coding agent.

@@ -2,7 +2,7 @@
   "name": "@ramp/attestation",
   "version": "0.0.0",
   "private": true,
-  "description": "Provable Agent Spend — TLSNotary-style invoice attestation. Ed25519-signed statements binding invoice bytes to a vendor's TLS session, verified out of band. NOT the TLSNotary MPC protocol — see README.",
+  "description": "Warrant — TLSNotary-style invoice attestation. Ed25519-signed statements binding invoice bytes to a vendor's TLS session, verified out of band. NOT the TLSNotary MPC protocol — see README.",
   "type": "module",
   "exports": {
     ".": {

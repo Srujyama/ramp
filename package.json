@@ -2,7 +2,7 @@
   "name": "ramp",
   "version": "0.0.0",
   "private": true,
-  "description": "Provable Agent Spend \u2014 a deterministic Datalog policy gate for agent payments.",
+  "description": "Warrant \u2014 a deterministic Datalog policy gate for agent payments.",
   "type": "module",
   "packageManager": "pnpm@11.13.0+sha512.88d94724d8f2e6c186744a5584c6e59ecac869ec7ba15e9cb4cd628e8dc7066820b2481d8ee3b51ea8da323a7378068aa58c556a3720d32b7c20a051d088363a",
   "engines": {
@@ -24,6 +24,7 @@
     "build:wasm": "pnpm --filter @ramp/gate build:wasm",
     "clean": "pnpm -r exec rm -rf dist dist-test",
     "demo": "node scripts/demo.mjs",
+    "demo:deploy": "node scripts/demo-deploy.mjs",
     "notary": "node scripts/notary.mjs",
     "notary-server": "node scripts/notary-server.mjs",
     "proof": "node scripts/audit.mjs",
@@ -35,7 +36,8 @@
     "policy-diff": "node scripts/policy-diff.mjs",
     "receipt": "node scripts/receipt.mjs",
     "redteam": "node scripts/redteam.mjs",
-    "sdk-example": "node scripts/sdk-example.mjs"
+    "sdk-example": "node scripts/sdk-example.mjs",
+    "buy": "node scripts/buy.mjs"
   },
   "dependencies": {
     "@ramp/gate": "workspace:*",

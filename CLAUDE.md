@@ -1,10 +1,10 @@
-# ramp/ — Provable Agent Spend (Claude Code project notes)
+# ramp/ — Warrant (Claude Code project notes)
 
 Auto-loaded every session in this repo. Read this before doing pitch or backbone work.
 
 ## What this project is
 
-**Provable Agent Spend** — make every AI-agent payment decision *provable*, not trusted. A
+**Warrant** — make every AI-agent payment decision *provable*, not trusted. A
 deterministic Datalog policy kernel sits in the execution path as a **non-bypassable `PreToolUse`
 hook**, fed only by **authoritative, cryptographically-attested inputs**. One-liner:
 **"Everyone else scopes the card. We prove the decision."** Full pitch: **[`PITCH.md`](./PITCH.md)**.

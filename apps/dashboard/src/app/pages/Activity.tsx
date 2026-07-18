@@ -99,7 +99,7 @@ export function Activity(): JSX.Element {
   const [liveCount, setLiveCount] = useState(0);
 
   useEffect(() => {
-    document.title = "Activity · Provable Agent Spend";
+    document.title = "Activity · Warrant";
   }, []);
 
   // Live tail: prepend new decisions (that match the active filters) as the gate

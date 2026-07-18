@@ -2,7 +2,7 @@
   "name": "@ramp/gate",
   "version": "0.0.0",
   "private": true,
-  "description": "Provable Agent Spend \u2014 the deterministic policy kernel (TS reference oracle + optional Souffle/WASM impl behind one PolicyKernel interface).",
+  "description": "Warrant \u2014 the deterministic policy kernel (TS reference oracle + optional Souffle/WASM impl behind one PolicyKernel interface).",
   "type": "module",
   "exports": {
     ".": {

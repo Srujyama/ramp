@@ -2,7 +2,7 @@
   "name": "@ramp/shared",
   "version": "0.0.0",
   "private": true,
-  "description": "Provable Agent Spend — the shared contract (Facts, Decision, PolicyKernel, SpendRequest, fact translation). Zero runtime deps; imported by every other workspace.",
+  "description": "Warrant — the shared contract (Facts, Decision, PolicyKernel, SpendRequest, fact translation). Zero runtime deps; imported by every other workspace.",
   "type": "module",
   "exports": {
     ".": {
