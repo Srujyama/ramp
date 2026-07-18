@@ -85,7 +85,7 @@ export function PolicyWhatIf({ decisions, currency }: { decisions: Replayable[];
         <div>
           <CardTitle>Policy what-if</CardTitle>
           <CardDescription>
-            Replay {t.n.toLocaleString()} recorded decisions under different dials — deterministic, in your browser, nothing
+            Replay {t.n.toLocaleString()} recorded decisions under different dials. Deterministic, in your browser, nothing
             changes. Retune for real on Admin.
           </CardDescription>
         </div>
@@ -163,7 +163,7 @@ function OutcomeRow({ label, tone, before, after }: { label: string; tone: strin
       <ArrowRight className="size-3.5 text-ink-faint" />
       <span className="tabular w-12 text-right font-semibold text-ink">{after.toLocaleString()}</span>
       <span className={`tabular w-12 text-right text-[12px] ${delta === 0 ? "text-ink-faint" : delta > 0 ? "text-lime-ink" : "text-flag-ink"}`}>
-        {delta === 0 ? "—" : delta > 0 ? `+${delta}` : delta}
+        {delta === 0 ? "0" : delta > 0 ? `+${delta}` : delta}
       </span>
     </div>
   );

@@ -177,7 +177,7 @@ export function Live(): JSX.Element {
         if (!cancelled) {
           setCpError(
             e instanceof ControlPlaneError && e.kind === "unavailable"
-              ? `Control plane offline — start it with \`pnpm control-plane\` (${CONTROL_PLANE_URL}).`
+              ? `Control plane offline. Start it with \`pnpm control-plane\` (${CONTROL_PLANE_URL}).`
               : (e as Error).message,
           );
           setStreaming(false);
@@ -204,7 +204,7 @@ export function Live(): JSX.Element {
             <LiveBadge live={win.live} />
           </div>
           <p className="mt-0.5 text-[13.5px] text-ink-muted">
-            Every decision the gate makes, the instant it makes it — streamed off the read-only bridge. Newest on top.
+            Every decision the gate makes, the instant it makes it, streamed off the read-only bridge. Newest on top.
           </p>
         </div>
         <div className="flex items-center gap-2.5">
@@ -266,7 +266,7 @@ export function Live(): JSX.Element {
             <p className="text-[14px] font-medium text-ink">Waiting for the next decision…</p>
             <p className="max-w-sm text-[13px] text-ink-muted">
               Hit <span className="font-medium text-ink">Generate live traffic</span> to fire real gated transactions, or
-              trigger one from the Simulate tab — either way you'll watch it land here the instant the kernel decides.
+              trigger one from the Simulate tab. Either way you'll watch it land here the instant the kernel decides.
             </p>
           </div>
         ) : (
@@ -288,7 +288,7 @@ function LiveBadge({ live }: { live: boolean }): JSX.Element {
         "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide",
         live ? "bg-lime-soft text-lime-ink" : "bg-surface-sunken text-ink-faint",
       )}
-      title={live ? "Connected to the live SSE decision stream." : "Not streaming — falling back to polling."}
+      title={live ? "Connected to the live SSE decision stream." : "Not streaming, falling back to polling."}
     >
       <span className={cn("size-1.5 rounded-full", live ? "bg-chart-allow live-dot" : "bg-ink-faint")} />
       {live ? "Live" : "Polling"}

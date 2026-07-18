@@ -34,7 +34,7 @@ export function Explain({ facts, decision }: { facts: Facts | null; decision: De
     <Card>
       <CardHeader>
         <div>
-          <CardTitle>{stopped ? "Why it was stopped — and what would clear it" : "How close it came to being stopped"}</CardTitle>
+          <CardTitle>{stopped ? "Why it was stopped, and what would clear it" : "How close it came to being stopped"}</CardTitle>
           <CardDescription>The real kernel, probed in your browser. Not asked of any server.</CardDescription>
         </div>
         <HelpCircle className="size-4 shrink-0 text-ink-faint" />
@@ -54,13 +54,13 @@ export function Explain({ facts, decision }: { facts: Facts | null; decision: De
           {ex.outcome === "deny" && cf.maxNonDenyAmount !== null ? (
             <Line icon={<UserCheck className="size-4" />} tone="warn">
               A human could approve it at{" "}
-              <span className="tabular font-semibold text-ink">&le; {money(cf.maxNonDenyAmount)}</span> — below that it's
+              <span className="tabular font-semibold text-ink">&le; {money(cf.maxNonDenyAmount)}</span>. Below that it's
               held, not denied.
             </Line>
           ) : null}
           {cf.categoricalBlockers.length > 0 ? (
             <Line icon={<Ban className="size-4" />} tone="bad">
-              No amount clears it — categorical{" "}
+              No amount clears it. Categorical{" "}
               {cf.categoricalBlockers.map((r, i) => (
                 <span key={r}>
                   {i > 0 ? ", " : ""}
@@ -73,7 +73,7 @@ export function Explain({ facts, decision }: { facts: Facts | null; decision: De
           {ex.nearestStop ? (
             <Line icon={<Gauge className="size-4" />} tone="warn">
               Safety margin{" "}
-              <span className="tabular font-semibold text-ink">{money(ex.nearestStop.margin)}</span> — the next{" "}
+              <span className="tabular font-semibold text-ink">{money(ex.nearestStop.margin)}</span>. The next{" "}
               <span className="tabular font-semibold text-ink">{money(ex.nearestStop.amount)}</span> would be{" "}
               <span className="font-medium">{ex.nearestStop.outcome === "deny" ? "denied" : "held"}</span> (
               <code className="font-mono text-[11px]">{ex.nearestStop.rule}</code>).

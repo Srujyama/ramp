@@ -16,13 +16,13 @@ const META: Record<AttestationStatus, { label: string; tone: "accent" | "warn" |
     label: "Present · unverified",
     tone: "warn",
     icon: <ShieldQuestion className="size-5" />,
-    blurb: "An attestation accompanied the request but was not verified — a signature that isn't checked proves nothing.",
+    blurb: "An attestation accompanied the request but was not verified. A signature that isn't checked proves nothing.",
   },
   verification_failed: {
     label: "Verification failed",
     tone: "deny",
     icon: <ShieldX className="size-5" />,
-    blurb: "An attestation was present but failed verification — a forged signature, or a real signature that binds to a different statement (the spoof).",
+    blurb: "An attestation was present but failed verification: a forged signature, or a real signature that binds to a different statement (the spoof).",
   },
   absent: {
     label: "Absent",
@@ -50,7 +50,7 @@ export function Attestation({ v }: { v: DecisionView }): JSX.Element {
       <CardHeader>
         <div>
           <CardTitle>Attestation</CardTitle>
-          <CardDescription>The cryptographic root of trust — a signed statement bound to the vendor.</CardDescription>
+          <CardDescription>The cryptographic root of trust: a signed statement bound to the vendor.</CardDescription>
         </div>
         <span className={"text-" + (m.tone === "accent" ? "lime" : m.tone === "warn" ? "amber" : m.tone === "deny" ? "flag" : "ink-faint")}>
           {m.icon}
@@ -68,6 +68,11 @@ export function Attestation({ v }: { v: DecisionView }): JSX.Element {
 
         <p className="text-[13px] leading-relaxed text-ink-muted">{m.blurb}</p>
 
+        <p className="text-[12.5px] leading-relaxed text-ink-faint">
+          Notarization means a trusted, independent notary cryptographically signs a statement about the invoice, so the
+          gate can trust where a document came from instead of taking the agent's word for it.
+        </p>
+
         <div className="flex flex-col gap-1.5 border-t border-line pt-3 text-[12.5px]">
           <div className="flex items-center justify-between gap-3">
             <span className="text-ink-faint">Must bind to</span>
@@ -77,7 +82,7 @@ export function Attestation({ v }: { v: DecisionView }): JSX.Element {
             </span>
           </div>
           <p className="text-[12px] text-ink-faint">
-            A real signature over a <span className="font-medium text-ink-muted">lookalike</span> domain fails here — the
+            A real signature over a <span className="font-medium text-ink-muted">lookalike</span> domain fails here. The
             binding is checked, not just the signature.
           </p>
         </div>
@@ -85,7 +90,7 @@ export function Attestation({ v }: { v: DecisionView }): JSX.Element {
         <div className="flex items-start gap-2 rounded-[10px] bg-surface-sunken px-3 py-2.5 text-[12px] text-ink-muted">
           <Users className="mt-0.5 size-4 shrink-0 text-ink-faint" />
           <span>
-            High-value payments can require a <span className="font-medium text-ink">K-of-N notary quorum</span> — at least
+            High-value payments can require a <span className="font-medium text-ink">K-of-N notary quorum</span>: at least
             K of N independently trusted notaries signing the same statement, so no single compromised notary can wave a
             payment through.
           </span>

@@ -61,7 +61,7 @@ export function formatRelative(ts: string, now: Date): string {
 export const RULE_META: Record<RuleId, { title: string; blurb: string }> = {
   "allow/all_conditions_met": {
     title: "All conditions met",
-    blurb: "Every policy condition held — an allow backed by a verifiable proof.",
+    blurb: "Every policy condition held. This allow is backed by a verifiable proof.",
   },
   "deny/vendor_not_verified": {
     title: "Vendor not verified",
@@ -92,26 +92,26 @@ export const RULE_META: Record<RuleId, { title: string; blurb: string }> = {
   "deny/budget_exceeded": {
     title: "Budget exceeded",
     blurb:
-      "This spend would break a category, vendor, or period budget — separate from " +
+      "This spend would break a category, vendor, or period budget, separate from " +
       "the agent's daily limit. The reason names which budget and by how much.",
   },
   "escalate/over_escalation_threshold": {
     title: "Needs human approval",
     blurb:
       "Within every hard cap, but above the amount the org wants a person to see. " +
-      "Held — not denied, and not paid.",
+      "Held, not denied, and not paid.",
   },
   "escalate/velocity_exceeded": {
     title: "Too many, too fast",
     blurb:
       "The agent has hit its payment-rate limit for the window. A burst isn't " +
-      "necessarily fraud — a batch run bursts too — so it's held for a human, not refused.",
+      "necessarily fraud (a batch run bursts too), so it's held for a human, not refused.",
   },
   "escalate/possible_duplicate": {
     title: "Possible duplicate",
     blurb:
       "A settled payment already matches this vendor, amount, and category. Held so " +
-      "a human can confirm it isn't a double-payment — legitimate repeats do happen.",
+      "a human can confirm it isn't a double-payment. Legitimate repeats do happen.",
   },
   "escalate/elevated_risk_vendor": {
     title: "Elevated-risk vendor",
@@ -123,7 +123,7 @@ export const RULE_META: Record<RuleId, { title: string; blurb: string }> = {
     title: "Malformed facts",
     blurb:
       "A numeric fact wasn't a finite, non-negative integer, so the request was " +
-      "refused without being evaluated. Infrastructure, not policy — you should " +
+      "refused without being evaluated. Infrastructure, not policy, so you should " +
       "never see this from a well-formed request.",
   },
 };
@@ -147,10 +147,10 @@ export interface StatusChip {
 /** The policy outcome chip (allow / deny / error). */
 export function outcomeChip(v: DecisionView): StatusChip {
   if (v.status === "error") {
-    return { label: "Error", tone: "warn", title: "An infrastructure/validation error was recorded — not a policy decision." };
+    return { label: "Error", tone: "warn", title: "An infrastructure/validation error was recorded, not a policy decision." };
   }
   if (v.outcome === "allow") {
-    return { label: "Allowed", tone: "accent", title: "Policy allowed this spend — every condition held." };
+    return { label: "Allowed", tone: "accent", title: "Policy allowed this spend. Every condition held." };
   }
   // Escalate is NOT a deny, and showing it as one would be a lie a human acts on:
   // "Denied" says the matter is closed, when in fact a person still owes an
@@ -160,7 +160,7 @@ export function outcomeChip(v: DecisionView): StatusChip {
       label: "Needs approval",
       tone: "warn",
       title:
-        "Policy could not settle this: a human must approve it. The payment is HELD — " +
+        "Policy could not settle this: a human must approve it. The payment is HELD, " +
         "not denied, and not paid.",
     };
   }
@@ -171,9 +171,9 @@ export function outcomeChip(v: DecisionView): StatusChip {
 export function verificationChip(reason: ProofVerificationReason): StatusChip {
   switch (reason) {
     case "ok":
-      return { label: "Proof valid", tone: "accent", title: "The stored proof was independently recomputed and matches the recorded decision — the record is untampered." };
+      return { label: "Proof valid", tone: "accent", title: "The stored proof was independently recomputed and matches the recorded decision, so the record is untampered." };
     case "mismatch":
-      return { label: "Tampered", tone: "deny", title: "The proof recomputes to a different id — the record was altered." };
+      return { label: "Tampered", tone: "deny", title: "The proof recomputes to a different id, so the record was altered." };
     case "corrupt":
       return { label: "Corrupt", tone: "deny", title: "The stored proof is malformed and could not be verified." };
     case "absent":
@@ -190,20 +190,20 @@ export function verificationChip(reason: ProofVerificationReason): StatusChip {
 export function paymentChip(v: DecisionView): StatusChip {
   if (v.execution) {
     if (v.execution.status === "settled") {
-      return { label: "Settled (sandbox)", tone: "accent", title: `Sandbox payment settled (${v.execution.provider}) — receipt ${v.execution.receiptId}. No real money moves.` };
+      return { label: "Settled (sandbox)", tone: "accent", title: `Sandbox payment settled (${v.execution.provider}), receipt ${v.execution.receiptId}. No real money moves.` };
     }
     return { label: "Payment failed", tone: "deny", title: `The sandbox executor returned a failed receipt (${v.execution.provider}). No settlement occurred.` };
   }
   if (v.outcome === "deny") {
-    return { label: "Blocked", tone: "neutral", title: "Denied by policy — the executor was never called, so no payment was attempted." };
+    return { label: "Blocked", tone: "neutral", title: "Denied by policy, so the executor was never called and no payment was attempted." };
   }
   if (v.outcome === "escalate") {
-    return { label: "Held", tone: "warn", title: "Policy could not settle this — the payment is held pending human approval, not executed." };
+    return { label: "Held", tone: "warn", title: "Policy could not settle this, so the payment is held pending human approval, not executed." };
   }
   if (v.outcome === "allow") {
     return { label: "Not executed", tone: "neutral", title: "Allowed by policy, but no sandbox execution was recorded for this row (e.g. a gate-only policy check)." };
   }
-  return { label: "—", tone: "neutral", title: "No payment applies to this row." };
+  return { label: "N/A", tone: "neutral", title: "No payment applies to this row." };
 }
 
 // --- deterministic human-readable explanations -------------------------------
@@ -232,7 +232,7 @@ const RULE_PHRASE: Record<RuleId, string> = {
     "it is within the caps but large enough that a person should approve it",
   "escalate/elevated_risk_vendor": "the vendor is verified but was onboarded recently",
   "escalate/velocity_exceeded": "the agent has made too many payments too quickly",
-  "escalate/possible_duplicate": "a matching payment already settled recently — a possible double-payment",
+  "escalate/possible_duplicate": "a matching payment already settled recently, a possible double-payment",
 };
 
 /** Oxford-comma join: [] → "", [a] → "a", [a,b] → "a and b", [a,b,c] → "a, b, and c". */
@@ -309,7 +309,7 @@ export function explainDecision(v: DecisionView): string {
     if (v.execution?.status === "failed") {
       return "Policy allowed the purchase, but the payment executor failed. No settlement occurred.";
     }
-    return "Allowed by policy — every condition held. No sandbox payment was executed for this record.";
+    return "Allowed by policy. Every condition held. No sandbox payment was executed for this record.";
   }
   // Fallback: no outcome and not covered above — should not occur for real rows.
   return "No policy decision was recorded for this request.";
@@ -324,7 +324,7 @@ export function explainSimulation(
   firedRules: RuleId[],
 ): string {
   if (outcome === "allow") {
-    return "Allowed — every policy condition held: the vendor is verified, the category is approved and the agent is cleared, and the amount is within the per-transaction cap and daily limit.";
+    return "Allowed. Every policy condition held: the vendor is verified, the category is approved and the agent is cleared, and the amount is within the per-transaction cap and daily limit.";
   }
   if (outcome === "escalate") {
     return `Would be held for human approval because ${escalateReasonClause(firedRules)}. No payment would be executed.`;
