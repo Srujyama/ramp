@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../..
 import { BridgeErrorState, StateCard } from "../../components/ui/state-card.js";
 import { Skeleton } from "../../components/ui/skeleton.js";
 import { Progress } from "../../components/ui/progress.js";
+import { PolicyWhatIf } from "../../components/PolicyWhatIf.js";
+import type { DecisionOutcome } from "../../lib/types.js";
 
 // --- org policy overview (derived from recorded facts, never hand-entered) --
 
@@ -209,8 +211,14 @@ export function Policy(): JSX.Element {
       ) : (
         (() => {
           const p = derivePolicy(win.data.decisions);
+          const replayable = win.data.decisions
+            .filter((d): d is DecisionView & { facts: Facts; outcome: DecisionOutcome } => d.facts !== null && d.outcome !== null && d.status !== "error")
+            .map((d) => ({ facts: d.facts, outcome: d.outcome, amount: d.facts.amount }));
           return p ? (
-            <PolicyOverview p={p} />
+            <>
+              <PolicyOverview p={p} />
+              {replayable.length > 0 ? <PolicyWhatIf decisions={replayable} currency={p.currency} /> : null}
+            </>
           ) : (
             <StateCard icon="shield" title="No policy facts yet">
               Policy limits and clearances appear here once decisions with authoritative facts are recorded.
