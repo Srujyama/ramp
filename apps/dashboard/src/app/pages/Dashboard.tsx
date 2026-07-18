@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/button.js";
 import { Skeleton } from "../../components/ui/skeleton.js";
 import { AgentCard } from "../../components/AgentCard.js";
 import { CreateAgentModal } from "../../components/CreateAgentModal.js";
+import HeroStatsWidget from "../../components/widgets/HeroStatsWidget.js";
 import SpendOverviewWidget from "../../components/widgets/SpendOverviewWidget.js";
 import TrustSummaryWidget from "../../components/widgets/TrustSummaryWidget.js";
 import RecentActivityWidget from "../../components/widgets/RecentActivityWidget.js";
@@ -90,6 +91,7 @@ export function Dashboard(): JSX.Element {
         <BridgeErrorState error={win.error} onRetry={win.reload} />
       ) : (
         <>
+          <HeroStatsWidget decisions={win.data.decisions} />
           <SpendOverviewWidget decisions={win.data.decisions} />
           <AgentFleet decisions={win.data.decisions} />
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

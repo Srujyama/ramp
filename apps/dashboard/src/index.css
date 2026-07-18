@@ -16,17 +16,20 @@
  */
 
 :root {
-  /* ---- neutrals ---- */
-  --canvas: #eef0f3;
+  /* ---- neutrals ----
+   * Warm paper-grays, not cool blue-grays. The warm off-white canvas + hairline
+   * separation (not shadows) is the single strongest "Ramp" signature: cards rest
+   * on a 1px warm hairline, never float on elevation. Ink is obsidian, not #000. */
+  --canvas: #faf9f7;
   --surface: #ffffff;
-  --surface-sunken: #f5f6f9;
-  --surface-hover: #ebedf2;
-  --field: #f2f3f7;
-  --ink: #14161a;
-  --ink-muted: #5b616d;
-  --ink-faint: #8b92a0;
-  --line: #e7e9ef;
-  --line-strong: #d7dae3;
+  --surface-sunken: #f4f2f0;
+  --surface-hover: #efedea;
+  --field: #f1efec;
+  --ink: #1a1919;
+  --ink-muted: #57534e;
+  --ink-faint: #8b857d;
+  --line: #e7e4e0;
+  --line-strong: #d6d1cb;
 
   /* ---- accents ---- */
   --lime: #7fb239;
@@ -91,9 +94,11 @@
   --badge-info: #33459e;
   --badge-neutral: #495057;
 
-  /* ---- elevation ---- */
-  --shadow-card:
-    0 1px 2px rgba(20, 22, 26, 0.04), 0 10px 24px -12px rgba(20, 22, 26, 0.1);
+  /* ---- elevation ----
+   * Near-flat by design: cards are separated by the 1px warm hairline (--line),
+   * not by a drop shadow. Heavy elevation instantly breaks the Ramp feel. Only
+   * true overlays (popovers, modals) lift. */
+  --shadow-card: 0 1px 1.5px rgba(26, 25, 25, 0.03);
   --shadow-popover:
     0 4px 10px -2px rgba(20, 22, 26, 0.08),
     0 16px 32px -12px rgba(20, 22, 26, 0.18);
@@ -235,6 +240,13 @@
   --text-display--letter-spacing: -0.015em;
   --text-display--font-weight: 600;
 
+  /* KPI / stat-tile number — the one place weight (600), not size, adds emphasis
+   * in a dense grid. Always tabular. */
+  --text-metric: 1.75rem;
+  --text-metric--line-height: 1.14;
+  --text-metric--letter-spacing: -0.01em;
+  --text-metric--font-weight: 600;
+
   --animate-in: enter 0.16s cubic-bezier(0.23, 1, 0.32, 1);
 
   @keyframes enter {
@@ -289,8 +301,10 @@
     line-height: 1.6;
   }
 
+  /* Tabular lining figures — money and counts must align digit-for-digit down a
+   * column. Non-negotiable for the finance feel; applied to every numeric value. */
   .tabular {
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums lining-nums;
   }
 }
 

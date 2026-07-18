@@ -32,7 +32,7 @@ function fold(slices: readonly DonutSlice[], cap: number): DonutSlice[] {
 
 export function Donut({
   slices,
-  size = 132,
+  size = 200,
   currency = "USD",
 }: {
   slices: readonly DonutSlice[];
@@ -51,7 +51,7 @@ export function Donut({
     );
   }
 
-  const stroke = size * 0.22;
+  const stroke = size * 0.17;
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
   const gapDeg = folded.length > 1 ? 2 : 0; // 2px-equivalent visual gap between segments
@@ -75,7 +75,7 @@ export function Donut({
   const active = hover !== null ? segments[hover] : null;
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-5">
       <div className="relative shrink-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-surface-sunken" />
@@ -101,23 +101,23 @@ export function Donut({
           ))}
         </svg>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <div className="tabular text-[15px] font-semibold text-ink">
+          <div className="tabular text-[22px] font-semibold tracking-tight text-ink">
             {formatMoney(active ? active.value : total, currency)}
           </div>
-          <div className="text-[11px] text-ink-faint">{active ? active.label : "Total"}</div>
+          <div className="text-[12px] text-ink-faint">{active ? active.label : "Total"}</div>
         </div>
       </div>
-      <ul className="flex min-w-0 flex-1 flex-col gap-2">
+      <ul className="flex min-w-0 flex-1 flex-col gap-2.5">
         {segments.map((s, i) => (
           <li
             key={s.key}
-            className="flex min-w-0 cursor-pointer flex-col gap-0.5 text-[12.5px]"
+            className="flex min-w-0 cursor-pointer flex-col gap-0.5 text-[13px]"
             onMouseEnter={() => setHover(i)}
             onMouseLeave={() => setHover((h) => (h === i ? null : h))}
           >
             <span className="flex min-w-0 items-center gap-1.5">
               <span
-                className="size-2.5 shrink-0 rounded-full"
+                className="size-3 shrink-0 rounded-full"
                 style={{ backgroundColor: `light-dark(${s.colorLight}, ${s.colorDark})` }}
                 aria-hidden="true"
               />

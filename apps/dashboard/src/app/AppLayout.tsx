@@ -167,11 +167,11 @@ function Sidebar({ collapsed, toggle }: { collapsed: boolean; toggle: () => void
               cn(
                 "flex items-center gap-2.5 rounded-[--radius-md] px-3 py-2 text-[13.5px] font-medium transition-colors",
                 collapsed && "justify-center px-0",
-                isActive ? "bg-lime-soft text-lime-ink" : "text-ink-muted hover:bg-surface-hover hover:text-ink",
+                isActive ? "bg-surface-sunken text-ink font-semibold [&_svg]:text-lime" : "text-ink-muted hover:bg-surface-hover hover:text-ink",
               )
             }
           >
-            <item.icon className="size-[17px] shrink-0" strokeWidth={2} />
+            <item.icon className="size-[17px] shrink-0" strokeWidth={1.75} />
             <span className={cn(collapsed && "sr-only")}>{item.label}</span>
           </NavLink>
         ))}
@@ -209,11 +209,11 @@ function MobileNav(): JSX.Element {
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-2.5 rounded-[--radius-md] px-3 py-2.5 text-[14px] font-medium transition-colors",
-                  isActive ? "bg-lime-soft text-lime-ink" : "text-ink-muted hover:bg-surface-hover hover:text-ink",
+                  isActive ? "bg-surface-sunken text-ink font-semibold [&_svg]:text-lime" : "text-ink-muted hover:bg-surface-hover hover:text-ink",
                 )
               }
             >
-              <item.icon className="size-[18px]" strokeWidth={2} />
+              <item.icon className="size-[18px]" strokeWidth={1.75} />
               {item.label}
             </NavLink>
           ))}
