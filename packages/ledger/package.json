@@ -29,6 +29,7 @@
     "bridge": "node dist/src/http-bridge.js"
   },
   "dependencies": {
+    "@ramp/attestation": "workspace:*",
     "@ramp/gate": "workspace:*",
     "@ramp/provenance": "workspace:*",
     "@ramp/shared": "workspace:*"
