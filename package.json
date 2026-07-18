@@ -25,6 +25,7 @@
     "clean": "pnpm -r exec rm -rf dist dist-test",
     "demo": "node scripts/demo.mjs",
     "notary": "node scripts/notary.mjs",
+    "notary-server": "node scripts/notary-server.mjs",
     "proof": "node scripts/audit.mjs",
     "approve": "node scripts/approve.mjs",
     "head": "node scripts/head.mjs",

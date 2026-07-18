@@ -1,0 +1,4 @@
+interface:
+  display_name: "Attested Demo Purchase"
+  short_description: "Fetch and verify a demo invoice attestation before payment."
+  default_prompt: "Purchase an item from a demo vendor using a fresh attestation."
