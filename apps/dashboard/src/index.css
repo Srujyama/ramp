@@ -304,3 +304,20 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* --- Live stream feed (app/pages/Live.tsx) ------------------------------------ */
+@keyframes streamRow {
+  from { opacity: 0; transform: translateY(-9px) scale(0.997); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes rowFlash {
+  0%   { background-color: var(--flash, transparent); }
+  100% { background-color: transparent; }
+}
+@keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.stream-row { animation: streamRow 0.42s cubic-bezier(0.2, 0.7, 0.3, 1); }
+.stream-row-fresh { animation: streamRow 0.42s cubic-bezier(0.2, 0.7, 0.3, 1), rowFlash 1.7s ease-out; }
+.live-dot { animation: livePulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .stream-row, .stream-row-fresh, .live-dot { animation: none !important; }
+}

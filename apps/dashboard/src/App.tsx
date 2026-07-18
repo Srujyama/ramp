@@ -4,6 +4,7 @@ import AppLayout from "./app/AppLayout.js";
 import Dashboard from "./app/pages/Dashboard.js";
 import AgentDetail from "./app/pages/AgentDetail.js";
 import Activity from "./app/pages/Activity.js";
+import Live from "./app/pages/Live.js";
 import DecisionDetail from "./app/pages/DecisionDetail.js";
 import Vendors from "./app/pages/Vendors.js";
 import Policy from "./app/pages/Policy.js";
@@ -26,6 +27,7 @@ export function App(): JSX.Element {
       <Route path="/app" element={<AppLayout />}>
         <Route index element={<Dashboard />} />
         <Route path="agents/:agentId" element={<AgentDetail />} />
+        <Route path="live" element={<Live />} />
         <Route path="activity" element={<Activity />} />
         <Route path="activity/:id" element={<DecisionDetail />} />
         <Route path="vendors" element={<Vendors />} />
