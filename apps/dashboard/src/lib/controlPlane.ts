@@ -175,6 +175,39 @@ export function updateDials(patch: DialPatchInput, signal?: AbortSignal): Promis
   return cpFetch<Dials>("/policy", { method: "PATCH", body: JSON.stringify(patch) }, signal);
 }
 
+// --- ledger integrity / tamper-evidence --------------------------------------
+
+export interface ChainHead {
+  readonly head: string;
+  readonly length: number;
+  readonly valid: boolean;
+  readonly defects: number;
+}
+/** A signed head receipt (opaque to the UI beyond its statement). */
+export interface HeadReceipt {
+  readonly statement: { readonly head: string; readonly length: number; readonly at: string };
+  readonly signature: unknown;
+}
+export interface ConsistencyResult {
+  readonly consistent: boolean;
+  readonly code: "ok" | "malformed" | "bad_signature" | "history_rewritten" | "history_truncated";
+  readonly detail: string;
+  readonly grownBy: number;
+}
+
+/** Current chain head + length + internal-consistency verdict. */
+export function fetchChainHead(signal?: AbortSignal): Promise<ChainHead> {
+  return cpFetch<ChainHead>("/chain/head", undefined, signal);
+}
+/** A fresh signed head receipt to publish/download. */
+export function fetchHeadReceipt(signal?: AbortSignal): Promise<HeadReceipt> {
+  return cpFetch<HeadReceipt>("/chain/receipt", undefined, signal);
+}
+/** Prove a previously-published receipt is still a prefix of today's chain. */
+export function verifyReceipt(receipt: unknown, signal?: AbortSignal): Promise<ConsistencyResult> {
+  return cpFetch<ConsistencyResult>("/chain/verify", { method: "POST", body: JSON.stringify(receipt) }, signal);
+}
+
 // --- human approvals (resolve held/escalated decisions) ----------------------
 
 /** A held decision awaiting a human, as served by GET /approvals. */

@@ -9,6 +9,7 @@ import {
   Building2,
   ShieldCheck,
   ShieldAlert,
+  Link2,
   Play,
   SlidersHorizontal,
   Search,
@@ -45,6 +46,7 @@ const NAV = [
   { to: "/app/vendors", label: "Vendors", icon: Building2 },
   { to: "/app/policy", label: "Policy", icon: ShieldCheck },
   { to: "/app/security", label: "Security", icon: ShieldAlert },
+  { to: "/app/integrity", label: "Integrity", icon: Link2 },
   { to: "/app/simulate", label: "Simulate", icon: Play },
   { to: "/app/admin", label: "Admin", icon: SlidersHorizontal },
 ];
