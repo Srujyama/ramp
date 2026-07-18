@@ -69,8 +69,8 @@ export function SpendOverviewWidget({ decisions }: { decisions: readonly Decisio
               className={cn(
                 "rounded-[--radius-sm] border px-2.5 py-1 text-[11.5px] font-semibold transition-colors",
                 category === null
-                  ? "border-ink bg-ink text-white"
-                  : "border-line text-ink-muted hover:border-line-strong hover:text-ink",
+                  ? "border-ink bg-ink text-canvas"
+                  : "border-line-strong bg-surface-sunken text-ink-muted hover:bg-surface-hover hover:text-ink",
               )}
             >
               All
