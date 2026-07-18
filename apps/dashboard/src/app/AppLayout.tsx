@@ -78,7 +78,7 @@ function Logo({ collapsed }: { collapsed: boolean }): JSX.Element {
   return (
     <div className="flex items-center gap-2 px-1">
       <div className="flex size-8 shrink-0 items-center justify-center rounded-[--radius-sm] bg-ink font-display text-[15px] font-bold text-canvas">
-        W
+        💰
       </div>
       <span className={cn("font-display text-[15px] font-semibold tracking-tight text-ink", collapsed && "sr-only")}>
         Warrant

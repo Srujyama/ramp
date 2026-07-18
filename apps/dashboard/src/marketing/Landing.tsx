@@ -29,7 +29,7 @@ function Nav(): JSX.Element {
       <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-6">
         <div className="flex items-center gap-2">
           <div className="flex size-8 items-center justify-center rounded-lg bg-ink font-display text-[15px] font-bold text-white">
-            W
+            💰
           </div>
           <span className="font-display text-[15px] font-semibold tracking-tight text-ink">Warrant</span>
         </div>
