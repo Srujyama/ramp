@@ -44,6 +44,7 @@ import {
   getDecision,
   DecisionConflictError,
 } from "./decision-log.js";
+import { verifyAgentRequest, agentPublicKeyFromRegistry } from "@ramp/attestation";
 import { buildProof, type LedgerProof } from "./proof.js";
 import { policyDigest } from "./policy-digest.js";
 import { buildDecisionProvenance } from "./provenance-builder.js";
@@ -149,6 +150,11 @@ export interface RequestPurchaseInput {
   readonly taskId?: string;
   /** Deterministic proof production time (epoch ms) for tests; defaults to `Date.now()`. */
   readonly producedAt?: number;
+  /**
+   * Clock (epoch ms) for the caller-authentication freshness check; defaults to
+   * `Date.now()`. Injectable so a test can verify a signature made at a fixed time.
+   */
+  readonly now?: number;
 }
 
 /** The structured receipt/denial an agent gets back. Never carries secrets. */
@@ -269,6 +275,43 @@ export async function requestPurchase(
   }
 
   const earlyRequestId = fallbackRequestId(request);
+
+  // 1.5 SECOND-LAYER CALLER AUTHENTICATION (defense in depth).
+  //     The PreToolUse hook is the first gate; this makes the lifecycle
+  //     self-enforcing, so the MCP tool and the SDK deny an impersonator even with
+  //     no hook installed. If the requesting agent has a registered public key, the
+  //     request MUST be signed by the matching private key. Fail-closed: a missing
+  //     or forged signature, or an unusable key, denies BEFORE any fact is trusted.
+  //     Agents with no registered key are legacy (unauthenticated) and skip this.
+  if (typeof factSource.getAgentPublicKey === "function") {
+    let encodedKey: string | null = null;
+    try {
+      encodedKey = factSource.getAgentPublicKey(request.requestingAgent);
+    } catch {
+      encodedKey = null;
+    }
+    if (encodedKey) {
+      let auth: { authenticated: boolean; reason?: string };
+      try {
+        auth = verifyAgentRequest(request, request.agentSignature, {
+          publicKey: agentPublicKeyFromRegistry(encodedKey),
+          now: input.now ?? Date.now(),
+        });
+      } catch {
+        auth = { authenticated: false, reason: "agent registry key unusable" };
+      }
+      if (auth.authenticated !== true) {
+        return makeResult({
+          status: "denied",
+          outcome: "deny",
+          firedRules: ["agent_unauthenticated"],
+          reasons: [`deny/agent_unauthenticated: ${auth.reason ?? "not authenticated"}`],
+          message: `Denied: caller could not prove it is "${request.requestingAgent}".`,
+          requestId: earlyRequestId,
+        });
+      }
+    }
+  }
 
   // 2. Assemble AUTHORITATIVE facts. Any throw → policy_error, no execution.
   let facts: Facts;

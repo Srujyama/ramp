@@ -191,6 +191,15 @@ export interface AuthoritativeFactSource {
   contextFor(
     ctx: AuthoritativeContext,
   ): AuthoritativeFacts | Promise<AuthoritativeFacts>;
+  /**
+   * OPTIONAL: the requesting agent's registered Ed25519 public key (base64 SPKI
+   * DER), or null if the agent has no key issued. When a fact source implements
+   * this, the purchase lifecycle authenticates the caller (a request naming a
+   * key-issued agent must be signed by its private key) — defense in depth with
+   * the hook. Optional so a fact source that predates caller-auth still satisfies
+   * the port; when absent, the lifecycle simply does not perform the check.
+   */
+  getAgentPublicKey?(agentId: string): string | null;
 }
 
 /**

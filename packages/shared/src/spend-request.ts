@@ -51,6 +51,16 @@ export interface SpendRequest {
    * mistake "it type-checked" for "it verified".
    */
   readonly attestation?: unknown;
+  /**
+   * An optional Ed25519 signature proving the caller holds the private key for
+   * `requestingAgent`. Opaque here on purpose (`unknown`): like `attestation`,
+   * arriving here grants it nothing. The gate looks up the agent's REGISTERED
+   * public key and, if the agent has one, refuses the request unless this
+   * signature verifies against it (@ramp/attestation `verifyAgentRequest`).
+   * Agents with no registered key are unauthenticated (legacy). A claim on an
+   * untrusted channel, never a fact.
+   */
+  readonly agentSignature?: unknown;
 }
 
 /**
