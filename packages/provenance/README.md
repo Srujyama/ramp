@@ -2,12 +2,13 @@
 
 > **Proves the decision at enforce time, not just logs it after.**
 
-## Why an audit log isn't a proof
+## Why an audit log alone isn't a proof
 
 An audit log says: *the agent paid Acme $340 at 14:02.* That's a claim, **written by the system,
-about the system**. To believe it you must already trust the thing you're auditing. That's fine for
-SOX — it answers *"what happened?"* — and useless for *"was this decision correct?"*, because a
-compromised or buggy gate writes a beautiful log.
+about the system**. To believe it you must already trust the thing you're auditing. Logs are
+necessary and platforms rightly keep them — they answer *"what happened?"* — but they cannot, by
+construction, answer *"was this authorization decision correct?"*, because a compromised or buggy
+gate writes a beautiful log. Decision **verification** is a different, complementary layer.
 
 A **bundle** is different in kind. It records the decision, the exact **facts** it was computed from,
 and for each fact **where that fact came from** — the table, the column, the query, the bound key; or

@@ -177,7 +177,7 @@ function proofStage(v: DecisionView): TimelineStage {
  * from a gate-only allow that was never executed (`skipped`).
  */
 function paymentStage(v: DecisionView): TimelineStage {
-  const receiptId = v.execution?.receiptId ?? undefined;
+  const settlementId = v.execution?.settlementId ?? undefined;
   if (v.execution) {
     if (v.execution.status === "settled") {
       return {
@@ -185,7 +185,7 @@ function paymentStage(v: DecisionView): TimelineStage {
         title: "Payment executed",
         state: "done",
         detail: "Sandbox payment settled — no real money moves.",
-        meta: receiptId,
+        meta: settlementId,
       };
     }
     return {
@@ -193,7 +193,7 @@ function paymentStage(v: DecisionView): TimelineStage {
       title: "Payment failed",
       state: "failed",
       detail: "Payment executor failed — no settlement.",
-      meta: receiptId,
+      meta: settlementId,
     };
   }
   if (v.outcome === "deny") {

@@ -73,6 +73,26 @@ export type RuleId =
    */
   | "deny/attestation_invalid"
   /**
+   * The requesting agent did not PROVE it is who it claims to be
+   * (`agent_identity_verified` is false).
+   *
+   * `requesting_agent` was always an untrusted string — any caller could put
+   * `"agent_47"` in a request and be judged under agent_47's clearances,
+   * budgets, and daily headroom. This rule closes that: every request must carry
+   * an Ed25519 signature over its identity core, and the gate verifies it
+   * against the public key the LEDGER's agent registry holds for that agent id
+   * (@ramp/attestation's `verifyAgentIdentity`). Missing signature, wrong key,
+   * unregistered agent, and revoked agent all reduce to the same false fact —
+   * and false denies. Impersonation now requires the agent's private key, not
+   * its name.
+   *
+   * Appended after `deny/attestation_invalid` in the evaluation order (its
+   * closest sibling — both are authenticity checks whose verdicts arrive from
+   * outside the kernel), before the budget loop. Order affects only the reason
+   * list, never allow/deny.
+   */
+  | "deny/unauthenticated_agent"
+  /**
    * The amount is within every hard cap but above the org's escalation
    * threshold — large enough that a person should look at it.
    *

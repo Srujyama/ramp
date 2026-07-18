@@ -6,7 +6,7 @@ import { mkView, mkFacts } from "./testfixtures.js";
 // Pin "today" so the derived daily total is testable without a real clock.
 const NOW = new Date("2026-07-15T12:00:00Z");
 const settled = (id: string) => ({
-  receiptId: `r_${id}`,
+  settlementId: `r_${id}`,
   executionId: `e_${id}`,
   status: "settled" as const,
   provider: "sandbox",
@@ -31,21 +31,21 @@ test("groups decisions by agent and tallies outcomes honestly", () => {
   assert.equal(a47.label, "Procurement Agent 47"); // real seed label, not a raw id
 });
 
-test("settledSpend counts only allow decisions with a settled receipt", () => {
+test("settledSpend counts only allow decisions with a settled settlement record", () => {
   const rows = [
     mkView({
       decisionId: "d1",
       agentId: "agent_47",
       outcome: "allow",
       amount: 340,
-      execution: { receiptId: "r1", executionId: "e1", status: "settled", provider: "sandbox", executedAt: "2026-07-15 10:00:00" },
+      execution: { settlementId: "r1", executionId: "e1", status: "settled", provider: "sandbox", executedAt: "2026-07-15 10:00:00" },
     }),
     mkView({
       decisionId: "d2",
       agentId: "agent_47",
       outcome: "allow",
       amount: 900,
-      execution: { receiptId: "r2", executionId: "e2", status: "failed", provider: "sandbox", executedAt: "2026-07-15 10:01:00" },
+      execution: { settlementId: "r2", executionId: "e2", status: "failed", provider: "sandbox", executedAt: "2026-07-15 10:01:00" },
     }),
     mkView({ decisionId: "d3", agentId: "agent_47", outcome: "deny", status: "denied", amount: 1000, execution: null }),
   ];

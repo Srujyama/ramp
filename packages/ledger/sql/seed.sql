@@ -22,6 +22,31 @@ INSERT INTO agents (agent_id, display_name) VALUES
   ('agent_burst', 'Batch Agent'),
   ('agent_dup', 'Duplicate-prone Agent');
 
+-- Agent identity registry: the PUBLIC key each seeded agent signs requests with.
+-- These PEMs are the public halves of keypairs DERIVED from published constants
+-- in @ramp/attestation's `demoAgentKeypair` ("ramp.demo.agent.<id>.v1 — public by
+-- design, worthless by construction") — the same no-committed-credential rule as
+-- the demo notary/gate/approver keys. A test in @ramp/ledger pins that these
+-- literals match that derivation byte-for-byte, so the seed and the signer
+-- cannot drift apart silently. Public keys only; there is nothing secret here.
+INSERT INTO agent_registry (agent_id, public_key_pem, status, registered_at) VALUES
+  ('agent_47', '-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAUp/8GFZuf82NM0c0sROm8/562Geq3tJ3zWidjrnWugY=
+-----END PUBLIC KEY-----
+', 'active', '2026-07-01T00:00:00Z'),
+  ('agent_12', '-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEACnNKNEI6WZRVI9B9J25eEoiGa7iPXIYfZV0k+b63kGU=
+-----END PUBLIC KEY-----
+', 'active', '2026-07-01T00:00:00Z'),
+  ('agent_burst', '-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEATVcPxtMak1Vk1deuPrR0SvJ8f39oSJ0oKFXBGC3go3g=
+-----END PUBLIC KEY-----
+', 'active', '2026-07-01T00:00:00Z'),
+  ('agent_dup', '-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAVBqdu7h3aEpBYR2F+I5NFrQk6kZc7TncKna6E09qkH0=
+-----END PUBLIC KEY-----
+', 'active', '2026-07-01T00:00:00Z');
+
 -- Vendor registry: one verified vendor + two unverified (for the spoof/deny beats).
 INSERT INTO vendors (vendor_id, display_name, verified, registry_domain, registry_verified_at, registry_method, risk_tier) VALUES
   ('acme_corp',    'Acme Corp',    1, 'acme.example.com', '2026-07-01T00:00:00Z', 'tlsnotary', 'trusted'),

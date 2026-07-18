@@ -123,6 +123,19 @@
 .decl attestation_present(r: symbol)
 .input attestation_present
 
+// agent_identity_verified(R): the request's Ed25519 identity signature VERIFIED
+// against the public key the LEDGER's agent_registry holds for the requesting
+// agent (status 'active' only).
+//
+// Same discipline as attestation_present: this is the VERDICT of signature
+// verification (@ramp/attestation's verifyAgentIdentity), established out of
+// band — never a claim off the request. `requesting_agent` stays an untrusted
+// lookup KEY; this relation is what makes the identity it names real. Missing
+// signature, wrong key, unregistered agent, and revoked agent all reduce to the
+// same absent fact. See D8.
+.decl agent_identity_verified(r: symbol)
+.input agent_identity_verified
+
 // ---- Derived predicate: agent uncleared for the request's category ----------
 .decl requesting_agent_uncleared_for_category(r: symbol)
 requesting_agent_uncleared_for_category(R) :-
@@ -145,6 +158,7 @@ allow(R) :-
   daily_total_so_far(Ag, D),
   daily_limit(L), D + A <= L,
   attestation_present(R),
+  agent_identity_verified(R),
   !escalate(R).
 
 // ---- ESCALATE: the rulebook cannot settle this; a human must ----------------
@@ -240,3 +254,15 @@ deny(R) :-
 // default: a missing, malformed, expired, forged, or unbound attestation all reduce
 // to the same absent fact, and absence denies.
 deny(R) :- request(R), !attestation_present(R).
+
+// D8: the requesting agent did not PROVE its identity.
+//
+// `requesting_agent` is an untrusted string on the request; before this rule any
+// caller could type "agent_47" and be judged under agent_47's clearances, budgets,
+// and daily headroom. Now every request must carry a signature over its identity
+// core that verifies against the agent's REGISTERED key (the ledger's
+// agent_registry — the trust decision, written down, exactly like the notary
+// keyring). Same negative shape as D6, and for the same reason: missing signature,
+// wrong key, unregistered agent, and revoked agent all reduce to one absent fact,
+// and absence denies. Impersonation requires the key, not the name.
+deny(R) :- request(R), !agent_identity_verified(R).

@@ -39,13 +39,16 @@ absolute path and the server, the read-only bridge, and the `verify-proof` CLI a
 read/write the same ledger — so a payment made through the tool shows up in the
 bridge and the dashboard. Unset, the server writes `ramp.db` relative to its working
 directory. To demo the executor-failure path, add `RAMP_FAIL_VENDORS=<vendorId>` to
-`env` (the sandbox then returns a failed receipt for those vendors; no real provider,
-no secret).
+`env` (the sandbox then returns a failed settlement record for those vendors; no real
+provider, no secret).
 
 ## Defense in depth: the PreToolUse hook is separate
 
 This repo also ships a Claude Code **`PreToolUse` hook** (`.claude/hooks/evaluate.mjs`,
 wired in `.claude/settings.json`) that matches `mcp__payments__.*` and **independently**
-evaluates the same request, fail-closed, **before** the tool runs. The hook and this
-enforcing tool are **two independent audit layers** — there is no shared native id
-correlating them. Both must agree for a spend to go through; either one can deny.
+evaluates the same request, fail-closed, **before** the tool runs. Both gates also
+independently verify the request's Ed25519 **agent-identity signature** against the
+ledger's agent registry — an unauthenticated or impersonated request is denied on
+either path. The hook and this enforcing tool are **two independent audit layers** —
+there is no shared native id correlating them. Both must agree for a spend to go
+through; either one can deny.

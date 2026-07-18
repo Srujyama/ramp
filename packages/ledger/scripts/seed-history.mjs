@@ -112,6 +112,7 @@ import {
   chainHead,
 } from "../dist/src/index.js";
 import { referenceKernel } from "@ramp/gate";
+import { demoAgentKeypair } from "@ramp/attestation";
 
 /** Days of backfilled history, ending YESTERDAY. Today is handled separately. */
 const DAYS = 90;
@@ -460,6 +461,12 @@ for (const id of ["agent_23", "agent_08"]) {
       `INSERT OR IGNORE INTO agent_category_clearances (agent_id, category_id) VALUES (?, ?)`,
     ).run(id, c);
   }
+  // Register their identity keys too — every seeded agent has one, same as the
+  // base seed's four. Derived from the published demo constants (public halves
+  // only; the ledger never holds a private key).
+  db.prepare(
+    `INSERT OR IGNORE INTO agent_registry (agent_id, public_key_pem, status) VALUES (?, ?, 'active')`,
+  ).run(id, demoAgentKeypair(id).publicKeyPem);
 }
 
 const now = new Date();
@@ -594,6 +601,11 @@ function record(ev, idSuffix, dailyTotals, allowSettles) {
     approved_categories: APPROVED_CATEGORIES,
     agent_cleared_categories: persona.clearances,
     attestation_present: ev.attestationPresent,
+    // History predates unsigned-request traffic being interesting: every backfilled
+    // request is modelled as properly signed by its own agent, so the identity rule
+    // never re-verdicts a historical row. The demo's impersonation beat is where
+    // the FALSE case lives.
+    agent_identity_verified: true,
     escalation_threshold: ESCALATION_THRESHOLD,
     vendor_risk_tier: vendor.tier,
     // Empty ON PURPOSE. Budgets are evaluated per-request from the DB in the real
@@ -666,7 +678,7 @@ function record(ev, idSuffix, dailyTotals, allowSettles) {
 
   recordExecution(db, {
     decisionId,
-    receiptId: `rcpt_h${idSuffix}`,
+    settlementId: `rcpt_h${idSuffix}`,
     executionId: `exec_h${idSuffix}`,
     status,
     provider: "sandbox",
@@ -850,6 +862,7 @@ todayEvents.forEach((ev, i) => {
     approved_categories: APPROVED_CATEGORIES,
     agent_cleared_categories: AGENTS[ev.agentId].clearances,
     attestation_present: ev.attestationPresent,
+    agent_identity_verified: true,
     escalation_threshold: ESCALATION_THRESHOLD,
     vendor_risk_tier: VENDORS[ev.vendorId].tier,
     budgets: [],

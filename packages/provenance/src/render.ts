@@ -31,6 +31,8 @@ export function describeDerivation(d: Derivation): string {
       return `ledger query         ${d.table} :: ${d.query.replace(/\s+/g, " ").trim()} [${d.params.join(", ")}]`;
     case "attestation":
       return `notary attestation   key=${d.notaryKeyId} statement=${d.statementDigest.slice(0, 12)}… verified=${d.verified}`;
+    case "agent_identity":
+      return `agent identity       agent=${d.agentId} scheme=${d.scheme} keyRegistered=${d.keyRegistered} verified=${d.verified}`;
     case "declassified":
       return `declassified         ${d.declassifier} -> {${d.codomain}} content=${d.contentId} admitted=${d.admitted}`;
     case "constant":

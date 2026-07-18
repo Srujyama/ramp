@@ -186,12 +186,16 @@ export function handlePreviewPayment(
       firedRules: result.firedRules,
       reasons: result.reasons,
       assumedAttested: result.assumedAttested,
+      assumedIdentityVerified: result.assumedIdentityVerified,
       currency: result.currency,
     },
     `PREVIEW (nothing was spent): ${args.amount} ${result.currency} to ${args.vendorId} ` +
       `${human}. Rules: ${result.firedRules.join(", ") || "none"}.` +
       (result.assumedAttested
         ? " Assumes a valid attestation — a real payment without one is refused."
+        : "") +
+      (result.assumedIdentityVerified
+        ? " Assumes a signed request — a real payment without a verified agent signature is refused."
         : ""),
   );
 }

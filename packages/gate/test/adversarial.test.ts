@@ -28,6 +28,7 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     approved_categories: ["office_supplies", "software", "travel"],
     agent_cleared_categories: ["office_supplies", "software"],
     attestation_present: true,
+    agent_identity_verified: true,
     escalation_threshold: 400,
     vendor_risk_tier: "standard",
     budgets: [],
@@ -75,6 +76,7 @@ function randomFacts(rng: () => number): Facts {
     approved_categories: CATEGORIES.filter(() => rng() > 0.5),
     agent_cleared_categories: CATEGORIES.filter(() => rng() > 0.5),
     attestation_present: rng() > 0.5,
+    agent_identity_verified: rng() > 0.5,
   escalation_threshold: Math.floor(rng() * 1000),
   vendor_risk_tier: "standard",
   budgets: [],
@@ -138,7 +140,8 @@ test("PROPERTY: the lattice holds — deny > escalate > allow", () => {
       !f.approved_categories.includes(f.category) ||
       !f.agent_cleared_categories.includes(f.category) ||
       f.daily_total_so_far + f.amount > f.daily_limit ||
-      !f.attestation_present;
+      !f.attestation_present ||
+      !f.agent_identity_verified;
     const shouldEscalate =
       f.amount > f.escalation_threshold || f.vendor_risk_tier === "elevated";
 
@@ -164,7 +167,8 @@ test("PROPERTY: an escalation NEVER rescues a denied request", () => {
       !f.approved_categories.includes(f.category) ||
       !f.agent_cleared_categories.includes(f.category) ||
       f.daily_total_so_far + f.amount > f.daily_limit ||
-      !f.attestation_present;
+      !f.attestation_present ||
+      !f.agent_identity_verified;
     const escalates =
       f.amount > f.escalation_threshold || f.vendor_risk_tier === "elevated";
     if (!(denies && escalates)) continue;

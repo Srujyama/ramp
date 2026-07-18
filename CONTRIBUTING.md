@@ -31,13 +31,13 @@ pnpm install            # installs the whole workspace
 | `pnpm lint`             | Type-level lint (`tsc --noEmit`) across the graph.                  |
 | `pnpm db:reset`         | Rebuild the ledger SQLite DB from `schema.sql` + `seed.sql`.        |
 | `pnpm demo`             | **Drive every PITCH.md beat through the real hook; assert exit codes.** |
-| `pnpm proof`            | **Independently re-verify the sealed bundles + walk the chain.** `--receipt <f>` also checks an earlier published head. |
-| `pnpm head`             | Publish a signed head receipt. **Put it somewhere the operator can't rewrite.** |
+| `pnpm proof`            | **Independently re-verify the sealed bundles + walk the chain.** `--checkpoint <f>` also checks an earlier published Head Checkpoint. |
+| `pnpm head`             | Publish a signed **Head Checkpoint**. **Put it somewhere the operator can't rewrite.** |
 | `pnpm stats`            | Read-only operator view of gate activity (money stopped, top rules, integrity). |
 | `pnpm explain [<id>]`   | Read-only "why was this stopped, and what would flip it" — the **kernel-confirmed** counterfactual. For an *allowed* decision it reports the **safety margin** (how close it came to being stopped) instead. `-- --list` to browse, `-- --json` for machine output. |
 | `pnpm simulate [<f>]`   | Read-only **pre-flight** for a batch: preview every payment through the real kernel (zero side effects), roll up money flow, flag per-agent overcommitment. Pass a JSON batch file, or omit for a demo batch. `-- --json` for machine output. |
 | `pnpm policy-diff`      | Read-only **policy what-if**: replay the whole decision log under overridden dials (`-- --cap N --daily N --threshold N --velocity N`) and report the transitions + money impact. Deterministic replay; only scalar policy knobs move. `-- --json` for machine output. |
-| `pnpm receipt [<id>]`   | Emit a **self-contained `.mjs` proof receipt** for a decision (the real verifier inlined + the bundle + the gate public key). `node ramp-receipt-<id>.mjs` re-verifies it with zero deps. Default: newest deny; pass a requestId or bundle-digest prefix; `-- --out <path>`. |
+| `pnpm authproof [<id>]` | Emit a **self-contained `.mjs` Authorization Proof** for a decision (the real verifier inlined + the bundle + the gate public key). `node ramp-authorization-proof-<id>.mjs` re-verifies it with zero deps. Default: newest deny; pass a requestId or bundle-digest prefix; `-- --out <path>`. |
 | `pnpm approve`          | **The HUMAN channel** — `--as <approver>` SIGNS the approval; identity is proven, not typed. Never an MCP tool. |
 | `pnpm notary`           | Mint a demo attestation (`--spoof` / `--stale` for the deny beats). |
 | `pnpm sdk-example`      | Runnable ~15-line agent built on the `@ramp/client` SDK — the honest happy path end to end. |
@@ -159,13 +159,21 @@ Things that look like bugs but are not — read before "fixing":
 - **A provenance `value` is the fact VERBATIM, never a prettified rendering.** Typed
   `Facts[keyof Facts]` for that reason. Rendering belongs in `render.ts`.
 
-- **The chain, the receipt, and re-derivation are COMPLEMENTARY. None is sufficient alone.**
+- **The chain, the Head Checkpoint, and re-derivation are COMPLEMENTARY. None is sufficient alone.**
   `verifyChain` catches edits/deletions/reordering but is blind to a self-consistent full-suffix
-  rewrite. A head receipt catches exactly that, but checks ONE position — so it's blind to a sloppy
-  in-prefix edit. Re-derivation proves soundness and says nothing about what's missing. Don't delete
-  one because another "already covers it"; there's a test for each blind spot.
+  rewrite. A Head Checkpoint catches exactly that, but checks ONE position — so it's blind to a
+  sloppy in-prefix edit. Re-derivation proves soundness and says nothing about what's missing. Don't
+  delete one because another "already covers it"; there's a test for each blind spot.
 - **`expectedHead == currentHead` is the wrong check** and is gone. The head moves on every honest
-  append, so it fired on normal operation. Use a receipt + consistency check.
+  append, so it fired on normal operation. Use a checkpoint + consistency check.
+- **The agent's identity is DERIVED FROM A SIGNATURE, never a trusted string.** Requests are
+  Ed25519-signed by the agent and verified against the ledger's **agent registry** (authoritative
+  public keys, revocable); the verified result is the authenticated fact `agent_identity_verified`,
+  and unsigned/forged/revoked-agent requests are denied by `deny/unauthenticated_agent`. The
+  verification seam is deliberately ONE function — swappable for SPIFFE/JWT/mTLS later — because the
+  gate is an offline fail-closed subprocess that cannot depend on a token endpoint to decide whether
+  money moves. Don't widen the seam, and never let a request name an agent the signature doesn't
+  prove.
 
 ## Optional: the Souffle → WASM kernel
 

@@ -17,13 +17,14 @@
  *   4. deny/agent_uncleared_for_category (policy.dl D3)
  *   5. deny/daily_limit_exceeded         (policy.dl D5)
  *   6. deny/attestation_invalid          (policy.dl D6)
- *   7. deny/budget_exceeded              (policy.dl D7), one per broken budget,
+ *   7. deny/unauthenticated_agent        (policy.dl D8)
+ *   8. deny/budget_exceeded              (policy.dl D7), one per broken budget,
  *      in the ledger's (scope, key) order
  * ...then, only if NO deny fired:
- *   8. escalate/over_escalation_threshold (policy.dl E1)
- *   9. escalate/elevated_risk_vendor      (policy.dl E2)
- *  10. escalate/velocity_exceeded         (policy.dl E3)
- *  11. escalate/possible_duplicate        (policy.dl E4)
+ *   9. escalate/over_escalation_threshold (policy.dl E1)
+ *  10. escalate/elevated_risk_vendor      (policy.dl E2)
+ *  11. escalate/velocity_exceeded         (policy.dl E3)
+ *  12. escalate/possible_duplicate        (policy.dl E4)
  *
  * The lattice is **deny > escalate > allow**. Order within a tier affects only
  * the reason list; the tiers themselves are the semantics. Deny dominates
@@ -156,6 +157,22 @@ export class ReferenceKernel implements PolicyKernel {
       });
     }
 
+    // D8 (policy.dl): the requesting agent did not PROVE its identity.
+    // `agent_identity_verified` is the identity layer's verdict — the request's
+    // signature checked against the agent's REGISTERED key (the ledger's
+    // agent_registry), out of band. Missing signature, wrong key, unregistered
+    // and revoked all collapse to `false` here — and false denies. Placed after
+    // its sibling authenticity check (D6) to keep the pre-existing ordering
+    // byte-stable; order affects only the reason list, never allow/deny.
+    if (!facts.agent_identity_verified) {
+      denies.push({
+        id: "deny/unauthenticated_agent",
+        reason:
+          `unauthenticated_agent: agent "${facts.requesting_agent}" did not prove its ` +
+          `identity — no signature verified against its registered key`,
+      });
+    }
+
     // D7 (policy.dl): any ADDITIONAL budget this spend would break.
     //
     // Generic over scope on purpose — see Facts.budgets. The list arrives sorted
@@ -256,8 +273,9 @@ export class ReferenceKernel implements PolicyKernel {
 
     // ---- ALLOW: every condition held AND nothing needs a human --------------
     // (No deny fired => amount<=cap, category approved, vendor verified, agent
-    //  cleared, daily_total+amount<=daily_limit, attestation verified. No
-    //  escalation fired => within the escalation threshold, vendor not elevated.)
+    //  cleared and AUTHENTICATED, daily_total+amount<=daily_limit, attestation
+    //  verified. No escalation fired => within the escalation threshold, vendor
+    //  not elevated.)
     return {
       decision: "allow",
       reasons: [
@@ -265,7 +283,7 @@ export class ReferenceKernel implements PolicyKernel {
           `category "${facts.category}" approved and agent "${facts.requesting_agent}" cleared, ` +
           `vendor "${facts.vendor}" verified, ` +
           `daily ${facts.daily_total_so_far} + ${facts.amount} <= ${facts.daily_limit}, ` +
-          `attestation verified`,
+          `attestation verified, agent identity verified`,
       ],
       firedRules: ["allow/all_conditions_met"],
     };

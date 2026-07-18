@@ -38,7 +38,7 @@ export interface AgentSummary {
   decisionCount: number;
   outcomeCounts: OutcomeCounts;
   /**
-   * Sum of `amount` for allow decisions with a settled sandbox receipt, over
+   * Sum of `amount` for allow decisions with a settled sandbox settlement record, over
    * the decisions passed in. A recorded-WINDOW total (bounded by however many
    * decisions the caller fetched), not an all-time figure — never presented as
    * more complete than it is.

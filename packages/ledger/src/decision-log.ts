@@ -61,11 +61,11 @@ export type DecisionStatus = "allowed" | "denied" | "escalated" | "error";
 export type ExecutionStatus = "settled" | "failed";
 
 /**
- * A sandbox execution receipt read back from the audit trail. Records what the
+ * A sandbox settlement record read back from the audit trail. Records what the
  * executor DID after an allowed+verified decision — never carries a secret.
  */
 export interface ExecutionRecord {
-  readonly receiptId: string;
+  readonly settlementId: string;
   readonly executionId: string;
   readonly status: ExecutionStatus;
   /** e.g. "sandbox". */
@@ -178,7 +178,7 @@ export interface DecisionRecord {
   /** The tamper-evident proof, or `null` if none was persisted for this decision. */
   readonly proof: LedgerProof | null;
   /**
-   * The sandbox execution receipt, or `null` if the executor never ran for this
+   * The sandbox settlement record, or `null` if the executor never ran for this
    * decision (every deny, and any allow that failed before execution). A row with
    * `status: "failed"` is a genuine executor failure — NOT a settlement.
    */
@@ -432,7 +432,7 @@ export function recordDecision(
 export interface RecordExecutionInput {
   /** The decision this execution belongs to (must already be recorded). */
   readonly decisionId: string;
-  readonly receiptId: string;
+  readonly settlementId: string;
   readonly executionId: string;
   readonly status: ExecutionStatus;
   /** e.g. "sandbox". */
@@ -442,7 +442,7 @@ export interface RecordExecutionInput {
 }
 
 /**
- * Persist ONE sandbox execution receipt for an already-recorded decision.
+ * Persist ONE sandbox settlement record for an already-recorded decision.
  *
  * This is a SEPARATE, LATER append from {@link recordDecision} — execution is a
  * genuinely subsequent event, so it is never folded into the decision's
@@ -452,7 +452,7 @@ export interface RecordExecutionInput {
  *
  * Callers should treat a failure here as non-fatal to the payment result — the
  * money-movement decision is already durably recorded; a missing execution row
- * only means the receipt isn't shown in the audit view.
+ * only means the settlement record isn't shown in the audit view.
  *
  * @returns `{ inserted }` — false if an execution row already existed.
  */
@@ -463,12 +463,12 @@ export function recordExecution(
   const res = db
     .prepare(
       `INSERT OR IGNORE INTO decision_executions
-         (decision_id, receipt_id, execution_id, status, provider, executed_at)
+         (decision_id, settlement_id, execution_id, status, provider, executed_at)
        VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`,
     )
     .run(
       input.decisionId,
-      input.receiptId,
+      input.settlementId,
       input.executionId,
       input.status,
       input.provider,
@@ -484,8 +484,8 @@ export function recordExecution(
   // practice, unenforceable. This is that missing writer.
   //
   // Guarded on `inserted` so it fires exactly once per execution — a replayed
-  // receipt (INSERT OR IGNORE no-op) adds no spend, keeping this idempotent. Only
-  // `settled` counts: a `failed` receipt is a real, auditable executor outcome but
+  // settlement record (INSERT OR IGNORE no-op) adds no spend, keeping this idempotent. Only
+  // `settled` counts: a `failed` settlement record is a real, auditable executor outcome but
   // no money moved, so it must never become spend. Reads the decision by id and
   // requires `outcome='allow'`, so a settled row for a non-allow (which the
   // lifecycle already forbids) still cannot inflate a total it should not.
@@ -500,7 +500,7 @@ export function recordExecution(
       | undefined;
     if (d) {
       // `ts` mirrors the execution time, not now: a backfilled/settled-in-the-past
-      // receipt must land on the day it settled, or "spent today" counts a payment
+      // settlement record must land on the day it settled, or "spent today" counts a payment
       // that did not happen today. Currency defaults to USD in the schema (money is
       // whole-unit USD everywhere), so it is intentionally omitted here.
       db.prepare(
@@ -572,7 +572,7 @@ function proofFor(
 }
 
 /**
- * Load the (optional) sandbox execution receipt for a decision. Returns `null`
+ * Load the (optional) sandbox settlement record for a decision. Returns `null`
  * when the executor never ran (every deny; any allow that failed pre-execution).
  * Discrete columns (no JSON blob) → no parse-corruption path. Separate 1:1 lookup
  * (not a JOIN), mirroring {@link proofFor}, to leave the paginated SQL untouched.
@@ -580,12 +580,12 @@ function proofFor(
 function executionFor(db: LedgerDb, decisionId: string): ExecutionRecord | null {
   const row = db
     .prepare(
-      `SELECT receipt_id, execution_id, status, provider, executed_at
+      `SELECT settlement_id, execution_id, status, provider, executed_at
          FROM decision_executions WHERE decision_id = ?`,
     )
     .get(decisionId) as
     | {
-        receipt_id: string;
+        settlement_id: string;
         execution_id: string;
         status: ExecutionStatus;
         provider: string;
@@ -594,7 +594,7 @@ function executionFor(db: LedgerDb, decisionId: string): ExecutionRecord | null 
     | undefined;
   if (row === undefined) return null;
   return {
-    receiptId: row.receipt_id,
+    settlementId: row.settlement_id,
     executionId: row.execution_id,
     status: row.status,
     provider: row.provider,

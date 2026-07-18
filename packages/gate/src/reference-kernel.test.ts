@@ -37,6 +37,7 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     approved_categories: ["office_supplies", "software", "travel"],
     agent_cleared_categories: ["office_supplies", "software"],
     attestation_present: true,
+    agent_identity_verified: true,
   escalation_threshold: 400,
   vendor_risk_tier: "standard",
   budgets: [],
@@ -222,6 +223,43 @@ test("D6 is appended LAST in the fixed evaluation order", () => {
     "deny/daily_limit_exceeded",
     "deny/attestation_invalid",
   ]);
+});
+
+test("deny: unauthenticated agent (D8) — the name is not the identity", () => {
+  // An otherwise-perfect request — verified vendor, attested invoice, within
+  // every limit — still denies when the identity signature did not verify
+  // against the agent's registered key. Missing signature, wrong key,
+  // unregistered and revoked agents all collapse to this one fact being false;
+  // the identity layer decides that out of band and only the verdict crosses in.
+  const d = referenceKernel.evaluate(baseFacts({ agent_identity_verified: false }));
+  assert.equal(d.decision, "deny");
+  assert.deepEqual(d.firedRules, ["deny/unauthenticated_agent"]);
+  assert.ok(d.reasons[0]?.includes("did not prove its identity"));
+});
+
+test("D8 sits after D6 in the fixed evaluation order", () => {
+  // Pins the ordering: the two out-of-band authenticity verdicts sit together,
+  // attestation then identity, after the pre-existing denies. Order affects only
+  // the reason list, never allow/deny.
+  const d = referenceKernel.evaluate(
+    baseFacts({ attestation_present: false, agent_identity_verified: false }),
+  );
+  assert.equal(d.decision, "deny");
+  assert.deepEqual(d.firedRules, [
+    "deny/attestation_invalid",
+    "deny/unauthenticated_agent",
+  ]);
+});
+
+test("unauthenticated deny dominates an escalation (lattice holds for D8)", () => {
+  // Over the escalation threshold AND unauthenticated: a human must never be
+  // handed a request from an unproven identity to approve.
+  const d = referenceKernel.evaluate(
+    baseFacts({ amount: 450, daily_total_so_far: 0, agent_identity_verified: false }),
+  );
+  assert.equal(d.decision, "deny");
+  assert.ok(d.firedRules.includes("deny/unauthenticated_agent"));
+  assert.ok(!d.firedRules.some((r) => r.startsWith("escalate/")));
 });
 
 test("class and singleton agree", () => {

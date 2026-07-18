@@ -17,6 +17,26 @@ CREATE TABLE IF NOT EXISTS agents (
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Agent identity registry: the PUBLIC key each agent proves itself with.
+-- The AUTHORITATIVE source of `agent_identity_verified` (with @ramp/attestation
+-- doing the signature check): a request's `requestingAgent` is only ever a
+-- lookup KEY into this table, and a request whose Ed25519 signature does not
+-- verify against the 'active' key registered here is denied
+-- (deny/unauthenticated_agent). This is the trust decision written down —
+-- exactly like the notary keyring — so revocation is an UPDATE here, not a
+-- code change: status 'revoked' makes the key unfetchable and the agent
+-- unauthenticatable, immediately.
+-- Only PUBLIC halves live here. A private key in this table would let anyone
+-- who can read the ledger BE any agent; the private halves live with the agent
+-- runtime (demo: derived in @ramp/attestation's demoAgentKeypair; real: HSM /
+-- workload identity).
+CREATE TABLE IF NOT EXISTS agent_registry (
+  agent_id       TEXT PRIMARY KEY REFERENCES agents(agent_id),
+  public_key_pem TEXT NOT NULL,
+  status         TEXT NOT NULL CHECK (status IN ('active', 'revoked')),
+  registered_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Vendor registry. `verified` is the AUTHORITATIVE source of `vendor_verified`.
 CREATE TABLE IF NOT EXISTS vendors (
   vendor_id            TEXT PRIMARY KEY,
@@ -185,27 +205,27 @@ CREATE TABLE IF NOT EXISTS decision_proofs (
 CREATE INDEX IF NOT EXISTS idx_proof_id ON decision_proofs (proof_id);
 
 -- ----------------------------------------------------------------------------
--- Sandbox execution receipts (one-per-decision, OPTIONAL).
+-- Sandbox settlement records (one-per-decision, OPTIONAL).
 -- The decision + proof above record what the GATE DECIDED. This table records
 -- what the SANDBOX EXECUTOR then DID — closing the "recorded" loop so the
--- receipt an agent received is also auditable, not just returned out-of-band.
+-- settlement record an agent received is also auditable, not just returned out-of-band.
 -- Written by requestPurchase() AFTER the decision is persisted + independently
 -- verified AND the executor runs; a deny never produces a row (nothing executed).
 -- A separate, later append: NEVER in the decision's transaction, so it cannot
 -- alter or forge the append-only decision/proof record. `status = 'failed'`
 -- records a genuine executor failure and MUST NOT be read as a settlement.
--- NO secret-bearing column exists by construction (receiptId/executionId/
+-- NO secret-bearing column exists by construction (settlementId/executionId/
 -- provider only). See recordExecution() in src/decision-log.ts.
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS decision_executions (
   decision_id  TEXT PRIMARY KEY REFERENCES decisions(decision_id) ON DELETE CASCADE,
-  receipt_id   TEXT NOT NULL,
+  settlement_id TEXT NOT NULL,
   execution_id TEXT NOT NULL,
   status       TEXT NOT NULL CHECK (status IN ('settled', 'failed')),
   provider     TEXT NOT NULL,
   executed_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
-CREATE INDEX IF NOT EXISTS idx_execution_receipt ON decision_executions (receipt_id);
+CREATE INDEX IF NOT EXISTS idx_execution_settlement ON decision_executions (settlement_id);
 
 -- ============================================================================
 -- Human resolution of an escalated decision. APPEND-ONLY.

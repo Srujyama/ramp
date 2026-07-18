@@ -80,6 +80,7 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     approved_categories: ["office_supplies", "software", "travel"],
     agent_cleared_categories: ["office_supplies", "software"],
     attestation_present: true,
+    agent_identity_verified: true,
     escalation_threshold: 400,
     vendor_risk_tier: "standard",
     budgets: [],
@@ -99,6 +100,8 @@ const CASES: readonly Facts[] = [
   baseFacts({ category: "crypto" }), // unapproved + uncleared
   baseFacts({ category: "travel" }), // approved but uncleared
   baseFacts({ attestation_present: false }), // D6
+  baseFacts({ agent_identity_verified: false }), // D8: unauthenticated agent
+  baseFacts({ attestation_present: false, agent_identity_verified: false }), // D6+D8 order
   baseFacts({ amount: NaN }), // D0
   baseFacts({ amount: 0.5 }), // D0 float
   baseFacts({ amount: -1 }), // D0 negative
@@ -112,6 +115,7 @@ const CASES: readonly Facts[] = [
     amount: 999,
     category: "crypto",
     attestation_present: false,
+    agent_identity_verified: false,
   }),
 ];
 
@@ -175,6 +179,7 @@ test("PARITY: the two agree across 5000 randomized fact sets", () => {
       approved_categories: CATEGORIES.filter(() => rng() > 0.5),
       agent_cleared_categories: CATEGORIES.filter(() => rng() > 0.5),
       attestation_present: rng() > 0.5,
+    agent_identity_verified: rng() > 0.5,
       escalation_threshold: pick([Math.floor(rng() * 1000), 400]) as number,
       vendor_risk_tier: pick(["standard", "elevated", "trusted", "unknown"]),
       recent_txn_count: pick([0, 3, 6, Math.floor(rng() * 20)]) as number,

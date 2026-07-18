@@ -4,10 +4,17 @@ Auto-loaded every session in this repo. Read this before doing pitch or backbone
 
 ## What this project is
 
-**Provable Agent Spend** — make every AI-agent payment decision *provable*, not trusted. A
-deterministic Datalog policy kernel sits in the execution path as a **non-bypassable `PreToolUse`
-hook**, fed only by **authoritative, cryptographically-attested inputs**. One-liner:
-**"Everyone else scopes the card. We prove the decision."** Full pitch: **[`PITCH.md`](./PITCH.md)**.
+**Provable Agent Spend** — **authorization infrastructure** for agent payments: decision
+verification that sits *underneath* any agentic payment platform (Ramp included) as complementary
+infrastructure. Existing platforms primarily prove *who authorized* a payment; we prove the
+*authorization decision itself was correct given authenticated facts*, independently verifiable. A
+deterministic Datalog **authorization kernel** sits in the execution path as a **non-bypassable
+`PreToolUse` hook**, fed only by **authenticated facts** (attested documents, registry-verified
+agent identity, ledger reads). One-liner: **"Everyone else scopes the card. We prove the
+decision."** Never frame this as competing with Ramp feature-for-feature, replacing Ramp, or being
+the only solution — infrastructure-beneath, not competitor-to. Terminology: the portable
+self-verifying artifact is the **Authorization Proof** (`pnpm authproof`); the ledger head witness
+is the **Head Checkpoint** (do not call either a "receipt"). Full pitch: **[`PITCH.md`](./PITCH.md)**.
 
 ## The pitch has ONE source of truth: `PITCH.md`
 
@@ -52,7 +59,7 @@ still need propagation — never silently leave them inconsistent.
 ## The monorepo (all four pillars built & green)
 
 pnpm + TypeScript, Node 24. `pnpm install && pnpm db:reset && pnpm build && pnpm test` → all green
-(**530 tests**; 1 wasm-parity skip is expected without Soufflé/wasm-pack). Then `pnpm demo` drives
+(**566 tests**; 1 wasm-parity skip is expected without Soufflé/wasm-pack). Then `pnpm demo` drives
 every PITCH beat through the real hook and `pnpm proof` re-verifies the sealed bundles.
 
 | Workspace | Pillar | What it is |
@@ -62,7 +69,7 @@ every PITCH beat through the real hook and `pnpm proof` re-verifies the sealed b
 | `@ramp/provenance` | **2** | Content-addressed decision bundles + the independent `verifyBundle`. |
 | `@ramp/quarantine` | **3** | CaMeL wrapper + total declassifiers into bounded codomains. |
 | `@ramp/attestation` | **4** | Ed25519 notary attestation + binding checks. |
-| `@ramp/ledger` | — | Authoritative facts via `node:sqlite` (+ records its own provenance), the append-only **decision log**, tamper-evident **proofs**, the read-only **HTTP bridge**, the **policy simulator**, and the shared **purchase lifecycle**. |
+| `@ramp/ledger` | — | Authoritative facts via `node:sqlite` (+ records its own provenance), the vendor & **agent registries** (authoritative public keys behind `agent_identity_verified`), the append-only **decision log**, tamper-evident **proofs**, the read-only **HTTP bridge**, the **policy simulator**, and the shared **purchase lifecycle**. |
 | `@ramp/client` | — | The typed agent **SDK** (`createRampClient`) — build a provable spending agent in a few lines. A convenience over the real lifecycle, not a bypass. |
 | `@ramp/payments-mcp` | — | **Self-enforcing** MCP tool — drives the purchase lifecycle itself, so it is safe to call with no hook present. The 2nd independent gate over the same kernel. |
 | `@ramp/dashboard` | — | Vite+React **audit console**: Overview / Decisions / Decision detail / Policy + simulator. Decision detail **re-derives the decision in your browser** with the real kernel. |

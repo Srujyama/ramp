@@ -18,10 +18,11 @@ integration, not a stub. An agent calls one tool, **`mcp__payments__pay_vendor`*
 **request** a purchase; the server runs the full provable-spend lifecycle before any
 payment is attempted:
 
-policy decision (`@ramp/gate`, over **authoritative** ledger facts) → derived
-provenance → tamper-evident proof → persist → **independent re-verification** →
-sandbox execution **only** if allowed, persisted, and verified → structured receipt or
-denial.
+Ed25519 agent-identity verification (against the ledger's **agent registry** → the
+authenticated fact `agent_identity_verified`) → authorization decision (`@ramp/gate`,
+over **authenticated** ledger facts) → derived provenance → tamper-evident proof →
+persist → **independent re-verification** → sandbox execution **only** if allowed,
+persisted, and verified → structured settlement record or denial.
 
 The lifecycle is **fail-closed**: any failure to gather facts, decide policy, build
 provenance/proof, persist, or re-verify results in **no execution**, as does any

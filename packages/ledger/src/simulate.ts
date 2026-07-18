@@ -57,6 +57,20 @@ export interface SimulationInput {
    * unattested case explicitly and watch D6 fire.
    */
   readonly attested?: boolean;
+  /**
+   * Whether to simulate WITH a verified agent identity. Defaults to `true`.
+   *
+   * The same awkwardness as `attested`, met the same way: a simulation is a
+   * HYPOTHETICAL, so there is no signature to verify, so
+   * `agent_identity_verified` would be false — and `deny/unauthenticated_agent`
+   * (policy.dl D8) would drown every preview in a constant that has nothing to
+   * do with the question asked. The default models *"assuming the request is
+   * properly signed by this agent, what does policy say?"*, and
+   * `SimulationResult.assumedIdentityVerified` reports the premise back so it
+   * can never be mistaken for a finding. Set `identityVerified: false` to watch
+   * D8 fire.
+   */
+  readonly identityVerified?: boolean;
 }
 
 /**
@@ -85,6 +99,13 @@ export interface SimulationResult {
    * that a real payment would be attested. See {@link SimulationInput.attested}.
    */
   readonly assumedAttested: boolean;
+  /**
+   * The agent-identity premise this result was computed under
+   * (`input.identityVerified`, default `true`). An ASSUMPTION, not a finding —
+   * a hypothetical carries no signature to verify. See
+   * {@link SimulationInput.identityVerified}.
+   */
+  readonly assumedIdentityVerified: boolean;
   /** Constant marker — a simulation result is ALWAYS a preview, never persisted. */
   readonly simulationOnly: true;
 }
@@ -137,9 +158,11 @@ export function simulate(
   // supplied through the same `AuthoritativeContext` seam the hook uses, so the
   // simulator cannot reach any fact the gate wouldn't.
   const assumedAttested = input.attested ?? true;
+  const assumedIdentityVerified = input.identityVerified ?? true;
   const authoritative = factSource.contextFor({
     request,
     attestationPresent: assumedAttested,
+    agentIdentityVerified: assumedIdentityVerified,
   });
   const facts = translateToFacts(request, authoritative);
   const decision = kernel.evaluate(facts);
@@ -152,6 +175,7 @@ export function simulate(
     policyDigest: policyDigest(facts),
     currency,
     assumedAttested,
+    assumedIdentityVerified,
     simulationOnly: true,
   };
 }

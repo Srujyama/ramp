@@ -11,8 +11,8 @@
  * prompt-injected. The hook uses `requestingAgent`, `vendorId`, `amount`,
  * `category`, `invoiceRef` only as KEYS to look up authoritative facts.
  *
- * `invoiceDocument` and `attestation` are the two that look like exceptions and
- * are not:
+ * `invoiceDocument`, `attestation` and `identity` are the three that look like
+ * exceptions and are not:
  *   - `invoiceDocument` is attacker-authored prose. It is quarantined at the
  *     boundary (@ramp/quarantine) and never read as instructions. Its only role
  *     is to be DIGESTED, so the digest can be compared against the attestation.
@@ -21,6 +21,12 @@
  *     and whether it BINDS to this payment; only the resulting boolean becomes
  *     the `attestation_present` fact. A request cannot assert that it is
  *     attested — it can only present bytes and be judged.
+ *   - `identity` is the same shape of thing for WHO IS ASKING. It is a signature
+ *     CLAIM, not an identity: @ramp/attestation's `verifyAgentIdentity` judges it
+ *     against the public key the LEDGER's agent registry holds for
+ *     `requestingAgent`, and only the resulting boolean becomes the
+ *     `agent_identity_verified` fact. A request cannot assert who sent it — it
+ *     can only present a signature and be judged against the registered key.
  *
  * The rule is uniform: this type carries claims, never facts.
  */
@@ -51,6 +57,24 @@ export interface SpendRequest {
    * mistake "it type-checked" for "it verified".
    */
   readonly attestation?: unknown;
+  /**
+   * The requesting agent's signature over this request's IDENTITY CORE — the
+   * fields that name what is being paid and who is asking (see
+   * @ramp/attestation's `agentIdentityCore`). Base64 Ed25519.
+   *
+   * A CLAIM, exactly like `attestation`: presenting one grants nothing. The gate
+   * looks up the public key the agent registry holds for `requestingAgent`
+   * (status 'active' only) and verifies the signature against it; a missing,
+   * malformed, or wrong-key signature — or an unregistered/revoked agent — all
+   * collapse to `agent_identity_verified: false`, and the kernel denies
+   * (`deny/unauthenticated_agent`). The scheme tag exists so the verification
+   * seam can later carry other proof kinds (SPIFFE SVIDs, signed JWTs) without
+   * reshaping the transport.
+   */
+  readonly identity?: {
+    readonly scheme: "ed25519";
+    readonly signature: string;
+  };
 }
 
 /**
@@ -58,7 +82,10 @@ export interface SpendRequest {
  *
  * Note it does NOT validate `attestation` beyond "present or not" — validating
  * an attestation is @ramp/attestation's job, and a shape check here would be a
- * second, weaker verifier that a reader might mistake for the real one.
+ * second, weaker verifier that a reader might mistake for the real one. The
+ * `identity` check below is likewise SHAPE only ("is this a well-formed claim"),
+ * never verification — whether the signature is genuine is decided against the
+ * registry key by `verifyAgentIdentity`, out of band.
  */
 export function isSpendRequest(value: unknown): value is SpendRequest {
   if (typeof value !== "object" || value === null) return false;
@@ -71,6 +98,14 @@ export function isSpendRequest(value: unknown): value is SpendRequest {
     typeof v.category === "string" &&
     typeof v.requestingAgent === "string" &&
     (v.invoiceRef === undefined || typeof v.invoiceRef === "string") &&
-    (v.invoiceDocument === undefined || typeof v.invoiceDocument === "string")
+    (v.invoiceDocument === undefined || typeof v.invoiceDocument === "string") &&
+    (v.identity === undefined || isIdentityClaim(v.identity))
   );
+}
+
+/** Shape check for the optional identity claim. Total; never throws. */
+function isIdentityClaim(value: unknown): value is NonNullable<SpendRequest["identity"]> {
+  if (typeof value !== "object" || value === null) return false;
+  const c = value as Record<string, unknown>;
+  return c.scheme === "ed25519" && typeof c.signature === "string";
 }

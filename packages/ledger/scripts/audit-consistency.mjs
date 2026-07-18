@@ -164,7 +164,7 @@ const decisions = all(`
 }));
 
 const executions = all(`
-  SELECT decision_id, receipt_id, execution_id, status, provider, executed_at
+  SELECT decision_id, settlement_id, execution_id, status, provider, executed_at
     FROM decision_executions
 `);
 const execByDecision = new Map(executions.map((e) => [e.decision_id, e]));
@@ -210,7 +210,7 @@ check("A1", "No settled execution on a decision the kernel did not allow", {
   pass: settledNonAllow.length === 0,
   detail: `${executions.filter((e) => e.status === "settled").length} settled execution(s); ${settledNonAllow.length} on a non-allow.`,
   rows: settledNonAllow.map(
-    (d) => `${d.decision_id} outcome=${d.outcome} amount=${d.amount} receipt=${d.execution.receipt_id}`,
+    (d) => `${d.decision_id} outcome=${d.outcome} amount=${d.amount} settlement=${d.execution.settlement_id}`,
   ),
 });
 
@@ -563,7 +563,7 @@ check("D4", "The hash chain is intact (verifyChain)", {
 }
 
 for (const [id, column] of [
-  ["D10", "receipt_id"],
+  ["D10", "settlement_id"],
   ["D11", "execution_id"],
 ]) {
   const dups = all(`
@@ -572,7 +572,7 @@ for (const [id, column] of [
   check(id, `No duplicate ${column} across executions`, {
     pass: dups.length === 0,
     detail: `${executions.length} execution(s), ${new Set(executions.map((e) => e[column])).size} distinct ${column}(s).`,
-    rows: dups.map((r) => `${r.v} used by ${r.c} executions — one receipt cannot be two payments`),
+    rows: dups.map((r) => `${r.v} used by ${r.c} executions — one settlement id cannot be two payments`),
   });
 }
 

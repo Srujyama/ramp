@@ -68,6 +68,18 @@ match passes cleanly. It fails at `domain_mismatch`, because that domain is not 
 says Acme *is*. That's the difference between consistency and authenticity, and it's the whole
 argument for this pillar.
 
+## Agent identity verification lives here too
+
+The same claim-vs-verdict discipline covers **who is asking**: a `SpendRequest`
+may carry an `identity` claim (an Ed25519 signature over the request's canonical
+identity core — `vendorId`, `amount`, `currency`, `category`, `invoiceRef`,
+`requestingAgent`). This package's `verifyAgentIdentity` judges that claim
+against the public key the **ledger's agent registry** holds for
+`requestingAgent` (status `active` only). Only the resulting boolean crosses
+into the kernel, as the authenticated fact `agent_identity_verified`; `false`
+denies via `deny/unauthenticated_agent`. Impersonating an agent therefore
+requires its private key, not its name.
+
 ## The clock is injected — on purpose
 
 `verifyAttestation` takes `now` as a parameter and never reads the clock itself. Freshness genuinely

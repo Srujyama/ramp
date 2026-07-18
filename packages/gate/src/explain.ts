@@ -195,6 +195,15 @@ function explainRule(
         categorical: true,
         fix: `attach a verified attestation binding the invoice to vendor "${facts.vendor}"`,
       };
+    case "deny/unauthenticated_agent":
+      return {
+        id,
+        reason,
+        categorical: true,
+        fix:
+          `sign the request with agent "${facts.requesting_agent}"'s registered key ` +
+          `(or register/reactivate the agent in the agent registry)`,
+      };
     case "escalate/elevated_risk_vendor":
       return {
         id,

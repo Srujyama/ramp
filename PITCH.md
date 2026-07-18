@@ -3,11 +3,13 @@
 > **Single source of truth for the pitch.** The plan (`hackathon-plan.html`) and the slide
 > deck (`pitch-deck.html`) both derive from this file. **If you change the pitch, change it
 > HERE first, then propagate to both artifacts** (see `CLAUDE.md` → "Keeping the pitch in sync").
-> Last substantive update: 2026-07-16 — overnight run: velocity, windowed budgets, duplicate
-> detection, signed approvals, `pnpm stats` (money stopped), the `@ramp/client` SDK, and the
-> operator/auditor CLIs `pnpm explain` (kernel-confirmed counterfactuals), `pnpm simulate`
-> (pre-flight a batch), `pnpm policy-diff` (policy what-if), and `pnpm receipt` (a self-verifying
-> portable proof). 530 tests, 18 demo beats. Both HTML artifacts are propagated and in sync.
+> Last substantive update: 2026-07-18 — repositioned as **authorization infrastructure**
+> (decision verification beneath any agentic payment platform, Ramp included — complementary, not
+> competing); added **authenticated agent identity** (Ed25519-signed requests verified against the
+> ledger's agent registry → the authenticated fact `agent_identity_verified`, enforced by
+> `deny/unauthenticated_agent`); renamed the portable self-verifying artifact to the
+> **Authorization Proof** (`pnpm authproof`, was `pnpm receipt`) and the ledger head witness to the
+> **Head Checkpoint**. Both HTML artifacts are propagated and in sync.
 >
 > **Published artifact URLs (republish to these; don't mint new ones):**
 > - Plan: https://claude.ai/code/artifact/30f5b98e-903f-4f8d-80f6-aaab5d80a2de
@@ -22,6 +24,16 @@
 ## The one-liner
 
 **"Everyone else scopes the card. We prove the decision."**
+
+## What we are
+
+**Authorization infrastructure** — a decision-verification layer that sits *underneath* any
+agentic payment platform, including Ramp's. Existing agentic payment infrastructure primarily
+proves **who authorized a payment** (scoped credentials, approval workflows, signed audit logs).
+We prove that the **authorization decision itself was correct given authenticated facts** — and
+make that independently verifiable by anyone, with nothing but the proof and `node`. Platforms
+answer *"who may spend?"*; our layer answers *"was this specific decision right?"* — a guarantee
+a platform can consume, not a feature set that competes with one.
 
 ## The problem
 
@@ -45,8 +57,9 @@ A spend request flows **down** through all four before a dollar moves. Enforceme
 **topology**, not from the agent cooperating.
 
 1. **Datalog policy kernel** (`@ramp/gate`; Soufflé → WASM behind a TS interface, with a pure TS
-   reference kernel as the always-available golden oracle). Translates a request into plain **facts**
-   and grinds out allow/deny mechanically. Same facts → same answer. **Deny dominates.**
+   reference kernel as the always-available golden oracle) — the **authorization kernel**. Translates
+   a request into plain **facts** and grinds out allow/deny mechanically. Same facts → same answer.
+   **Deny dominates.**
 2. **Provenance graph** (`@ramp/provenance` + `@ramp/ledger`) — every decision is sealed into a
    content-addressed **bundle**: the decision, the exact facts, and for each fact the specific
    query/notary/declassifier it came from. An auditor **re-runs the kernel on the recorded facts** and
@@ -126,6 +139,7 @@ special cases:
 | escalation threshold | a spend big enough a human should glance | escalate |
 | elevated-risk vendor | verified, but onboarded yesterday | escalate |
 | attestation (pillar 4) | a spoofed/unattested invoice | deny |
+| **agent identity** | an unsigned, forged, or revoked-agent request (impersonation) | deny |
 | injection quarantine (pillar 3) | a jailbreak buried in an invoice | inert |
 
 Every row is a real rule, in all four kernels, cross-checked by the parity test,
@@ -196,6 +210,27 @@ deployment decision. **The mechanism is real**; swap the keyring for one whose
 private halves live in an HSM and `--as alice` genuinely requires being alice, with
 no code change.
 
+### The requesting agent is authenticated too — identity is a fact, not a string
+
+The same standard now applies to the *requester*. `requesting_agent` used to be a
+string in the tool args — trusted verbatim, so any caller could claim to be
+`agent_47` and inherit its budgets, clearances, and history. Now every request is
+**Ed25519-signed by the agent**, and the gate verifies the signature against the
+ledger's **agent registry** — authoritative public keys, revocable. The verified
+result becomes the authenticated fact **`agent_identity_verified`**, consumed by
+the authorization kernel like every other fact; an unsigned, forged, or
+revoked-agent request is denied by **`deny/unauthenticated_agent`**. Impersonation
+stops being a free move: you cannot be `agent_47` without `agent_47`'s key.
+
+Why Ed25519 rather than OAuth, SPIFFE, or mTLS: the gate is an **offline,
+fail-closed subprocess** — it cannot depend on a token endpoint or a TLS handshake
+to decide whether money moves — and the repo already carries real Ed25519 machinery
+(notary attestation, signed approvals, the signed Head Checkpoint). The
+verification seam is **one function**, so swapping it for SPIFFE/JWT later is a
+deployment decision, not a redesign. The point is the principle: **every
+security-relevant input to the kernel is an authenticated fact** — the invoice
+(attestation), the approver (signed approvals), and now the agent itself.
+
 ## The hero: hook, not tool (non-bypassable, fail-closed)
 
 Enforcement is a Claude Code **`PreToolUse` hook**, matcher `mcp__payments__.*`.
@@ -207,7 +242,7 @@ Enforcement is a Claude Code **`PreToolUse` hook**, matcher `mcp__payments__.*`.
 - **Command hook = fail-closed.** A crashed policy service must **deny**, never fail open. (An HTTP
   hook treats non-2xx as non-blocking → fails open → unacceptable for money.)
 
-## Integrity is not soundness (the distinction nobody else draws)
+## Integrity is not soundness (the distinction an audit log can't draw)
 
 Every "immutable audit log" on the market proves **integrity**: *nobody edited this record after it
 was written.* That is a real guarantee, and it is not the one people think they are buying.
@@ -228,26 +263,27 @@ So we prove **three** different things, because they are three different guarant
 **And a chain alone still isn't enough.** An operator who rewrites the *entire
 suffix* — recomputing every link from the edit point — produces a chain that is
 internally flawless and a different history. So the gate publishes a signed
-**head receipt** `(head, length)`, and later asks the only question a growing log
-can answer: *"is the history you showed me before still a **prefix** of the one
+**Head Checkpoint** `(head, length)`, and later asks the only question a growing
+log can answer: *"is the history you showed me before still a **prefix** of the one
 you're showing me now?"* That's certificate transparency's consistency proof, and
 it's why the naive version (compare today's head to yesterday's) doesn't work —
 **the head changes every time anyone spends**, so a bare comparison cries wolf on
 every honest payment.
 
 The three mechanisms are complementary and **none is sufficient alone**: the chain
-is blind to a self-consistent rewrite; the receipt checks one position, so it's
+is blind to a self-consistent rewrite; the checkpoint checks one position, so it's
 blind to a sloppy in-prefix edit; re-derivation says nothing about what's missing.
 `pnpm proof` runs all of them, and **tells you what it hasn't ruled out** when you
-don't hand it a receipt.
+don't hand it a checkpoint.
 
-*The part that isn't code:* a receipt only works if it lives somewhere **the
-operator cannot rewrite** — a status page, a customer's inbox, a public commit, a
-transparency log. A receipt on the same disk is worthless; whoever rewrites the
-chain rewrites it in the same breath. And the signature isn't what makes it work
-(a compromised gate signs whatever it likes) — **the copy you don't control is.**
+*The part that isn't code:* a Head Checkpoint only works if it lives somewhere
+**the operator cannot rewrite** — a status page, a customer's inbox, a public
+commit, a transparency log. A checkpoint on the same disk is worthless; whoever
+rewrites the chain rewrites it in the same breath. And the signature isn't what
+makes it work (a compromised gate signs whatever it likes) — **the copy you don't
+control is.**
 
-**The middle one is the gap everyone else has.** Every proof-per-record scheme treats each record as
+**The middle one is the structural gap in proof-per-record schemes.** Every proof-per-record scheme treats each record as
 an island, so `DELETE FROM decisions WHERE id = '<the one that embarrasses me>'` leaves an audit
 trail where **every remaining proof still verifies perfectly**. We demonstrated exactly that against
 our own ledger before fixing it. Now each decision commits to the one before it, so a deletion breaks
@@ -272,7 +308,9 @@ The kernel is only as trustworthy as its facts. Scalar facts (`vendor_verified`,
 `daily_total_so_far`, caps) **must** come from authoritative sources — the **ledger DB + vendor
 registry + structured tool args** — **never** from the model's free-text narration. Otherwise the
 attacker just poisons the facts instead of the reasoning. Determinism guarantees *"same facts →
-same answer,"* not *"true facts."*
+same answer,"* not *"true facts."* The requester is held to the same bar: `agent_identity_verified`
+comes from verifying the request's Ed25519 signature against the ledger's agent registry — never
+from the request *claiming* a name.
 
 ## The live demo (`pnpm demo` — every beat asserted in CI)
 
@@ -317,11 +355,15 @@ asserts the **exit code** on every beat. It runs in CI, so these are not claims:
 13. **Policy what-if** — `pnpm policy-diff` replays the log under a changed dial: raising the daily
     limit flips the recorded daily-limit deny back to **allow**, while the same dial leaves a
     categorical (unverified-vendor) deny **untouched**. *The what-if turns exactly the dial it claims.*
-14. **Portable receipt** — `pnpm receipt` emits a self-contained `.mjs`; CI generates it, runs it
-    with **plain node** (VERIFIED), then **tampers** the embedded decision and confirms the receipt
-    now rejects it. *A proof you hand someone and they check themselves — no install, no trust.*
+14. **Portable Authorization Proof** — `pnpm authproof` emits a self-contained `.mjs`; CI generates
+    it, runs it with **plain node** (VERIFIED), then **tampers** the embedded decision and confirms
+    the proof now rejects it. *A proof you hand someone and they check themselves — no install, no
+    trust.*
+15. **The impersonation** — a request claiming to be `agent_47` but signed with the **wrong key** →
+    **deny** (`deny/unauthenticated_agent`); and the same request with **no signature at all** →
+    **deny**. *The name is a claim; the key is the identity.*
 
-**18 beats, all asserted in CI.** Plus **fail-closed**: an unreachable ledger → deny, exit 2.
+**20 beats, all asserted in CI.** Plus **fail-closed**: an unreachable ledger → deny, exit 2.
 
 ### The money it stops (`pnpm stats`)
 
@@ -415,14 +457,14 @@ categorical facts (an unverified vendor, a missing attestation) are not dials an
 are left exactly as recorded, so a categorical deny stays denied no matter how you
 turn the caps. Read-only: it previews a policy edit, it doesn't make one.
 
-### Hand an auditor the receipt (`pnpm receipt`)
+### Hand an auditor the Authorization Proof (`pnpm authproof`)
 
 The strongest version of "don't trust us" is a file you run yourself. `pnpm
-receipt` emits **one self-contained `.mjs`** for a decision — and it verifies with
-nothing but `node`:
+authproof` emits **one self-contained `.mjs`** — the portable **Authorization
+Proof** for a decision — and it verifies with nothing but `node`:
 
 ```
-$ node ramp-receipt-inv_2026_07_0043.mjs
+$ node ramp-authorization-proof-inv_2026_07_0043.mjs
   decision: DENY   reason: attestation_invalid …
   RESULT: VERIFIED ✓  — re-derived from its own facts; digests + gate signature check out.
 ```
@@ -432,10 +474,10 @@ the decision from its recorded facts, checks every digest, and verifies the gate
 Ed25519 signature against an **embedded public key** (public keys verify signatures;
 they can't forge them). The verifier body is the repo's **real** `verify-ramp-proof.mjs`
 inlined verbatim — the same file whose parity with the production kernel is
-cross-checked in CI on thousands of randomized fact sets — so the receipt inherits
-that guarantee rather than re-implementing the rules. **Tampering is caught**: edit
-the embedded decision or a single fact and it fails with a digest mismatch (demo
-beat 14 asserts exactly this — a clean receipt verifies, a tampered one is rejected).
+cross-checked in CI on thousands of randomized fact sets — so the Authorization Proof
+inherits that guarantee rather than re-implementing the rules. **Tampering is caught**:
+edit the embedded decision or a single fact and it fails with a digest mismatch (demo
+beat 14 asserts exactly this — a clean proof verifies, a tampered one is rejected).
 
 ### Build on it in five lines (`@ramp/client`)
 
@@ -470,28 +512,37 @@ enforcement path:
 Nothing is fabricated. A corrupt row is shown as corrupt, an unexecuted allow as skipped, an
 unverified proof as unverified.
 
-## Differentiation (quote their own posts back)
+## Where we sit (infrastructure underneath, not a competing feature list)
 
-| Player | What they solve | The gap we fill |
+Platforms in this space already ship excellent spend controls — limits, approval workflows,
+merchant restrictions, fraud scoring, audit logs. Those controls answer **"who may spend, and
+within what bounds?"** — they prove *who authorized* a payment. Our layer answers the question
+underneath: **"was this specific authorization decision correct, given authenticated facts?"** —
+and makes the answer independently verifiable. Every row below is a platform whose controls our
+layer could sit beneath and strengthen:
+
+| Player | What their controls prove | The layer we add underneath |
 | --- | --- | --- |
-| **Ramp Agentic Payments** (their newest) | Agent Cards (single-use Visa tokens), "human on the loop", **3-way match** (PO/invoice/receiving), network fraud scoring, immutable audit log | Their own post lists the gaps: **no defense against fabricated/manipulated invoices, no prompt-injection defense, no cryptographic attestation, vendor identity by "database lookup."** That list is our product. |
-| Visa / MC / Stripe·OpenAI | Scoped single-use credentials — a $500 card at one vendor | *Was the decision computed from trustworthy inputs?* Their model is "trust the agent within a small blast radius." |
-| Ramp Stack / Procurement | Agents follow codified rules; deterministic compliance checks | Rules execute correctly against **false inputs**. We cryptographically verify the source + provenance. |
-| Ramp Token Spend / PostHog | Observe token cost, traces, after-the-fact alerts & audit | Read-only, can't block; and it's **inference** cost, not money leaving the company. Our hook denies *before* the call runs. |
+| **Ramp Agentic Payments** (their newest) | *Who may spend*: Agent Cards (single-use Visa tokens), "human on the loop", **3-way match** (PO/invoice/receiving), network fraud scoring, immutable audit log | Decision verification over authenticated inputs. Their own post names what's out of scope — fabricated/manipulated invoices, prompt injection, cryptographic attestation of documents, vendor identity beyond "database lookup" — and that is exactly the layer we build, one their platform could consume. |
+| Visa / MC / Stripe·OpenAI | *Who may spend, where*: scoped single-use credentials — a $500 card at one vendor | *Was the decision computed from authenticated facts?* Scoping bounds the blast radius of a wrong decision; our layer proves whether the decision was wrong. Both are worth having. |
+| Ramp Stack / Procurement | *Which rules apply*: agents follow codified rules; deterministic compliance checks | Rules execute correctly against **false inputs**. We cryptographically authenticate the inputs and record provenance, so the rule engine above us runs on facts, not claims. |
+| Ramp Token Spend / PostHog | *What happened*: token cost, traces, after-the-fact alerts & audit | Observability is read-only, and it's **inference** cost, not money leaving the company. Our gate produces an authorization proof *before* the payment executes — evidence a dashboard above us can display. |
 
 ### The rebuttals judges will raise
-- **"Ramp already does 3-way match."** → **Match ≠ authenticate.** A 3-way match checks three
-  documents *against each other*; if all three are spoofed together, it passes. Attestation binds the
-  invoice bytes to a TLS session with a **named server**, checked against the vendor's registered
-  domain. **Demo beat 4 is exactly this**: a lookalike domain, a byte-perfect invoice, a real
-  signature — every document agrees, a 3-way match passes, and we deny.
-- **"Ramp already has audit trails."** → **Their log proves integrity. We prove soundness too.** An
-  immutable log proves nobody edited the record; it cannot tell you the record was *right*. A
-  perfectly intact "allow" written by a buggy gate passes every hash check ever devised. Our bundle
-  is **re-derivable**: `pnpm proof` re-runs the kernel on the recorded facts and checks the verdict
-  falls out — and the dashboard does it in your browser while you watch. **You cannot reseal your way
-  out of arithmetic.** Nobody else in this space draws that distinction, and it is the difference
-  between an audit trail and a proof.
+- **"Ramp already does 3-way match."** → **Match ≠ authenticate — different guarantees, and they
+  stack.** A 3-way match checks three documents *against each other*; if all three are spoofed
+  together, it passes. Attestation binds the invoice bytes to a TLS session with a **named server**,
+  checked against the vendor's registered domain — an authenticated fact a matching pipeline above
+  us could consume. **Demo beat 4 is exactly this**: a lookalike domain, a byte-perfect invoice, a
+  real signature — every document agrees, a 3-way match passes, and we deny.
+- **"Ramp already has audit trails."** → **A log proves integrity. Decision verification adds
+  soundness.** An immutable log proves nobody edited the record — a real guarantee, and one their
+  platform delivers well. It cannot tell you the record was *right*: a perfectly intact "allow"
+  written by a buggy gate passes every hash check ever devised. Our bundle is **re-derivable**:
+  `pnpm proof` re-runs the kernel on the recorded facts and checks the verdict falls out — and the
+  dashboard does it in your browser while you watch. **You cannot reseal your way out of
+  arithmetic.** That distinction — integrity vs soundness — is the difference between an audit trail
+  and an authorization proof, and it's precisely the layer an audit-log product could sit on top of.
 - **"Isn't the injection defence just a fancy blocklist?"** → No — and the repo proves it. Detection
   is **telemetry that gates nothing**; if it returned `false` for every real attack the guarantees
   would be unchanged. The defence is structural: untrusted bytes can't become a string, and escape
@@ -506,22 +557,25 @@ unverified proof as unverified.
 
 Ramp is solving the **platform** problem — deploy agents in finance at scale (their own projection:
 **~$15T of B2B purchases involve AI agents by 2028**; Ramp AI Index: **55% of US businesses use AI**,
-Jun 2026). We solve the **trust** problem — make the authorization both logically sound *and*
-grounded in verified inputs. **Complementary, not competing** — Ramp would ideally be the platform
-our provable decisions run on. You're not the contrarian in the room; you're the missing layer they
-already described in their own posts.
+Jun 2026). We are the **authorization infrastructure** underneath that: existing agentic payment
+infrastructure primarily proves *who authorized* a payment; we prove the *authorization decision
+itself was correct given authenticated facts*, and make that independently verifiable.
+**Complementary, not competing** — Ramp would ideally be the platform our authorization proofs run
+under. You're not the contrarian in the room; you're the layer beneath the stack they already
+described in their own posts.
 
 ## Traction (this is not vaporware)
 
 **All four pillars are built, wired into the enforcement path, and green** — plus real fraud controls
-(velocity, windowed budgets, duplicate detection), a human approval channel with **signed** approver
-identity, an external-witness head receipt, a money-stopped operator view, a typed agent SDK, an audit
-console, and a policy simulator. **9 workspaces:** `@ramp/shared`, `@ramp/gate` (kernel + real Soufflé
+(velocity, windowed budgets, duplicate detection), **authenticated agent identity** (Ed25519-signed
+requests verified against the ledger's agent registry), a human approval channel with **signed**
+approver identity, an external-witness Head Checkpoint, a money-stopped operator view, a typed agent
+SDK, an audit console, and a policy simulator. **9 workspaces:** `@ramp/shared`, `@ramp/gate` (kernel + real Soufflé
 `policy.dl` — now ~10 rules), `@ramp/ledger`, `@ramp/quarantine`, `@ramp/attestation`,
 `@ramp/provenance`, `@ramp/payments-mcp` (self-enforcing tool + 4 read-only agent tools),
 **`@ramp/client`** (typed SDK), `@ramp/dashboard`. CI, branch protection, 4 collaborators.
 
-**530 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 18 demo beats above
+**566 tests pass** (1 expected wasm-parity skip). CI additionally drives **all 20 demo beats above
 through the real hook** and independently re-verifies the sealed bundles — the pitch is executable,
 so it cannot quietly drift into fiction.
 

@@ -17,6 +17,10 @@ export function mkFacts(over: Partial<Facts> = {}): Facts {
     approved_categories: ["office_supplies", "software", "travel"],
     agent_cleared_categories: ["office_supplies", "software"],
     attestation_present: true,
+    // Identity proven in the fixture baseline for the same reason attestation
+    // is present: the common case is a decision whose signatures checked out,
+    // and the deny path is exercised in @ramp/gate's tests.
+    agent_identity_verified: true,
     escalation_threshold: 400,
     vendor_risk_tier: "trusted",
     // `budgets` became a REQUIRED field of the frozen contract (policy.dl D7)

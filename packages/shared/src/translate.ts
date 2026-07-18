@@ -72,6 +72,14 @@ export interface AuthoritativeFacts {
    * the model. Optional so Phase 0 callers may omit it (defaults to `false`).
    */
   readonly attestationPresent?: boolean;
+  /**
+   * True iff the request's identity signature VERIFIED against the agent
+   * registry's key for `requestingAgent` (@ramp/attestation's
+   * `verifyAgentIdentity`, checked out of band by the caller — the gate).
+   * Optional so pre-identity callers may omit it (defaults to `false`,
+   * fail-closed: an unproven identity denies).
+   */
+  readonly agentIdentityVerified?: boolean;
   /** Org escalation threshold, from `policy_limits`. */
   readonly escalationThreshold: number;
   /** The vendor's registry risk tier; `"unknown"` when unregistered. */
@@ -109,7 +117,8 @@ export interface TranslateOptions {
  *     `amount`, `vendor`, `category`.
  *   - EVERY gating fact from `authoritative`: `vendor_verified`,
  *     `daily_total_so_far`, `per_txn_cap`, `daily_limit`, `approved_categories`,
- *     `agent_cleared_categories`, `attestation_present`.
+ *     `agent_cleared_categories`, `attestation_present`,
+ *     `agent_identity_verified`.
  *
  * No authoritative scalar is ever copied out of `request`. This function is pure
  * and deterministic: identical inputs -> identical `Facts`.
@@ -142,6 +151,10 @@ export function translateToFacts(
     agent_cleared_categories: authoritative.agentClearedCategories,
     // Day-4 layer; absent authoritative attestation => false (fail-closed default).
     attestation_present: authoritative.attestationPresent ?? false,
+    // Identity layer; an unproven identity => false (fail-closed default). NEVER
+    // read off the raw request — the signature bytes are judged by the gate
+    // against the registry key, and only the verdict arrives here.
+    agent_identity_verified: authoritative.agentIdentityVerified ?? false,
     escalation_threshold: authoritative.escalationThreshold,
     vendor_risk_tier: authoritative.vendorRiskTier,
     budgets: authoritative.budgets,
@@ -173,6 +186,19 @@ export interface AuthoritativeContext {
    * decided by the attestation layer, and only the verdict reaches here.
    */
   readonly attestationPresent?: boolean;
+  /**
+   * True iff the request's identity signature was VERIFIED against the agent
+   * registry's key for `requestingAgent` before this call
+   * (@ramp/attestation's `verifyAgentIdentity`). Supplied by the caller because
+   * signature verification is not the ledger's job — the ledger only holds the
+   * registered public keys.
+   *
+   * Same discipline as `attestationPresent`: this is the *verified verdict*,
+   * never a claim off the request. The request may carry a signature; whether it
+   * is genuine is decided by the identity layer, and only the verdict reaches
+   * here. Absent => `false` (fail-closed).
+   */
+  readonly agentIdentityVerified?: boolean;
 }
 
 /**

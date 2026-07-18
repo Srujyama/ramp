@@ -35,7 +35,10 @@ import {
   demoNotaryPrivateKey,
   DEMO_NOTARY_KEY_ID,
   ATTESTATION_VERSION,
+  signSpendRequest,
+  demoAgentKeypair,
 } from "@ramp/attestation";
+import type { SpendRequest } from "@ramp/shared";
 import {
   handlePayVendor,
   createServer,
@@ -114,6 +117,22 @@ const DENY_ARGS = {
 /** A fresh, fully-seeded in-memory ledger per handler call. */
 const seededDeps: PayVendorDeps = { openDb: () => openLedger(":memory:") };
 
+/**
+ * Sign tool args as the requesting agent (default) or an impersonator. Applied
+ * AFTER any per-test field overrides, because the signature covers the identity
+ * core — sign-then-override would be the tamper case, which has its own test.
+ */
+function signedArgs<T extends { requestingAgent: string }>(
+  args: T,
+  signingAgent = args.requestingAgent,
+): T & { identity: { scheme: "ed25519"; signature: string } } {
+  const { identity } = signSpendRequest(
+    args as unknown as SpendRequest,
+    demoAgentKeypair(signingAgent).privateKey,
+  );
+  return { ...args, identity: identity! };
+}
+
 // Exact, frozen key sets for the three structuredContent schemas.
 const ALLOW_KEYS = [
   "amount",
@@ -126,7 +145,7 @@ const ALLOW_KEYS = [
   "policyOutcome",
   "proofId",
   "proofVerified",
-  "receiptId",
+  "settlementId",
   "requestId",
   "status",
   "vendor",
@@ -152,7 +171,7 @@ const keys = (o: Record<string, unknown>): string[] => Object.keys(o).sort();
 // ===========================================================================
 
 test("ALLOW: seeded happy path settles a sandbox payment with a verified proof", async () => {
-  const res = await handlePayVendor({ ...ALLOW_ARGS }, seededDeps);
+  const res = await handlePayVendor(signedArgs({ ...ALLOW_ARGS }), seededDeps);
   const sc = res.structuredContent;
 
   assert.equal(res.isError, undefined);
@@ -164,15 +183,15 @@ test("ALLOW: seeded happy path settles a sandbox payment with a verified proof",
   assert.equal(sc.paymentStatus, "settled");
   assert.equal(sc.proofVerified, true);
   assert.ok(typeof sc.decisionId === "string" && sc.decisionId.length > 0);
-  assert.ok(typeof sc.receiptId === "string" && (sc.receiptId as string).length > 0);
+  assert.ok(typeof sc.settlementId === "string" && (sc.settlementId as string).length > 0);
   assert.ok(typeof sc.executionId === "string" && (sc.executionId as string).length > 0);
   assert.deepEqual(sc.firedRules, ["allow/all_conditions_met"]);
   // Stable schema: exactly the ALLOW key set.
   assert.deepEqual(keys(sc), ALLOW_KEYS);
 });
 
-test("DENY: unverified vendor is denied, no receipt and no payment", async () => {
-  const res = await handlePayVendor({ ...DENY_ARGS }, seededDeps);
+test("DENY: unverified vendor is denied, no settlement and no payment", async () => {
+  const res = await handlePayVendor(signedArgs({ ...DENY_ARGS }), seededDeps);
   const sc = res.structuredContent;
 
   // A clean policy deny is NOT a tool error.
@@ -191,7 +210,7 @@ test("DENY: unverified vendor is denied, no receipt and no payment", async () =>
   ]);
   assert.match(String(sc.reason), /vendor_not_verified/);
   // No execution surface leaked on a deny.
-  assert.equal("receiptId" in sc, false);
+  assert.equal("settlementId" in sc, false);
   assert.equal("executionId" in sc, false);
   assert.equal("paymentStatus" in sc, false);
   assert.deepEqual(keys(sc), DENY_KEYS);
@@ -199,24 +218,70 @@ test("DENY: unverified vendor is denied, no receipt and no payment", async () =>
 
 test("DENY: over daily-limit amount (361) trips daily_limit_exceeded", async () => {
   // 1140 + 361 = 1501 > 1500, still <= per-txn cap 500.
-  const res = await handlePayVendor(
-    { ...ALLOW_ARGS, amount: 361 },
-    seededDeps,
-  );
+  const res = await handlePayVendor(signedArgs({ ...ALLOW_ARGS, amount: 361 }), seededDeps);
   const sc = res.structuredContent;
   assert.equal(sc.status, "denied");
   assert.ok((sc.firedRules as string[]).includes("deny/daily_limit_exceeded"));
 });
 
 test("IDEMPOTENT: identical requests yield the same decisionId", async () => {
-  const a = await handlePayVendor({ ...ALLOW_ARGS }, seededDeps);
-  const b = await handlePayVendor({ ...ALLOW_ARGS }, seededDeps);
+  // Ed25519 is deterministic, so signing the same core twice yields the same
+  // signature bytes — and therefore the same content-addressed decisionId.
+  const a = await handlePayVendor(signedArgs({ ...ALLOW_ARGS }), seededDeps);
+  const b = await handlePayVendor(signedArgs({ ...ALLOW_ARGS }), seededDeps);
   assert.equal(a.structuredContent.status, "allowed");
   assert.equal(b.structuredContent.status, "allowed");
   assert.equal(a.structuredContent.decisionId, b.structuredContent.decisionId);
-  // The proof/receipt are deterministic too.
+  // The proof/settlement record are deterministic too.
   assert.equal(a.structuredContent.proofId, b.structuredContent.proofId);
-  assert.equal(a.structuredContent.receiptId, b.structuredContent.receiptId);
+  assert.equal(a.structuredContent.settlementId, b.structuredContent.settlementId);
+});
+
+test("DENY: an UNSIGNED request is refused — deny/unauthenticated_agent", async () => {
+  // The exact args that allow above, minus the identity claim. The second gate
+  // verifies identity itself (no hook present), so anonymity dies here too.
+  const res = await handlePayVendor({ ...ALLOW_ARGS }, seededDeps);
+  const sc = res.structuredContent;
+  assert.equal(sc.status, "denied");
+  assert.deepEqual(sc.firedRules, ["deny/unauthenticated_agent"]);
+});
+
+test("DENY: THE IMPERSONATION — agent_47's name signed with agent_12's key", async () => {
+  // A mathematically valid signature by the WRONG registered key. The registry
+  // holds agent_47's key; agent_12's signature over agent_47's request proves
+  // nothing about agent_47, and the kernel denies.
+  const res = await handlePayVendor(
+    signedArgs({ ...ALLOW_ARGS }, "agent_12"),
+    seededDeps,
+  );
+  const sc = res.structuredContent;
+  assert.equal(sc.status, "denied");
+  assert.deepEqual(sc.firedRules, ["deny/unauthenticated_agent"]);
+  assert.equal("settlementId" in sc, false, "an impersonator gets no execution surface");
+});
+
+test("DENY: a core field changed after signing is refused (tamper)", async () => {
+  // Sign a $15 request honestly, then present that signature on the $340 one.
+  // `amount` is inside the signed identity core, so the stale signature dies.
+  const small = signedArgs({ ...ALLOW_ARGS, amount: 15 });
+  const res = await handlePayVendor({ ...ALLOW_ARGS, identity: small.identity }, seededDeps);
+  const sc = res.structuredContent;
+  assert.equal(sc.status, "denied");
+  assert.deepEqual(sc.firedRules, ["deny/unauthenticated_agent"]);
+});
+
+test("DENY: an UNREGISTERED agent cannot authenticate, whatever it signs with", async () => {
+  // agent_ghost has no registry row at all. Note the deny arrives as a
+  // policy_error here rather than a kernel deny — the fact source refuses to
+  // synthesise facts for an unknown identity (UnknownAgentError) before the
+  // kernel ever runs, and the lifecycle fails CLOSED with no execution.
+  const res = await handlePayVendor(
+    signedArgs({ ...DENY_ARGS, requestingAgent: "agent_ghost" }),
+    seededDeps,
+  );
+  const sc = res.structuredContent;
+  assert.notEqual(sc.status, "allowed");
+  assert.equal("settlementId" in sc, false);
 });
 
 // ===========================================================================
@@ -226,6 +291,14 @@ test("IDEMPOTENT: identical requests yield the same decisionId", async () => {
 
 test("input: a valid tool_input parses", () => {
   assert.equal(payVendorInputSchema.safeParse({ ...ALLOW_ARGS }).success, true);
+  assert.equal(payVendorInputSchema.safeParse(signedArgs({ ...ALLOW_ARGS })).success, true);
+});
+
+test("input: a malformed identity claim is rejected at the zod boundary", () => {
+  const bad = { ...ALLOW_ARGS, identity: { scheme: "rsa", signature: "AAAA" } };
+  assert.equal(payVendorInputSchema.safeParse(bad).success, false);
+  const noSig = { ...ALLOW_ARGS, identity: { scheme: "ed25519" } };
+  assert.equal(payVendorInputSchema.safeParse(noSig).success, false);
 });
 
 test("input: non-integer amount is rejected", () => {
@@ -291,8 +364,8 @@ const ALLOWED_RESULT = {
   reasons: ["all_conditions_met: ok"],
   proofId: "proof_stub",
   proofVerified: true,
-  receipt: {
-    receiptId: "rcpt_stub",
+  settlement: {
+    settlementId: "rcpt_stub",
     executionId: "exec_stub",
     status: "settled",
     provider: "sandbox",
@@ -322,7 +395,7 @@ test("mapping: denied result carries reasons but no execution surface", async ()
     reasons: ["vendor_not_verified: ...", "daily_limit_exceeded: ..."],
     proofId: "proof_deny",
     proofVerified: true,
-    receipt: null,
+    settlement: null,
     executed: false,
     message: "Denied by policy",
     requestId: "dec_deny",
@@ -349,7 +422,7 @@ for (const status of ["policy_error", "audit_error", "executor_error"] as const)
       reasons: [],
       proofId: null,
       proofVerified: false,
-      receipt: null,
+      settlement: null,
       executed: false,
       message: `${status} occurred`,
       requestId: "req_err",
@@ -364,11 +437,11 @@ for (const status of ["policy_error", "audit_error", "executor_error"] as const)
   });
 }
 
-test("secrets: never surfaced even if the receipt carries credential-shaped fields", async () => {
+test("secrets: never surfaced even if the settlement carries credential-shaped fields", async () => {
   const leaky = {
     ...ALLOWED_RESULT,
-    receipt: {
-      receiptId: "rcpt_ok",
+    settlement: {
+      settlementId: "rcpt_ok",
       executionId: "exec_ok",
       status: "settled",
       provider: "sandbox",
@@ -390,8 +463,8 @@ test("secrets: never surfaced even if the receipt carries credential-shaped fiel
   for (const forbiddenKey of [/apiKey/i, /cardNumber/i, /"secret"/i, /credential/i]) {
     assert.equal(forbiddenKey.test(serialized), false, `leaked key: ${forbiddenKey}`);
   }
-  // Still returns the non-sensitive receipt handles.
-  assert.equal(res.structuredContent.receiptId, "rcpt_ok");
+  // Still returns the non-sensitive settlement record handles.
+  assert.equal(res.structuredContent.settlementId, "rcpt_ok");
   assert.equal(res.structuredContent.executionId, "exec_ok");
 });
 
@@ -436,7 +509,7 @@ test("RAMP_FAIL_VENDORS makes an allowed sandbox payment fail (executor_error)",
   const prev = process.env.RAMP_FAIL_VENDORS;
   process.env.RAMP_FAIL_VENDORS = "acme_corp";
   try {
-    const res = await handlePayVendor({ ...ALLOW_ARGS }, seededDeps);
+    const res = await handlePayVendor(signedArgs({ ...ALLOW_ARGS }), seededDeps);
     const sc = res.structuredContent;
     // Policy still ALLOWED (the seam only affects the executor, never policy)...
     assert.equal(res.isError, true);
@@ -444,7 +517,7 @@ test("RAMP_FAIL_VENDORS makes an allowed sandbox payment fail (executor_error)",
     // ...and it is NEVER represented as a settled payment.
     assert.notEqual(sc.status, "allowed");
     assert.equal(sc.paymentStatus, undefined);
-    assert.equal(sc.receiptId, undefined);
+    assert.equal(sc.settlementId, undefined);
     // No secret/stack trace leaks in the failure envelope.
     const text = JSON.stringify(sc);
     assert.doesNotMatch(text, /key|secret|token|credential|password|\bat \//i);
@@ -458,7 +531,7 @@ test("RAMP_FAIL_VENDORS unset: the sandbox settles normally", async () => {
   const prev = process.env.RAMP_FAIL_VENDORS;
   delete process.env.RAMP_FAIL_VENDORS;
   try {
-    const res = await handlePayVendor({ ...ALLOW_ARGS }, seededDeps);
+    const res = await handlePayVendor(signedArgs({ ...ALLOW_ARGS }), seededDeps);
     assert.equal(res.structuredContent.status, "allowed");
   } finally {
     if (prev !== undefined) process.env.RAMP_FAIL_VENDORS = prev;
@@ -475,7 +548,7 @@ test("default openDb honors RAMP_DB_PATH (server + bridge share one ledger)", as
   process.env.RAMP_DB_PATH = dbPath;
   try {
     // No deps override → exercises DEFAULT_DEPS.openDb.
-    const res = await handlePayVendor({ ...ALLOW_ARGS });
+    const res = await handlePayVendor(signedArgs({ ...ALLOW_ARGS }));
     assert.equal(res.structuredContent.status, "allowed");
     const decisionId = res.structuredContent.decisionId as string;
 

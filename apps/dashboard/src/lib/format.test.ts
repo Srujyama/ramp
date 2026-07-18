@@ -74,13 +74,13 @@ test("verificationChip covers all four proof states", () => {
 
 test("paymentChip never claims a settlement it can't prove", () => {
   const settled = paymentChip(
-    mkView({ execution: { receiptId: "rcpt_1", executionId: "exec_1", status: "settled", provider: "sandbox", executedAt: "2026-07-14 10:00:00" } }),
+    mkView({ execution: { settlementId: "rcpt_1", executionId: "exec_1", status: "settled", provider: "sandbox", executedAt: "2026-07-14 10:00:00" } }),
   );
   assert.equal(settled.label, "Settled (sandbox)");
   assert.equal(settled.tone, "accent");
 
   const failed = paymentChip(
-    mkView({ execution: { receiptId: "rcpt_2", executionId: "exec_2", status: "failed", provider: "sandbox", executedAt: "2026-07-14 10:00:00" } }),
+    mkView({ execution: { settlementId: "rcpt_2", executionId: "exec_2", status: "failed", provider: "sandbox", executedAt: "2026-07-14 10:00:00" } }),
   );
   assert.equal(failed.label, "Payment failed");
   assert.equal(failed.tone, "deny");
@@ -99,7 +99,7 @@ test("explainDecision narrates an allow that settled", () => {
   const out = explainDecision(
     mkView({
       outcome: "allow",
-      execution: { receiptId: "rcpt_1", executionId: "exec_1", status: "settled", provider: "sandbox", executedAt: "2026-07-14 10:00:00" },
+      execution: { settlementId: "rcpt_1", executionId: "exec_1", status: "settled", provider: "sandbox", executedAt: "2026-07-14 10:00:00" },
     }),
   );
   assert.match(out, /^Allowed because the vendor is verified/);
@@ -110,7 +110,7 @@ test("explainDecision narrates an allow whose executor failed", () => {
   const out = explainDecision(
     mkView({
       outcome: "allow",
-      execution: { receiptId: "rcpt_2", executionId: "exec_2", status: "failed", provider: "sandbox", executedAt: "2026-07-14 10:00:00" },
+      execution: { settlementId: "rcpt_2", executionId: "exec_2", status: "failed", provider: "sandbox", executedAt: "2026-07-14 10:00:00" },
     }),
   );
   assert.equal(out, "Policy allowed the purchase, but the payment executor failed. No settlement occurred.");

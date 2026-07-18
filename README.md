@@ -1,13 +1,20 @@
 # Provable Agent Spend
 
-**A deterministic Datalog policy gate for agent payments.**
+**Authorization infrastructure for agent payments — decision verification beneath any agentic
+payment platform.**
 
 When an AI agent tries to spend money, you should not have to trust its explanation. This
-project puts a small, mechanical **policy kernel** between the agent and the payment: every
-spend request is reduced to a closed set of **facts pulled from authoritative sources**
-(never the model's narration), and those facts are ground through a Datalog program that
-returns `allow` / `deny` the same way every time. Same facts → same answer, and the facts
-are true.
+project puts a small, mechanical **authorization kernel** between the agent and the payment:
+every spend request is reduced to a closed set of **authenticated facts pulled from
+authoritative sources** (never the model's narration), and those facts are ground through a
+Datalog program that returns `allow` / `deny` the same way every time. Same facts → same
+answer, and the facts are true.
+
+Existing agentic payment infrastructure primarily proves **who authorized a payment** (scoped
+credentials, approval workflows, signed audit logs). This layer proves that the **authorization
+decision itself was correct given authenticated facts** — and makes that independently
+verifiable. It sits *underneath* platforms like Ramp as complementary infrastructure, not
+beside them as a competitor.
 
 > **The canonical pitch is [`PITCH.md`](./PITCH.md).** (`hackathon-plan.html` and
 > `pitch-deck.html` derive from it — see `CLAUDE.md` → "Keeping the pitch in sync".)
@@ -16,7 +23,7 @@ are true.
 decision.*
 
 ```bash
-pnpm install && pnpm db:reset && pnpm build && pnpm test   # 530 tests
+pnpm install && pnpm db:reset && pnpm build && pnpm test   # 566 tests
 pnpm demo     # drive every pitch beat through the REAL hook; assert exit codes
 pnpm proof    # independently re-verify the bundles the gate sealed
 ```
@@ -26,6 +33,11 @@ pnpm proof    # independently re-verify the bundles the gate sealed
 - **The model never decides.** The gate reads the amount, vendor, category, spend-so-far,
   caps, and clearances from the **ledger DB + vendor registry + structured tool args** — the
   agent's free-text reasoning is used only as *keys* to look things up, never as facts.
+- **The agent's identity is authenticated, not asserted.** Every request is **Ed25519-signed
+  by the agent**, and the gate verifies the signature against the ledger's **agent registry**
+  (authoritative public keys, revocable). The verified result is the authenticated fact
+  `agent_identity_verified`; an unsigned, forged, or revoked-agent request is denied by
+  `deny/unauthenticated_agent`. Identity is a fact the kernel consumes, not a trusted string.
 - **The kernel is deterministic and pure.** `evaluate(facts) → decision` has no clock, no
   I/O, no randomness. Identical facts always yield an identical decision. `deny` dominates:
   any single deny rule denies the spend.
@@ -76,9 +88,10 @@ A request flows **down** through every pillar before a dollar moves. Enforcement
                  │  attestation_present: a verified BOOLEAN (never a claim)
                  ▼
   ┌──────────────────────────────┐   AUTHORITATIVE facts:
-  │   @ramp/ledger  (SQLite)     │   vendor_verified, daily_total_so_far, caps,
-  │   + vendor registry          │   approved + cleared categories — and the exact
-  └──────────────┬───────────────┘   SQL it ran, recorded as provenance.
+  │   @ramp/ledger  (SQLite)     │   agent_identity_verified (Ed25519 vs the agent
+  │   + vendor & agent registries│   registry), vendor_verified, daily_total_so_far,
+  └──────────────┬───────────────┘   caps, cleared categories — the exact SQL it ran,
+                 │                   recorded as provenance.
                  │  Facts  (the frozen contract, @ramp/shared)
                  ▼
   ┌──────────────────────────────┐   PILLAR 1 — policy.dl (Souffle) ⇄ TS reference kernel
@@ -114,7 +127,7 @@ implementation-agnostic; a parity test cross-checks the two.
 | **`@ramp/provenance`**| `packages/provenance/` | `@ramp/shared`    | **Pillar 2** — decision bundles + `verifyBundle`, the auditor's function. Does **not** depend on `@ramp/gate`: an auditor brings their own kernel. |
 | **`@ramp/quarantine`**| `packages/quarantine/` | — (`node:crypto`) | **Pillar 3** — the CaMeL wrapper + total declassifiers into bounded codomains. |
 | **`@ramp/attestation`**| `packages/attestation/`| `@ramp/shared`   | **Pillar 4** — Ed25519 notary attestation, canonical domain-separated signing, binding checks. |
-| **`@ramp/ledger`**    | `packages/ledger/`     | shared + provenance + gate | The **authoritative fact source** (SQLite) + vendor registry, the append-only decision log, proofs, the read-only bridge, and the policy simulator. Pure DB reads — never model narration. |
+| **`@ramp/ledger`**    | `packages/ledger/`     | shared + provenance + gate | The **authoritative fact source** (SQLite) + vendor & agent registries, the append-only decision log, proofs, the read-only bridge, and the policy simulator. Pure DB reads — never model narration. |
 | **`@ramp/client`**    | `packages/client/`     | shared + gate + ledger + attestation | The **typed agent SDK** — build a provable spending agent in a few lines. A convenience over the real lifecycle, not a bypass. |
 | **`@ramp/payments-mcp`** | `apps/payments-mcp/`| shared + ledger + attestation | **Self-enforcing** MCP tool (`mcp__payments__pay_vendor`) + 4 read-only agent tools — drives the purchase lifecycle itself, so it is safe even with no hook present. |
 | **`@ramp/dashboard`** | `apps/dashboard/`      | shared + provenance + gate | Vite + React. The **Audit page re-verifies bundles in your browser** with WebCrypto and the real kernel. |
@@ -134,7 +147,7 @@ corepack enable
 pnpm install         # install the whole workspace
 pnpm db:reset        # build the demo ledger from schema.sql + seed.sql
 pnpm build           # tsc build every package
-pnpm test            # run every workspace's node:test suite (530 tests)
+pnpm test            # run every workspace's node:test suite (566 tests)
 
 pnpm demo            # drive EVERY pitch beat through the real hook, assert exit codes
 pnpm proof           # independently re-verify the bundles the gate just sealed
@@ -142,7 +155,7 @@ pnpm stats           # operator view: allow/hold/deny rates, money stopped, what
 pnpm explain [<id>]  # why a payment was stopped + the KERNEL-CONFIRMED counterfactual
 pnpm simulate [<f>]  # pre-flight a batch through the real kernel (zero side effects)
 pnpm policy-diff     # replay the log under a hypothetical policy dial (-- --cap 300)
-pnpm receipt         # emit a self-contained .mjs proof anyone can run with just node
+pnpm authproof       # emit a self-contained .mjs Authorization Proof anyone can run with node
 pnpm dev             # dashboard (Vite) — the Audit page re-verifies in your browser
 pnpm mcp             # (separately) run the stub payments MCP server
 ```

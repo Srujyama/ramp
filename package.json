@@ -28,7 +28,7 @@
     "explain": "node scripts/explain.mjs",
     "simulate": "node scripts/simulate.mjs",
     "policy-diff": "node scripts/policy-diff.mjs",
-    "receipt": "node scripts/receipt.mjs",
+    "authproof": "node scripts/authproof.mjs",
     "sdk-example": "node scripts/sdk-example.mjs"
   },
   "dependencies": {

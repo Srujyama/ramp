@@ -436,7 +436,7 @@
   <header class="masthead">
     <p class="kicker"><span class="dot"></span> Financial Infra · Hackathon Build Plan · 1-week track</p>
     <h1>Provable Agent Spend</h1>
-    <p class="lede">Give an AI agent your company card — and make every payment decision <strong>provable, not trusted</strong>. A deterministic policy gate sits in the execution path as a hard boundary the model cannot talk its way around, fed only by cryptographically verified inputs.</p>
+    <p class="lede">Give an AI agent your company card — and make every payment decision <strong>provable, not trusted</strong>. This is <strong>authorization infrastructure</strong>: a deterministic authorization kernel sits in the execution path as a hard boundary the model cannot talk its way around, fed only by <strong>authenticated facts</strong> — a decision-verification layer that sits underneath any agentic payment platform.</p>
     <div class="meta-row">
       <span class="chip"><b>Hero demo:</b> the gate itself</span>
       <span class="chip"><b>Spend path:</b> MCP payments tool</span>
@@ -450,7 +450,7 @@
     <div class="sec-head"><span class="sec-num">00</span><h2>The one-sentence pitch</h2></div>
     <div class="callout win">
       <p class="ct">▶ Lead with this</p>
-      <p><b>"Everyone else scopes the card. We prove the decision."</b> Visa, Mastercard, Stripe/OpenAI, and Ramp all hand agents scoped credentials with a small blast radius — that's identity and spend-limit control. Nobody verifies that the authorization decision itself was computed from trustworthy inputs. We do: a Datalog kernel evaluates every request as formal logic (pass/fail, never "87% confident"), and TLSNotary proves the invoice really came from the vendor's server. <b>Ramp's own audit log tells you what the agent did; we tell you whether it was allowed to — and prove it before the money moves.</b></p>
+      <p><b>"Everyone else scopes the card. We prove the decision."</b> Visa, Mastercard, Stripe/OpenAI, and Ramp hand agents scoped credentials with a small blast radius — identity and spend-limit control that proves <i>who authorized</i> a payment. We build the layer underneath: proof that the <i>authorization decision itself was correct given authenticated facts</i>, independently verifiable. A Datalog kernel evaluates every request as formal logic (pass/fail, never "87% confident"), and attestation proves the invoice really came from the vendor's server. <b>Their controls answer who may spend; our layer proves this specific decision was right — before the money moves, in a form their platform could consume.</b></p>
     </div>
   </section>
 
@@ -469,16 +469,16 @@
         </ul>
       </div>
       <div class="panel threat">
-        <span class="tag">Their gaps (names your product)</span>
+        <span class="tag">The layer their post asks for</span>
         <ul>
-          <li>Their agentic-payments post lists what it does <i>not</i> solve: <b>no defense against fabricated or manipulated invoices.</b></li>
-          <li><b>No prompt-injection defense.</b> Stated plainly, unsolved.</li>
+          <li>Their agentic-payments post names what's out of scope: <b>no defense against fabricated or manipulated invoices.</b></li>
+          <li><b>No prompt-injection defense.</b> Stated plainly, open.</li>
           <li><b>No cryptographic attestation</b> of the underlying documents.</li>
           <li>Vendor identity confirmed only by <b>"database lookup"</b> — not proof the invoice is authentic.</li>
         </ul>
       </div>
     </div>
-    <p style="margin-top:16px; color:var(--ink-2); font-size:14.5px;"><b>The move:</b> open with <i>their</i> stat and <i>their</i> "third pillar" framing so you're extending their story, not attacking it — then land on the four gaps <i>they admitted</i> and show a live demo that closes each one. You're not the contrarian in the room; you're the missing layer they already described.</p>
+    <p style="margin-top:16px; color:var(--ink-2); font-size:14.5px;"><b>The move:</b> open with <i>their</i> stat and <i>their</i> "third pillar" framing so you're extending their story, not attacking it — then land on the four open items <i>they named themselves</i> and show a live demo of the infrastructure layer that closes each one, underneath their platform. You're not the contrarian in the room; you're the authorization layer they already described.</p>
   </section>
 
   <!-- 01 THREAT / DEFENSE -->
@@ -632,14 +632,14 @@
   <section>
     <div class="sec-head"><span class="sec-num">05</span><h2>The week</h2></div>
     <p class="sec-sub">Sequenced so the hero path — a live deny in Claude Code — is bulletproof by the end of Day 3. Everything after amplifies why the gate is worth having.</p>
-    <p class="sec-sub" style="border-left:3px solid var(--green,#22c55e);padding-left:12px;"><b>Status: all six days shipped — and then some.</b> All four pillars are built and enforced, plus real fraud controls (velocity, weekly/monthly budgets, duplicate detection), a human approval channel with cryptographically-<b>signed</b> approver identity, an external-witness head receipt, a money-stopped operator view (<code>pnpm stats</code>), and a typed agent SDK (<code>@ramp/client</code>). <b>530 tests pass; 18 demo beats</b>; CI drives every beat through the real hook and asserts the exit codes, then independently re-verifies the sealed proofs. On the seeded demo the gate <b>stops $3,295</b> of wrong-or-fraudulent spend and lets $340 of real spend through, and <code>pnpm explain</code> proves — by re-running the kernel — the smallest change that would have flipped any stopped payment. Kept below as the record of the plan — the sequencing argument still holds.</p>
+    <p class="sec-sub" style="border-left:3px solid var(--green,#22c55e);padding-left:12px;"><b>Status: all six days shipped — and then some.</b> All four pillars are built and enforced, plus real fraud controls (velocity, weekly/monthly budgets, duplicate detection), <b>authenticated agent identity</b> (Ed25519-signed requests verified against the ledger's agent registry → <code>agent_identity_verified</code>, with <code>deny/unauthenticated_agent</code> for unsigned/forged/revoked requests), a human approval channel with cryptographically-<b>signed</b> approver identity, an external-witness <b>Head Checkpoint</b>, a money-stopped operator view (<code>pnpm stats</code>), a portable <b>Authorization Proof</b> (<code>pnpm authproof</code>), and a typed agent SDK (<code>@ramp/client</code>). <b>566 tests pass; 20 demo beats</b>; CI drives every beat through the real hook and asserts the exit codes, then independently re-verifies the sealed proofs. On the seeded demo the gate <b>stops $3,295</b> of wrong-or-fraudulent spend and lets $340 of real spend through, and <code>pnpm explain</code> proves — by re-running the kernel — the smallest change that would have flipped any stopped payment. Kept below as the record of the plan — the sequencing argument still holds.</p>
 
     <div class="phase">
       <div class="when"><div class="day">Day 1</div><div class="goal">Spine up</div></div>
       <div class="what">
         <h3>Skeleton + the seam</h3>
         <ul>
-          <li>Stub <code>mcp__payments__pay_vendor</code> MCP tool (returns a fake receipt).</li>
+          <li>Stub <code>mcp__payments__pay_vendor</code> MCP tool (returns a fake payment confirmation).</li>
           <li>Ledger DB + vendor registry as the two authoritative fact sources (SQLite is fine).</li>
           <li>Write the fact-translation adapter: tool args + DB → Datalog facts. <b>This is the seam</b> — get it pulling from DB, not narration, from hour one.</li>
         </ul>
@@ -713,22 +713,22 @@
 
   <!-- 06 DIFFERENTIATION -->
   <section>
-    <div class="sec-head"><span class="sec-num">06</span><h2>Why this isn't what's out there</h2></div>
-    <p class="sec-sub">The judges likely include Ramp people. Name the overlap precisely — you're not attacking their core, you're building what their own published posts say comes next.</p>
+    <div class="sec-head"><span class="sec-num">06</span><h2>The layer underneath what's out there</h2></div>
+    <p class="sec-sub">The judges likely include Ramp people. Their platforms already ship strong spend controls — limits, approvals, merchant restrictions, fraud scoring, audit logs. Those prove <i>who authorized</i> a payment. We're the infrastructure underneath: proof the <i>decision itself was correct</i>, given authenticated facts.</p>
     <div class="table-scroll">
       <table>
         <thead>
-          <tr><th>Player</th><th>What they solve</th><th>The gap we fill</th></tr>
+          <tr><th>Player</th><th>What their controls prove</th><th>The layer we add underneath</th></tr>
         </thead>
         <tbody>
-          <tr><td>Ramp Agentic Payments <span style="opacity:.6">(their newest)</span></td><td>Agent Cards (single-use Visa tokens) · "human on the loop" · <b>3-way match</b> (PO/invoice/receiving) · network fraud scoring · immutable audit log</td><td>Their own post lists the gaps: <b>no defense against fabricated/manipulated invoices, no prompt-injection defense, no cryptographic attestation, vendor identity by "database lookup."</b> <span class="us">That list is our product.</span></td></tr>
-          <tr><td>Visa / MC / Stripe·OpenAI</td><td>Scoped, limited-use credentials — a $500 virtual card at one vendor</td><td><span class="us">Was the decision computed from trustworthy inputs?</span> Their model is "trust the agent within a small blast radius."</td></tr>
-          <tr><td>Ramp Stack / Procurement</td><td>Agents follow codified rules & processes; deterministic compliance checks</td><td>Rules execute correctly against <b>false inputs</b>. <span class="us">We cryptographically verify the source</span> + provenance.</td></tr>
-          <tr><td>Ramp Token Spend / PostHog</td><td>Observe: token cost by team/model, traces, spans, after-the-fact alerts &amp; audit trails</td><td>Read-only, can't block, and it's <b>inference</b> cost — not money leaving the company. <span class="us">Our hook denies before the call runs</span>; provenance proves the decision <i>at enforce time</i>, not just logs it after.</td></tr>
+          <tr><td>Ramp Agentic Payments <span style="opacity:.6">(their newest)</span></td><td><i>Who may spend:</i> Agent Cards (single-use Visa tokens) · "human on the loop" · <b>3-way match</b> (PO/invoice/receiving) · network fraud scoring · immutable audit log</td><td>Their own post names what's out of scope: <b>fabricated/manipulated invoices, prompt injection, cryptographic attestation of documents, vendor identity beyond "database lookup."</b> <span class="us">That's the layer we build — one their platform could consume.</span></td></tr>
+          <tr><td>Visa / MC / Stripe·OpenAI</td><td><i>Who may spend, where:</i> scoped, limited-use credentials — a $500 virtual card at one vendor</td><td><span class="us">Was the decision computed from authenticated facts?</span> Scoping bounds the blast radius of a wrong decision; our layer proves whether the decision was wrong. Both are worth having.</td></tr>
+          <tr><td>Ramp Stack / Procurement</td><td><i>Which rules apply:</i> agents follow codified rules &amp; processes; deterministic compliance checks</td><td>Rules execute correctly against <b>false inputs</b>. <span class="us">We cryptographically authenticate the inputs</span> + record provenance — so the rule engine above us runs on facts, not claims.</td></tr>
+          <tr><td>Ramp Token Spend / PostHog</td><td><i>What happened:</i> token cost by team/model, traces, spans, after-the-fact alerts &amp; audit trails</td><td>Observability is read-only, and it's <b>inference</b> cost — not money leaving the company. <span class="us">Our gate produces an authorization proof before the payment executes</span> — evidence a dashboard above us can display.</td></tr>
         </tbody>
       </table>
     </div>
-    <p style="margin-top:18px; color:var(--ink-2); font-size:14.5px;"><b>The framing that wins:</b> Ramp is solving the <i>platform</i> problem — deploying agents in finance at scale (their own projection: <b>~$15T of B2B purchases involve agents by 2028</b>). We solve the <i>trust</i> problem — making the authorization both logically sound and grounded in verified inputs. Complementary, not competing. Ramp would ideally be the platform our provable decisions run on. Their audit log records <i>what the agent did, after the fact</i>; our provenance <b>proves the decision was computed correctly from authenticated inputs — before the money moves.</b></p>
+    <p style="margin-top:18px; color:var(--ink-2); font-size:14.5px;"><b>The framing that wins:</b> Ramp is solving the <i>platform</i> problem — deploying agents in finance at scale (their own projection: <b>~$15T of B2B purchases involve agents by 2028</b>). We are the <i>authorization infrastructure</i> underneath: existing agentic payment infrastructure primarily proves <i>who authorized</i> a payment; we prove the <b>authorization decision itself was correct given authenticated facts — independently verifiable, before the money moves.</b> Complementary, not competing. Ramp would ideally be the platform our authorization proofs run under.</p>
   </section>
 
   <!-- 07 DEMO -->
@@ -758,7 +758,7 @@
     </div>
     <div class="beat">
       <span class="n">6</span>
-      <div><h3>The close</h3><p>One line: everyone else scopes the card; we prove the decision — and here's the cryptographic receipt.</p></div>
+      <div><h3>The close</h3><p>One line: everyone else scopes the card; we prove the decision — and here's the Authorization Proof, a file anyone can verify with plain <code>node</code>.</p></div>
     </div>
   </section>
 

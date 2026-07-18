@@ -204,6 +204,9 @@ importers:
         specifier: workspace:*
         version: link:../shared
     devDependencies:
+      '@ramp/attestation':
+        specifier: workspace:*
+        version: link:../attestation
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.3

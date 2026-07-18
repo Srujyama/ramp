@@ -63,10 +63,10 @@ export interface ExecutorRequest {
   readonly request: SpendRequest;
 }
 
-/** The executor's settlement receipt. MUST NOT carry secrets/credentials. */
-export interface ExecutorReceipt {
+/** The executor's settlement record. MUST NOT carry secrets/credentials. */
+export interface SettlementRecord {
   /** Provider settlement id. */
-  readonly receiptId: string;
+  readonly settlementId: string;
   /** Execution-scoped id; NOT a policy-correlation id. */
   readonly executionId: string;
   readonly status: "settled" | "failed";
@@ -76,7 +76,7 @@ export interface ExecutorReceipt {
 
 /** The injected payment executor. Sandbox-only; no real money moves. */
 export interface PaymentExecutor {
-  execute(req: ExecutorRequest): Promise<ExecutorReceipt> | ExecutorReceipt;
+  execute(req: ExecutorRequest): Promise<SettlementRecord> | SettlementRecord;
 }
 
 /**
@@ -141,6 +141,19 @@ export interface RequestPurchaseInput {
    * default pointing this way.
    */
   readonly attestationPresent?: boolean;
+  /**
+   * The identity layer's VERIFIED verdict for this request — did the request's
+   * signature check out against the agent registry's key for
+   * `requestingAgent`? Defaults to `false` — fail-closed.
+   *
+   * Injected for the same reason `attestationPresent` is: verification is
+   * somebody else's job. @ramp/attestation's `verifyAgentIdentity` owns the
+   * signature check, the ledger's `agent_registry` owns the key; both gates
+   * call the same verifier and hand the boolean in. A caller that forgets to
+   * pass this gets a DENY (`deny/unauthenticated_agent`), never an accidental
+   * allow — the default points the safe way.
+   */
+  readonly agentIdentityVerified?: boolean;
   /** When given, used as `decisionId` — enables same-key conflict detection. */
   readonly idempotencyKey?: string;
   /** OPTIONAL trusted provenance node; omitted from the graph when not genuinely present. */
@@ -151,7 +164,7 @@ export interface RequestPurchaseInput {
   readonly producedAt?: number;
 }
 
-/** The structured receipt/denial an agent gets back. Never carries secrets. */
+/** The structured settlement/denial an agent gets back. Never carries secrets. */
 export interface RequestPurchaseResult {
   readonly status: PurchaseStatus;
   readonly decisionId: string | null;
@@ -161,7 +174,7 @@ export interface RequestPurchaseResult {
   readonly reasons: readonly string[];
   readonly proofId: string | null;
   readonly proofVerified: boolean;
-  readonly receipt: ExecutorReceipt | null;
+  readonly settlement: SettlementRecord | null;
   readonly executed: boolean;
   /** Concise, agent-readable summary. No secrets. */
   readonly message: string;
@@ -190,24 +203,24 @@ function fallbackRequestId(request: SpendRequest): string {
 }
 
 /**
- * Persist the sandbox execution receipt to the audit trail, best-effort. The
+ * Persist the sandbox settlement record to the audit trail, best-effort. The
  * money-movement decision is ALREADY durably recorded + verified by this point,
- * so a failure to log the receipt must NEVER change the purchase result — it only
- * means the receipt won't appear in the audit view. Records `settled` and
- * `failed` alike (a failed receipt is a genuine, auditable executor outcome).
+ * so a failure to log the settlement record must NEVER change the purchase result — it only
+ * means the settlement record won't appear in the audit view. Records `settled` and
+ * `failed` alike (a failed settlement record is a genuine, auditable executor outcome).
  */
 function persistExecution(
   db: LedgerDb,
   decisionId: string,
-  receipt: ExecutorReceipt,
+  settlement: SettlementRecord,
 ): void {
   try {
     recordExecution(db, {
       decisionId,
-      receiptId: receipt.receiptId,
-      executionId: receipt.executionId,
-      status: receipt.status,
-      provider: receipt.provider,
+      settlementId: settlement.settlementId,
+      executionId: settlement.executionId,
+      status: settlement.status,
+      provider: settlement.provider,
     });
   } catch {
     /* audit-of-execution is supplementary; never fail the purchase on it. */
@@ -227,7 +240,7 @@ function makeResult(
     reasons: partial.reasons ?? [],
     proofId: partial.proofId ?? null,
     proofVerified: partial.proofVerified ?? false,
-    receipt: partial.receipt ?? null,
+    settlement: partial.settlement ?? null,
     executed: partial.executed ?? false,
     message: partial.message,
     requestId: partial.requestId,
@@ -253,6 +266,7 @@ export async function requestPurchase(
     executor,
     idempotencyKey,
     attestationPresent = false,
+    agentIdentityVerified = false,
   } =
     input;
 
@@ -273,7 +287,11 @@ export async function requestPurchase(
   // 2. Assemble AUTHORITATIVE facts. Any throw → policy_error, no execution.
   let facts: Facts;
   try {
-    const authoritative = await factSource.contextFor({ request, attestationPresent });
+    const authoritative = await factSource.contextFor({
+      request,
+      attestationPresent,
+      agentIdentityVerified,
+    });
     facts = translateToFacts(request, authoritative);
   } catch {
     return makeResult({
@@ -428,7 +446,7 @@ export async function requestPurchase(
       proofId: proof.proofId,
       proofVerified: true,
       executed: false,
-      receipt: null,
+      settlement: null,
       message:
         decision.reasons.length > 0
           ? `Payment held for human approval: ${decision.reasons.join("; ")}`
@@ -444,7 +462,7 @@ export async function requestPurchase(
       proofId: proof.proofId,
       proofVerified: true,
       executed: false,
-      receipt: null,
+      settlement: null,
       message:
         decision.reasons.length > 0
           ? `Payment denied: ${decision.reasons.join("; ")}`
@@ -453,7 +471,7 @@ export async function requestPurchase(
   }
 
   // 10. Allowed + persisted + verified → execute (LAST, CONDITIONAL). Throw or a
-  //     failed receipt → executor_error; the decision stays persisted regardless.
+  //     failed settlement record → executor_error; the decision stays persisted regardless.
   //
   // The guard is deliberately redundant with the two early returns above. Both of
   // those are `if (specific outcome) return` — a shape that fails OPEN when a new
@@ -467,13 +485,13 @@ export async function requestPurchase(
       proofId: proof.proofId,
       proofVerified: true,
       executed: false,
-      receipt: null,
+      settlement: null,
       message: `Refusing to execute: unrecognised policy outcome "${decision.decision}".`,
     });
   }
-  let receipt: ExecutorReceipt;
+  let settlement: SettlementRecord;
   try {
-    receipt = await executor.execute({
+    settlement = await executor.execute({
       decisionId,
       idempotencyKey: decisionId,
       request,
@@ -489,19 +507,19 @@ export async function requestPurchase(
     });
   }
 
-  // Record the execution receipt (settled OR failed) to the audit trail so the
+  // Record the settlement record (settled OR failed) to the audit trail so the
   // dashboard can show what the executor actually DID, not just what was decided.
-  persistExecution(db, decisionId, receipt);
+  persistExecution(db, decisionId, settlement);
 
-  if (receipt.status === "failed") {
+  if (settlement.status === "failed") {
     return makeResult({
       ...decided,
       status: "executor_error",
       proofId: proof.proofId,
       proofVerified: true,
       executed: false,
-      receipt,
-      message: `Decision allowed and persisted, but payment failed (${receipt.provider}).`,
+      settlement,
+      message: `Decision allowed and persisted, but payment failed (${settlement.provider}).`,
     });
   }
 
@@ -511,7 +529,7 @@ export async function requestPurchase(
     proofId: proof.proofId,
     proofVerified: true,
     executed: true,
-    receipt,
-    message: `Payment settled: ${request.amount} ${request.currency} to ${request.vendorId} (${receipt.receiptId})`,
+    settlement,
+    message: `Payment settled: ${request.amount} ${request.currency} to ${request.vendorId} (${settlement.settlementId})`,
   });
 }

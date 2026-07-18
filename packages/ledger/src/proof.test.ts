@@ -40,6 +40,7 @@ const facts: Facts = {
   approved_categories: ["office_supplies", "software", "travel"],
   agent_cleared_categories: ["office_supplies", "software"],
   attestation_present: false,
+  agent_identity_verified: true,
 escalation_threshold: 400,
 vendor_risk_tier: "standard",
 budgets: [],

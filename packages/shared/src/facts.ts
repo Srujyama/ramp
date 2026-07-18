@@ -9,6 +9,7 @@
  *   - org policy config             (per_txn_cap, daily_limit, approved_categories,
  *                                    agent_cleared_categories)
  *   - the attestation layer         (attestation_present)
+ *   - the identity layer            (agent_identity_verified)
  *
  * NOTHING here may come from the model's free-text narration. The whole security
  * argument ("same facts -> same answer, and the facts are true") depends on it.
@@ -41,6 +42,21 @@ export interface Facts {
   readonly agent_cleared_categories: readonly string[];
   /** True iff a TLSNotary-style attestation accompanied this request (Day 4 layer). */
   readonly attestation_present: boolean;
+  /**
+   * True iff the request's Ed25519 identity signature VERIFIED against the
+   * public key the agent registry holds for `requesting_agent` (status
+   * 'active' only).
+   *
+   * The identity layer's VERDICT, established out of band by
+   * @ramp/attestation's `verifyAgentIdentity` against a key read from the
+   * LEDGER's `agent_registry` — never a claim off the request. `requesting_agent`
+   * remains an untrusted lookup KEY; this boolean is what makes the identity it
+   * names real. Missing signature, wrong key, unregistered agent, and revoked
+   * agent all collapse to `false` here — and false denies
+   * (`deny/unauthenticated_agent`), so impersonating an agent requires its
+   * private key, not its name.
+   */
+  readonly agent_identity_verified: boolean;
   /**
    * Org threshold above which a spend needs a human, even though it is within
    * every hard cap. From `policy_limits`.
@@ -149,7 +165,8 @@ export type FactSource =
   | "vendor_registry"
   | "ledger_db"
   | "policy_config"
-  | "attestation";
+  | "attestation"
+  | "identity";
 
 /**
  * Which authoritative source each `Facts` field is sourced from. Documentation-grade;
@@ -168,6 +185,7 @@ export const FACT_SOURCES: { readonly [K in keyof Facts]: FactSource } = {
   approved_categories: "policy_config",
   agent_cleared_categories: "policy_config",
   attestation_present: "attestation",
+  agent_identity_verified: "identity",
   escalation_threshold: "policy_config",
   vendor_risk_tier: "vendor_registry",
   budgets: "ledger_db",

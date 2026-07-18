@@ -47,6 +47,7 @@ const FACTS: Facts = {
   approved_categories: ["office_supplies"],
   agent_cleared_categories: ["office_supplies"],
   attestation_present: true,
+  agent_identity_verified: true,
   escalation_threshold: 400,
   vendor_risk_tier: "standard",
 budgets: [],

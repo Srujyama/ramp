@@ -186,6 +186,16 @@ function evaluate(f) {
         `"${f.vendor}" — refusing to pay on an unattested document`,
     ]);
   }
+  // D8: the agent did not prove its identity (signature vs its REGISTERED key,
+  // verified out of band; only the verdict is a fact). Missing signature, wrong
+  // key, unregistered and revoked all collapse to false — and false denies.
+  if (!f.agent_identity_verified) {
+    denies.push([
+      "deny/unauthenticated_agent",
+      `unauthenticated_agent: agent "${f.requesting_agent}" did not prove its ` +
+        `identity — no signature verified against its registered key`,
+    ]);
+  }
 
   // D7: any additional budget this spend would break. Generic over scope; the
   // list is pre-sorted by (scope, key) so reasons are byte-stable.
@@ -255,7 +265,7 @@ function evaluate(f) {
         `category "${f.category}" approved and agent "${f.requesting_agent}" cleared, ` +
         `vendor "${f.vendor}" verified, ` +
         `daily ${f.daily_total_so_far} + ${f.amount} <= ${f.daily_limit}, ` +
-        `attestation verified`,
+        `attestation verified, agent identity verified`,
     ],
     firedRules: ["allow/all_conditions_met"],
   };
@@ -277,6 +287,7 @@ const FACT_SOURCES = {
   approved_categories: "policy_config",
   agent_cleared_categories: "policy_config",
   attestation_present: "attestation",
+  agent_identity_verified: "identity",
   escalation_threshold: "policy_config",
   vendor_risk_tier: "vendor_registry",
   budgets: "ledger_db",

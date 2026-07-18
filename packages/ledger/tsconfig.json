@@ -8,7 +8,8 @@
   "references": [
     { "path": "../shared" },
     { "path": "../provenance" },
-    { "path": "../gate" }
+    { "path": "../gate" },
+    { "path": "../attestation" }
   ],
   "include": ["src/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["dist", "node_modules"]

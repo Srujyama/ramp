@@ -3,7 +3,7 @@
  *
  * Pure formatting + honest status derivation. The rules here NEVER invent data:
  * payment status is derived only from what the audit trail actually records
- * (the execution receipt + the policy outcome), so a gate-only allow that was
+ * (the settlement record + the policy outcome), so a gate-only allow that was
  * never executed reads as "not executed", not "settled".
  */
 import type {
@@ -95,6 +95,13 @@ export const RULE_META: Record<RuleId, { title: string; blurb: string }> = {
       "This spend would break a category, vendor, or period budget — separate from " +
       "the agent's daily limit. The reason names which budget and by how much.",
   },
+  "deny/unauthenticated_agent": {
+    title: "Agent unauthenticated",
+    blurb:
+      "The request's signature didn't verify against the key registered for this " +
+      "agent id. Missing signature, wrong key, unregistered and revoked agents all " +
+      "land here — an agent's name is a claim; its key is the identity.",
+  },
   "escalate/over_escalation_threshold": {
     title: "Needs human approval",
     blurb:
@@ -182,17 +189,17 @@ export function verificationChip(reason: ProofVerificationReason): StatusChip {
 }
 
 /**
- * The payment chip, derived ONLY from recorded facts. A settled receipt reads as
- * settled; a failed receipt as failed; a deny as blocked; an allow with no
+ * The payment chip, derived ONLY from recorded facts. A settled settlement record reads as
+ * settled; a failed settlement record as failed; a deny as blocked; an allow with no
  * recorded execution (e.g. a gate-only policy check) as "not executed" — never as
  * a settlement it can't prove.
  */
 export function paymentChip(v: DecisionView): StatusChip {
   if (v.execution) {
     if (v.execution.status === "settled") {
-      return { label: "Settled (sandbox)", tone: "accent", title: `Sandbox payment settled (${v.execution.provider}) — receipt ${v.execution.receiptId}. No real money moves.` };
+      return { label: "Settled (sandbox)", tone: "accent", title: `Sandbox payment settled (${v.execution.provider}) — settlement ${v.execution.settlementId}. No real money moves.` };
     }
-    return { label: "Payment failed", tone: "deny", title: `The sandbox executor returned a failed receipt (${v.execution.provider}). No settlement occurred.` };
+    return { label: "Payment failed", tone: "deny", title: `The sandbox executor returned a failed settlement record (${v.execution.provider}). No settlement occurred.` };
   }
   if (v.outcome === "deny") {
     return { label: "Blocked", tone: "neutral", title: "Denied by policy — the executor was never called, so no payment was attempted." };
@@ -228,6 +235,8 @@ const RULE_PHRASE: Record<RuleId, string> = {
     "no verified attestation ties this invoice to the vendor's registered domain",
   "deny/malformed_facts": "the request's numbers were not usable, so it was not evaluated",
   "deny/budget_exceeded": "it would break a category, vendor, or period budget",
+  "deny/unauthenticated_agent":
+    "the request was not signed by the agent's registered key, so who sent it is unproven",
   "escalate/over_escalation_threshold":
     "it is within the caps but large enough that a person should approve it",
   "escalate/elevated_risk_vendor": "the vendor is verified but was onboarded recently",

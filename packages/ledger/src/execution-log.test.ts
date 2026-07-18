@@ -4,7 +4,7 @@
  * Exercises {@link recordExecution}: the separate, later append that records what
  * the sandbox executor DID for an already-recorded decision. Verifies read-back
  * via getDecision/listDecisions, idempotency, that a deny (no execution) reads
- * back as `execution: null`, and that a `failed` receipt is preserved as a
+ * back as `execution: null`, and that a `failed` settlement record is preserved as a
  * genuine failure (never a settlement). Run with `node --test`.
  */
 import { test } from "node:test";
@@ -36,6 +36,7 @@ function facts(over: Partial<Facts> = {}): Facts {
     approved_categories: ["office_supplies", "software", "travel"],
     agent_cleared_categories: ["office_supplies", "software"],
     attestation_present: false,
+  agent_identity_verified: true,
     escalation_threshold: 400,
     vendor_risk_tier: "standard",
     budgets: [],
@@ -90,17 +91,17 @@ test("THE WRITER: a settled execution projects a ledger_entries row; failed/repl
     // A settled execution is the ONLY thing that writes spend.
     recordExecution(db, {
       decisionId,
-      receiptId: "rcpt_w",
+      settlementId: "rcpt_w",
       executionId: "exec_w",
       status: "settled",
       provider: "sandbox",
     });
     assert.equal(dailyEntries("agent_47"), before + 200, "settlement did not write ledger_entries");
 
-    // Replaying the receipt is an idempotent no-op — no double count.
+    // Replaying the settlement record is an idempotent no-op — no double count.
     recordExecution(db, {
       decisionId,
-      receiptId: "rcpt_w",
+      settlementId: "rcpt_w",
       executionId: "exec_w",
       status: "settled",
       provider: "sandbox",
@@ -115,7 +116,7 @@ test("THE WRITER: a settled execution projects a ledger_entries row; failed/repl
     });
     recordExecution(db, {
       decisionId: fail.decisionId,
-      receiptId: "rcpt_f",
+      settlementId: "rcpt_f",
       executionId: "exec_f",
       status: "failed",
       provider: "sandbox",
@@ -124,12 +125,12 @@ test("THE WRITER: a settled execution projects a ledger_entries row; failed/repl
   });
 });
 
-test("recordExecution: settled receipt reads back on the decision", () => {
+test("recordExecution: settled settlement record reads back on the decision", () => {
   withDb((db) => {
     const { decisionId } = recordDecision(db, { request: req, facts: facts(), decision: ALLOW });
     const { inserted } = recordExecution(db, {
       decisionId,
-      receiptId: "rcpt_abc123",
+      settlementId: "rcpt_abc123",
       executionId: "exec_def456",
       status: "settled",
       provider: "sandbox",
@@ -139,7 +140,7 @@ test("recordExecution: settled receipt reads back on the decision", () => {
     const rec = getDecision(db, decisionId);
     assert.ok(rec);
     assert.ok(rec.execution);
-    assert.equal(rec.execution.receiptId, "rcpt_abc123");
+    assert.equal(rec.execution.settlementId, "rcpt_abc123");
     assert.equal(rec.execution.executionId, "exec_def456");
     assert.equal(rec.execution.status, "settled");
     assert.equal(rec.execution.provider, "sandbox");
@@ -147,12 +148,12 @@ test("recordExecution: settled receipt reads back on the decision", () => {
   });
 });
 
-test("recordExecution: a failed receipt is preserved as failed (never a settlement)", () => {
+test("recordExecution: a failed settlement record is preserved as failed (never a settlement)", () => {
   withDb((db) => {
     const { decisionId } = recordDecision(db, { request: req, facts: facts(), decision: ALLOW });
     recordExecution(db, {
       decisionId,
-      receiptId: "rcpt_fail",
+      settlementId: "rcpt_fail",
       executionId: "exec_fail",
       status: "failed",
       provider: "sandbox",
@@ -167,21 +168,21 @@ test("recordExecution: re-recording the same decision is an idempotent no-op", (
     const { decisionId } = recordDecision(db, { request: req, facts: facts(), decision: ALLOW });
     const first = recordExecution(db, {
       decisionId,
-      receiptId: "rcpt_a",
+      settlementId: "rcpt_a",
       executionId: "exec_a",
       status: "settled",
       provider: "sandbox",
     });
     const second = recordExecution(db, {
       decisionId,
-      receiptId: "rcpt_a",
+      settlementId: "rcpt_a",
       executionId: "exec_a",
       status: "settled",
       provider: "sandbox",
     });
     assert.equal(first.inserted, true);
     assert.equal(second.inserted, false); // append-only: first write wins
-    assert.equal(getDecision(db, decisionId)?.execution?.receiptId, "rcpt_a");
+    assert.equal(getDecision(db, decisionId)?.execution?.settlementId, "rcpt_a");
   });
 });
 
@@ -192,19 +193,19 @@ test("a decision with no execution reads back execution: null (e.g. a deny)", ()
   });
 });
 
-test("listDecisions surfaces the execution receipt per row", () => {
+test("listDecisions surfaces the settlement record per row", () => {
   withDb((db) => {
     const { decisionId } = recordDecision(db, { request: req, facts: facts(), decision: ALLOW });
     recordExecution(db, {
       decisionId,
-      receiptId: "rcpt_list",
+      settlementId: "rcpt_list",
       executionId: "exec_list",
       status: "settled",
       provider: "sandbox",
     });
     const { decisions } = listDecisions(db, {});
     const row = decisions.find((d) => d.decisionId === decisionId);
-    assert.equal(row?.execution?.receiptId, "rcpt_list");
+    assert.equal(row?.execution?.settlementId, "rcpt_list");
   });
 });
 
@@ -234,12 +235,12 @@ test("openLedger heals an old DB missing decision_executions (no re-seed, no dat
       // Table is back and usable...
       recordExecution(db, {
         decisionId,
-        receiptId: "rcpt_heal",
+        settlementId: "rcpt_heal",
         executionId: "exec_heal",
         status: "settled",
         provider: "sandbox",
       });
-      assert.equal(getDecision(db, decisionId)?.execution?.receiptId, "rcpt_heal");
+      assert.equal(getDecision(db, decisionId)?.execution?.settlementId, "rcpt_heal");
       // ...the prior decision survived (no wipe)...
       assert.ok(getDecision(db, decisionId));
       // ...and it was NOT re-seeded (policy_limits row count unchanged).

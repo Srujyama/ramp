@@ -154,8 +154,8 @@ There is no native `tool_use_id` shared between the hook and the MCP tool, and t
 MCP's `req_<uuid>` is minted only when the tool *executes* — after a hook allow, and
 never for a denied attempt. It cannot correlate hook decisions. The hook-minted
 `decisionId` is the authoritative correlation id. The MCP id stays an
-execution-scoped receipt id (see `apps/payments-mcp/src/receipt.ts`), explicitly
-documented as *not* a policy-correlation id.
+execution-scoped settlement id (minted on the payments MCP executor path),
+explicitly documented as *not* a policy-correlation id.
 
 ---
 
@@ -169,6 +169,17 @@ purchase lifecycle `requestPurchase()` (exported from `@ramp/ledger`, see
 decision, **independently re-verifies** the proof, and only then executes payment
 through an injected sandbox executor. This is the enforcement path for **all** MCP
 clients (Claude Code, Codex, Cursor) — it does not depend on any hook.
+
+## Authenticated agent identity at both gates
+
+As of the agent-identity work, both gates verify **who is asking** before any
+policy evaluation is trusted: a `SpendRequest` carries an Ed25519 `identity`
+signature over its canonical core, and the hook **and** the self-enforcing MCP
+tool each verify it against the ledger's **agent registry** (authoritative
+public keys, active/revoked status). The result enters the kernel as the
+authenticated fact `agent_identity_verified`; the kernel denies unauthenticated
+or impersonated requests via `deny/unauthenticated_agent`. Because both gates
+verify independently, neither path can be used to dodge authentication.
 
 ## This is NOT a second policy path
 

@@ -1,10 +1,15 @@
 # Provable Agent Spend — Product
 
-> **Provable Agent Spend is the trust layer between AI agents and money. Every
-> autonomous purchase is policy-controlled, recorded, traceable, and
-> independently verifiable.**
+> **Provable Agent Spend is authorization infrastructure for AI-agent payments.
+> Every autonomous purchase decision is policy-controlled, recorded, traceable,
+> and independently verifiable.**
 
-This dashboard is the **read-only audit console** for that trust layer. It does
+Payment platforms prove *who authorized* a payment; this layer proves *the
+authorization decision itself was correct given authenticated facts* — and lets
+anyone verify that independently. It sits beneath any agentic payment platform
+as complementary infrastructure.
+
+This dashboard is the **read-only audit console** for that layer. It does
 not authorize, block, or move money. It reads the append-only decision log and
 lets a human — an auditor, an operator, a reviewer — see exactly what happened on
 every autonomous purchase and confirm it independently.
@@ -45,7 +50,7 @@ Agent request
   → Proof built + persisted     (tamper-evident)
   → Independent re-verification  (recomputed, not trusted from bytes)
   → Payment executed (sandbox) or blocked
-  → Receipt recorded
+  → Settlement recorded
 ```
 
 The decision and its tamper-evident proof are persisted and re-verified before
@@ -70,8 +75,8 @@ Each row the console shows is backed by:
   the org-level policy (per-transaction cap, daily limit, approved categories)
   that judged the request. Two decisions made under the same policy share one
   digest; any policy change moves it. It is an identity, **not** a version number.
-- **A sandbox execution receipt** (for executed rows) — receiptId, executionId,
-  status (`settled` | `failed`), and provider.
+- **A sandbox settlement record** (for executed rows) — settlementId,
+  executionId, status (`settled` | `failed`), and provider.
 
 ## Honesty is a product feature
 
@@ -117,7 +122,7 @@ not "green"; a verified proof on a denied spend is not a settlement. The four
 separable claims — *decision allowed · audit persisted · proof verified · payment
 executed* — are now expressed as stages of this one timeline rather than a
 separate status ladder, with the detailed facts, fired rules, full proof,
-provenance, and sandbox receipt in sections beneath it.
+provenance, and sandbox settlement record in sections beneath it.
 
 ## Recent Activity on the Overview
 
@@ -148,11 +153,13 @@ authoritative facts — minus the recording and the money movement.
 
 ## Scope, trust boundaries & deferred work
 
-The product theme is deliberately narrow: the trust layer between AI agents and
-money — deterministic policy → tamper-evident audit log → independent
-verification → gated execution. It intentionally does **not** expand into generic
-fintech, spend analytics, accounting, reimbursements, approval workflows, or real
-payment rails.
+The product theme is deliberately narrow: authorization infrastructure for
+AI-agent payments — deterministic authorization kernel → tamper-evident record →
+independent verification → gated execution. It intentionally does **not** expand
+into generic fintech, spend analytics, accounting, reimbursements, approval
+workflows, or real payment rails — those are the product surface of agentic
+payment platforms, beneath which this layer sits as complementary decision
+verification.
 
 - **Policy denial ≠ payment failure.** A denial means the gate blocked the spend
   and the executor was never called. A payment failure means the gate *allowed*
@@ -162,8 +169,8 @@ payment rails.
   independently recomputed on read and matches the recorded decision. "Tampered"
   means it recomputes to a different id; "corrupt" means the stored proof is
   malformed. None of these are ever shown as a plain "verified".
-- **Sandbox.** Every payment is simulated. No real money moves; receipts are
-  demo artifacts.
+- **Sandbox.** Every payment is simulated. No real money moves; settlement
+  records are demo artifacts.
 - **Policy identity, not versioning.** The policy digest is a content identity.
   Historical policy **versioning** — human-readable version numbers, change
   history, diffing two policies over time — is **deferred future work**, not

@@ -20,6 +20,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { mintAttestation } from "../../../scripts/notary.mjs";
+import { signSpendRequest, demoAgentKeypair } from "@ramp/attestation";
 
 const dbPath = process.env.RAMP_DB_PATH;
 if (!dbPath) {
@@ -52,11 +53,22 @@ async function call(label, args, extraEnv = {}) {
   if (sc.firedRules) console.log(`  firedRules       : ${JSON.stringify(sc.firedRules)}`);
   console.log(`  proofVerified    : ${sc.proofVerified ?? "n/a"}`);
   console.log(`  paymentStatus    : ${sc.paymentStatus ?? "—"}`);
-  console.log(`  receiptId        : ${sc.receiptId ?? "—"}`);
+  console.log(`  settlementId        : ${sc.settlementId ?? "—"}`);
   console.log(`  message          : ${sc.message}`);
 }
 
 const base = { currency: "USD", category: "office_supplies", requestingAgent: "agent_47" };
+
+/**
+ * Sign a call's arguments as the requesting agent (identity core: vendorId,
+ * amount, currency, category, invoiceRef, requestingAgent). The server verifies
+ * this against the agent registry's key — an unsigned call now denies on
+ * deny/unauthenticated_agent, which is the point.
+ */
+function signed(args) {
+  const { identity } = signSpendRequest(args, demoAgentKeypair(args.requestingAgent).privateKey);
+  return { ...args, identity };
+}
 
 // acme_corp's registered TLS domain (packages/ledger/sql/seed.sql) — attestations
 // must be bound to this or D6 (attestation_present) denies them.
@@ -82,20 +94,31 @@ function attestFor({ amount, invoiceRef, currency = "USD" }) {
 // the daily limit is 1500 — headroom is shared across every vendor for that agent,
 // so amounts below must add up to <= 360 across the whole run or later "allow"
 // beats will trip deny/daily_limit_exceeded instead of demonstrating what they say.
-await call("ALLOW — compliant purchase settles in the sandbox", {
+await call("ALLOW — compliant purchase settles in the sandbox", signed({
   ...base, vendorId: "acme_corp", amount: 340, invoiceRef: "inv_demo_allow",
   ...attestFor({ amount: 340, invoiceRef: "inv_demo_allow" }),
-});
-await call("DENY — unverified vendor is blocked, no payment", {
+}));
+await call("DENY — unverified vendor is blocked, no payment", signed({
   ...base, vendorId: "sketchy_llc", amount: 40, invoiceRef: "inv_demo_deny",
-});
+}));
 await call(
   "FAILURE — allowed, but the sandbox executor fails (executor_error)",
-  {
+  signed({
     ...base, vendorId: "acme_corp", amount: 15, invoiceRef: "inv_demo_fail",
     ...attestFor({ amount: 15, invoiceRef: "inv_demo_fail" }),
-  },
+  }),
   { RAMP_FAIL_VENDORS: "acme_corp" },
 );
+// The impersonation, at the second gate: agent_47's name signed with agent_12's
+// key. The server verifies against the registry and the kernel denies —
+// deny/unauthenticated_agent — before the lifecycle ever reaches the executor.
+await call("DENY — impersonation: agent_47's name, agent_12's key", {
+  ...base, vendorId: "acme_corp", amount: 20, invoiceRef: "inv_demo_impersonate",
+  ...attestFor({ amount: 20, invoiceRef: "inv_demo_impersonate" }),
+  identity: signSpendRequest(
+    { ...base, vendorId: "acme_corp", amount: 20, invoiceRef: "inv_demo_impersonate" },
+    demoAgentKeypair("agent_12").privateKey,
+  ).identity,
+});
 
 console.log("\nDone. Start the bridge + dashboard (same RAMP_DB_PATH) to see these decisions.");

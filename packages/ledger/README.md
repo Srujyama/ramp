@@ -1,9 +1,11 @@
 # @ramp/ledger
 
-The **authoritative fact source** and **audit trail** for Provable Agent Spend.
-Reads security-critical facts from SQLite (never from model narration) and
-persists every policy decision with a tamper-evident proof and independently
-derived provenance.
+The **authoritative fact source** and **audit trail** for Provable Agent Spend —
+the store of authenticated facts that the authorization kernel decides against.
+Reads security-critical facts from SQLite (never from model narration), holds
+the **agent registry** (the authoritative public keys behind authenticated agent
+identity), and persists every authorization decision with a tamper-evident proof
+and independently derived provenance.
 
 This package is **neil-owned** (`/packages/ledger/` in CODEOWNERS). Its proof
 and provenance types are deliberately **local** to this package — the frozen
@@ -16,6 +18,7 @@ and provenance types are deliberately **local** to this package — the frozen
 | Area | Module | Summary |
 |------|--------|---------|
 | Fact source | `db.ts`, `dal.ts` | Open the SQLite store; anti-injection authoritative reads. |
+| **Agent registry** | fact-source layer | **Authoritative agent public keys + active/revoked status — the root of authenticated agent identity (see below).** |
 | Audit trail | `decision-log.ts` | `recordDecision` / `getDecision` / `listDecisions` — append-only, idempotent, keyset-paginated. |
 | Proof | `proof.ts` | `buildProof` / `verifyProof` — stable `proof_<sha256>` identity over the meaningful content. |
 | Canonical hash | `canonical-hash.ts` | Deterministic JSON canonicalization (node:crypto only). |
@@ -29,6 +32,20 @@ and provenance types are deliberately **local** to this package — the frozen
 
 The **bold** rows are the audit-trail + policy-identity + simulator features. The
 rest is the Phase-F audit-trail foundation they build on.
+
+### The agent registry — authoritative agent identity
+
+`requestingAgent` on a `SpendRequest` is never a trusted string. The ledger's
+**agent registry** is the authoritative store of each agent's Ed25519 **public
+key** and its **active/revoked** status. A request carries an `identity` field —
+an Ed25519 signature over the canonical core of the request (`vendorId`,
+`amount`, `currency`, `category`, `invoiceRef`, `requestingAgent`) — and both
+gates (the PreToolUse hook and the self-enforcing payments MCP tool) verify that
+signature against this registry. The verification result becomes the
+authenticated fact `agent_identity_verified`, which the kernel enforces via
+`deny/unauthenticated_agent`. Like the vendor registry and the spend totals,
+the registry is an **authoritative fact source**: identity is proven against
+what the ledger says, never against what the request claims.
 
 ---
 
@@ -47,9 +64,9 @@ handle, and `PaymentExecutor`, and runs (strict order, executor last and conditi
 6. `buildProof(...)` with honest attestation (`present_unverified` / `absent`) — throw → `policy_error`.
 7. `recordDecision(...)` — conflict/throw → `audit_error`, no execution.
 8. Re-read + `verifyDecisionProof` — not verified → `audit_error`, no execution.
-9. If `deny` → `denied`, no execution, no receipt.
-10. Else `executor.execute(...)` — throw / `status:"failed"` → `executor_error` (decision stays persisted); else `allowed` with receipt.
-11. `recordExecution(...)` — best-effort append of the sandbox receipt (settled **or** failed) to the audit trail. The decision is already durably recorded, so a failure here never changes the payment result; it only omits the receipt from the audit view.
+9. If `deny` → `denied`, no execution, no settlement record.
+10. Else `executor.execute(...)` — throw / `status:"failed"` → `executor_error` (decision stays persisted); else `allowed` with a settlement record.
+11. `recordExecution(...)` — best-effort append of the sandbox settlement record (settled **or** failed) to the audit trail. The decision is already durably recorded, so a failure here never changes the payment result; it only omits the settlement record from the audit view.
 
 `requestPurchase` contains **no policy logic** of its own — it delegates to the injected
 kernel (not a second policy path) and never logs or returns secrets. Full input/output
@@ -127,15 +144,15 @@ The full stored `DecisionRecord` — `decisionId`, `requestId`, `status`,
 
 | Field | Meaning |
 |-------|---------|
-| `execution` | The sandbox execution receipt (`{ receiptId, executionId, status: "settled" \| "failed", provider, executedAt }`) or `null` when the executor never ran (every deny; any allow that failed before execution). A `"failed"` row is a genuine executor failure — **never** a settlement. |
+| `execution` | The sandbox execution settlement record (`{ settlementId, executionId, status: "settled" \| "failed", provider, executedAt }`) or `null` when the executor never ran (every deny; any allow that failed before execution). A `"failed"` row is a genuine executor failure — **never** a settlement. |
 | `provenance` | `proof.provenance` surfaced top-level (`null` when absent). |
 | `proofVerified` | **Independently recomputed** boolean — *not* the stored bytes. |
 | `proofVerification` | `{ proofPresent, proofVerified, expectedProofId, actualProofId, reason }` where `reason ∈ "ok" \| "absent" \| "corrupt" \| "mismatch"`. |
 
-The decision + proof and the `execution` receipt are **separate appends**:
-`recordExecution` writes the receipt AFTER the decision is persisted, verified,
+The decision + proof and the `execution` settlement record are **separate appends**:
+`recordExecution` writes the settlement record AFTER the decision is persisted, verified,
 and the executor runs, so it can never alter the append-only decision/proof
-record. This closes the product's "recorded" promise — the receipt an agent
+record. This closes the product's "recorded" promise — the settlement result an agent
 received is auditable, not just returned out-of-band — while keeping the four
 trust claims separable: *decision allowed*, *audit persisted*, *proof verified*,
 *payment executed*.

@@ -32,7 +32,7 @@ import {
   type FactSourcePort,
   type PaymentExecutor,
   type ExecutorRequest,
-  type ExecutorReceipt,
+  type SettlementRecord,
 } from "./purchase.js";
 
 // --- fixtures ----------------------------------------------------------------
@@ -99,15 +99,15 @@ class FakeExecutor implements PaymentExecutor {
       | { kind: "fail" }
       | { kind: "throw" } = { kind: "settle" },
   ) {}
-  execute(req: ExecutorRequest): ExecutorReceipt {
+  execute(req: ExecutorRequest): SettlementRecord {
     this.called = true;
     this.calls.push(req);
     if (this.behavior.kind === "throw") {
       throw new Error("simulated executor failure");
     }
-    // Deterministic receipt derived from the request (idempotent).
+    // Deterministic settlement record derived from the request (idempotent).
     return {
-      receiptId: "rcpt_" + req.decisionId.slice(0, 12),
+      settlementId: "rcpt_" + req.decisionId.slice(0, 12),
       executionId: "exec_" + req.decisionId.slice(0, 12),
       status: this.behavior.kind === "fail" ? "failed" : "settled",
       provider: "sandbox",
@@ -132,7 +132,7 @@ const AT = 1_700_000_000_000; // pinned proof time for determinism
 
 // --- allow path --------------------------------------------------------------
 
-test("ALLOW: allowed request executes and returns a settled receipt", async () => {
+test("ALLOW: allowed request executes and returns a settled settlement record", async () => {
   await withDb(async (db) => {
     const executor = new FakeExecutor();
     const r = await requestPurchase({
@@ -151,8 +151,8 @@ test("ALLOW: allowed request executes and returns a settled receipt", async () =
     assert.equal(r.proofVerified, true);
     assert.ok(r.decisionId?.startsWith("dec_"));
     assert.ok(r.proofId?.startsWith("proof_"));
-    assert.equal(r.receipt?.status, "settled");
-    assert.equal(r.receipt?.provider, "sandbox");
+    assert.equal(r.settlement?.status, "settled");
+    assert.equal(r.settlement?.provider, "sandbox");
     assert.deepEqual(r.firedRules, ["allow/all_conditions_met"]);
     assert.equal(r.requestId, "inv_2026_07_0043");
     // executor was called exactly once, with idempotencyKey === decisionId
@@ -171,11 +171,11 @@ test("ALLOW: the proof is persisted BEFORE execution (durable audit row)", async
     // already be persisted and verifiable when execute() runs.
     let proofPresentAtExecTime = false;
     const spyExecutor: PaymentExecutor = {
-      execute(req: ExecutorRequest): ExecutorReceipt {
+      execute(req: ExecutorRequest): SettlementRecord {
         const rec = getDecision(db, req.decisionId);
         proofPresentAtExecTime = rec?.proof != null && rec.status === "allowed";
         return {
-          receiptId: "rcpt_x",
+          settlementId: "rcpt_x",
           executionId: "exec_x",
           status: "settled",
           provider: "sandbox",
@@ -259,7 +259,7 @@ test("DENY: denied request never calls the executor", async () => {
     assert.equal(r.status, "denied");
     assert.equal(r.outcome, "deny");
     assert.equal(r.executed, false);
-    assert.equal(r.receipt, null);
+    assert.equal(r.settlement, null);
     assert.equal(r.proofVerified, true); // persisted + verified, just not executed
     assert.deepEqual(r.firedRules, ["deny/vendor_not_verified"]);
     // THE invariant: executor was never touched for a deny.
@@ -448,7 +448,7 @@ test("idempotent: an identical retry collapses to the same decision (ledger no-o
 
     // Re-run the byte-identical request: decisionId is a content hash, so it is
     // stable; recordDecision is an idempotent no-op; the executor's deterministic
-    // receipt matches. Both attempts agree.
+    // settlement record matches. Both attempts agree.
     const exec2 = new FakeExecutor();
     const second = await requestPurchase({
       request: heroReq,
@@ -461,7 +461,7 @@ test("idempotent: an identical retry collapses to the same decision (ledger no-o
     });
     assert.equal(second.status, "allowed");
     assert.equal(second.decisionId, first.decisionId);
-    assert.deepEqual(second.receipt, first.receipt);
+    assert.deepEqual(second.settlement, first.settlement);
     // Exactly one audit row exists for that content.
     const rec = getDecision(db, first.decisionId!);
     assert.ok(rec);
@@ -492,7 +492,7 @@ test("executor_error: an executor throw occurs only AFTER an allowed+persisted d
   });
 });
 
-test("executor_error: a failed receipt maps to executor_error, decision stays persisted", async () => {
+test("executor_error: a failed settlement record maps to executor_error, decision stays persisted", async () => {
   await withDb(async (db) => {
     const executor = new FakeExecutor({ kind: "fail" });
     const r = await requestPurchase({
@@ -506,7 +506,7 @@ test("executor_error: a failed receipt maps to executor_error, decision stays pe
     });
     assert.equal(r.status, "executor_error");
     assert.equal(r.executed, false);
-    assert.equal(r.receipt?.status, "failed");
+    assert.equal(r.settlement?.status, "failed");
     const rec = getDecision(db, r.decisionId!);
     assert.equal(rec?.status, "allowed");
   });
@@ -573,9 +573,9 @@ test("honest attestation: attestation_present true → 'present_unverified' (nev
   });
 });
 
-// --- execution receipt is persisted to the audit trail -----------------------
+// --- settlement record is persisted to the audit trail -----------------------
 
-test("ALLOW: the settled receipt is persisted to the ledger (auditable payment)", async () => {
+test("ALLOW: the settled settlement record is persisted to the ledger (auditable payment)", async () => {
   await withDb(async (db) => {
     const r = await requestPurchase({
       request: heroReq,
@@ -589,12 +589,12 @@ test("ALLOW: the settled receipt is persisted to the ledger (auditable payment)"
     const rec = getDecision(db, r.decisionId!);
     assert.equal(rec?.execution?.status, "settled");
     assert.equal(rec?.execution?.provider, "sandbox");
-    assert.equal(rec?.execution?.receiptId, r.receipt?.receiptId);
-    assert.equal(rec?.execution?.executionId, r.receipt?.executionId);
+    assert.equal(rec?.execution?.settlementId, r.settlement?.settlementId);
+    assert.equal(rec?.execution?.executionId, r.settlement?.executionId);
   });
 });
 
-test("executor_error (failed receipt): recorded as failed, never as settled", async () => {
+test("executor_error (failed settlement record): recorded as failed, never as settled", async () => {
   await withDb(async (db) => {
     const r = await requestPurchase({
       request: heroReq,
@@ -639,7 +639,7 @@ test("executor throw: decision persisted, no execution row (nothing settled)", a
       producedAt: AT,
     });
     assert.equal(r.status, "executor_error");
-    // The executor threw before returning a receipt → nothing to record.
+    // The executor threw before returning a settlement record → nothing to record.
     assert.equal(getDecision(db, r.decisionId!)?.execution, null);
   });
 });

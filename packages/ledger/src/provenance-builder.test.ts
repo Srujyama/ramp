@@ -35,6 +35,7 @@ const facts: Facts = {
   approved_categories: ["office_supplies", "software", "travel"],
   agent_cleared_categories: ["office_supplies", "software"],
   attestation_present: false,
+  agent_identity_verified: true,
 escalation_threshold: 400,
 vendor_risk_tier: "standard",
 budgets: [],
@@ -83,6 +84,7 @@ test("stable NODE ordering (exact id sequence, full input)", () => {
   assert.deepEqual(ids(g), [
     "request_received",
     "facts_src:attestation",
+    "facts_src:identity",
     "facts_src:ledger_db",
     "facts_src:policy_config",
     "facts_src:tool_args",
@@ -101,6 +103,7 @@ test("stable EDGE ordering (exact sequence, full input)", () => {
   assert.deepEqual(edgePairs(g), [
     "request_received->facts_loaded",
     "facts_src:attestation->facts_loaded",
+    "facts_src:identity->facts_loaded",
     "facts_src:ledger_db->facts_loaded",
     "facts_src:policy_config->facts_loaded",
     "facts_src:tool_args->facts_loaded",

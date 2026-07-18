@@ -59,6 +59,7 @@ function randomValidFacts(rng: () => number, i: number): Facts {
     approved_categories: CATEGORIES.filter(() => rng() > 0.5),
     agent_cleared_categories: CATEGORIES.filter(() => rng() > 0.5),
     attestation_present: rng() > 0.5,
+    agent_identity_verified: rng() > 0.5,
     escalation_threshold: int(1000),
     vendor_risk_tier: pick(["standard", "elevated", "trusted", "unknown"]),
     recent_txn_count: int(20),

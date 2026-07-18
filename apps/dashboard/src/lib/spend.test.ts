@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { isSettledSpend, dateKey, todayKey, settledSpendOn } from "./spend.js";
 import { mkView } from "./testfixtures.js";
 
-const settled = { receiptId: "r1", executionId: "e1", status: "settled" as const, provider: "sandbox", executedAt: "2026-07-15 10:00:00" };
+const settled = { settlementId: "r1", executionId: "e1", status: "settled" as const, provider: "sandbox", executedAt: "2026-07-15 10:00:00" };
 const failed = { ...settled, status: "failed" as const };
 
 // --- the predicate: exactly one definition of "money moved" -----------------
@@ -23,7 +23,7 @@ test("isSettledSpend: only allow + settled execution is spend", () => {
   assert.equal(isSettledSpend(mkView({ outcome: null, status: "error", execution: null })), false);
 });
 
-test("isSettledSpend: a denied decision with a settled receipt is still not spend", () => {
+test("isSettledSpend: a denied decision with a settled settlement record is still not spend", () => {
   // Defensive: outcome and execution are separate columns. A deny must never
   // count even if an execution row somehow exists against it.
   assert.equal(isSettledSpend(mkView({ outcome: "deny", status: "denied", execution: settled })), false);

@@ -7,8 +7,12 @@
  * typed SDK, all judged by the same gate as everything else.
  */
 import { createRampClient } from "@ramp/client";
+import { demoAgentKeypair } from "@ramp/attestation";
 
-const ramp = createRampClient();
+// The agent's OWN private key: the SDK signs every request's identity core with
+// it, and the gate verifies against the PUBLIC key in the agent registry. No
+// key, no identity, no payment (deny/unauthenticated_agent).
+const ramp = createRampClient({ identityKey: demoAgentKeypair("agent_47").privateKey });
 try {
   console.log("\n1. What's my budget?");
   const b = ramp.budget("agent_47");
@@ -24,7 +28,7 @@ try {
     invoiceRef: "inv_sdk_example", requestingAgent: "agent_47", serverDomain: "acme.example.com",
   });
   const r = await ramp.pay(req);
-  console.log(`   -> ${r.status}${r.receipt ? ` (receipt ${r.receipt.receiptId})` : ""}. Proof verified: ${r.proofVerified}.`);
+  console.log(`   -> ${r.status}${r.settlement ? ` (settlement ${r.settlement.settlementId})` : ""}. Proof verified: ${r.proofVerified}.`);
 
   console.log("\n4. Try to overspend ($900, over the cap).");
   const r2 = await ramp.pay(ramp.withDemoAttestation({

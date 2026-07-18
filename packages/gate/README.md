@@ -1,9 +1,11 @@
-# `@ramp/gate` — the policy kernel
+# `@ramp/gate` — the authorization kernel
 
-The hero of Provable Agent Spend: a **deterministic** allow/deny kernel for a
-single spend request. Given a `Facts` object (from `@ramp/shared`, sourced only
-from authoritative stores — never model narration), it returns a `Decision`
-(`allow` / `deny` + reasons + fired rule ids).
+The hero of Provable Agent Spend: a **deterministic** allow/deny authorization
+kernel for a single spend request. Given a `Facts` object (from `@ramp/shared`,
+sourced only from authoritative stores — never model narration), it returns a
+`Decision` (`allow` / `deny` + reasons + fired rule ids). It is the heart of the
+repo's decision-verification layer: infrastructure that sits beneath any agentic
+payment platform and makes each authorization decision independently checkable.
 
 > **Same facts in → same answer out, every time.** No I/O, no clock, no
 > randomness. That is the whole security argument.
@@ -54,9 +56,25 @@ dominates regardless of order):
 3. `deny/category_not_approved` — category not on the org's approved list.
 4. `deny/agent_uncleared_for_category` — agent not cleared for the category.
 5. `deny/daily_limit_exceeded` — `daily_total_so_far + amount > daily_limit`.
+6. `deny/unauthenticated_agent` — the request's agent identity did not
+   authenticate (`agent_identity_verified` is false; see below). Added as D8,
+   evaluated after the earlier rules to keep the reason ordering byte-stable.
 
-`allow/all_conditions_met` fires iff no deny fires (i.e. `amount <= cap`, category
-approved, agent cleared, vendor verified, and `daily_total + amount <= limit`).
+`allow/all_conditions_met` fires iff no deny fires (i.e. agent authenticated,
+`amount <= cap`, category approved, agent cleared, vendor verified, and
+`daily_total + amount <= limit`).
+
+### The authenticated-agent fact
+
+`requestingAgent` is not a trusted string. A request carries an Ed25519
+signature over its canonical core, and the **gates** (the PreToolUse hook and
+the self-enforcing payments MCP tool) verify that signature against the ledger's
+**agent registry** (authoritative public keys, active/revoked status) *before*
+translation. The kernel never sees the signature — it sees the resulting
+authenticated fact `agent_identity_verified`, and denies an unauthenticated or
+impersonated request via `deny/unauthenticated_agent`. Like every other fact,
+it comes from cryptographic verification against an authoritative store, never
+from narration.
 
 All money is **integer whole currency units** so the arithmetic is exact.
 

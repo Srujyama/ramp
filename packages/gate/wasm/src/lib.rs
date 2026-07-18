@@ -6,7 +6,8 @@
 //!
 //! The allow/escalate/deny logic here mirrors `datalog/policy.dl` EXACTLY — the
 //! lattice is deny > escalate > allow, and the deny-evaluation order is fixed
-//! (vendor, per_txn_cap, category, agent, daily, attestation) so `reasons`/`fired_rules` are byte-stable and pass the parity test
+//! (vendor, per_txn_cap, category, agent, daily, attestation, agent identity,
+//! budgets) so `reasons`/`fired_rules` are byte-stable and pass the parity test
 //! against the TS reference oracle. In a full build, `scripts/build-wasm.sh` runs
 //! `souffle -g` to generate the C++ engine; this shell can either link that engine
 //! or, as documented below, evaluate the rules directly in Rust with identical
@@ -31,10 +32,16 @@ struct Facts {
     agent_cleared_categories: Vec<String>,
     #[serde(default)]
     attestation_present: bool,
+    /// The identity layer's verdict (see policy.dl D8). `#[serde(default)]` =
+    /// false, so facts serialized before the field existed FAIL CLOSED here.
+    #[serde(default)]
+    agent_identity_verified: bool,
     escalation_threshold: i64,
     vendor_risk_tier: String,
     recent_txn_count: i64,
     velocity_limit: i64,
+    #[serde(default)]
+    duplicate_recent_count: i64,
     #[serde(default)]
     budgets: Vec<BudgetLine>,
 }
@@ -145,6 +152,18 @@ fn evaluate_facts(f: &Facts) -> Decision {
         ));
     }
 
+    // D8: the requesting agent did not prove its identity. Same negative shape
+    // as D6 — the verdict of signature-vs-registered-key verification, checked
+    // out of band; false denies. Placed after D6 (its sibling authenticity
+    // check) to match the TS reference kernel's byte-stable ordering.
+    if !f.agent_identity_verified {
+        fired.push("deny/unauthenticated_agent".to_string());
+        reasons.push(format!(
+            "unauthenticated_agent: agent \"{}\" did not prove its identity — no signature verified against its registered key",
+            f.requesting_agent
+        ));
+    }
+
     // D7: any additional budget this spend would break. The list arrives sorted
     // by (scope, key); that ordering is load-bearing for byte-stable reasons.
     for b in &f.budgets {
@@ -215,10 +234,12 @@ fn evaluate_facts(f: &Facts) -> Decision {
         };
     }
 
+    // The allow reason must match the TS reference kernel BYTE FOR BYTE — the
+    // parity test compares whole decisions, including this string.
     Decision {
         decision: "allow".to_string(),
         reasons: vec![format!(
-            "all_conditions_met: amount {} within cap {}, category \"{}\" approved and agent \"{}\" cleared, vendor \"{}\" verified, daily {} + {} <= {}",
+            "all_conditions_met: amount {} within cap {}, category \"{}\" approved and agent \"{}\" cleared, vendor \"{}\" verified, daily {} + {} <= {}, attestation verified, agent identity verified",
             f.amount, f.per_txn_cap, f.category, f.requesting_agent, f.vendor,
             f.daily_total_so_far, f.amount, f.daily_limit
         )],

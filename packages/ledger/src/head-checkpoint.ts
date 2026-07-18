@@ -1,5 +1,5 @@
 /**
- * @ramp/ledger — head-receipt.ts (the external witness)
+ * @ramp/ledger — head-checkpoint.ts (the external witness)
  *
  * ============================================================================
  * THE HOLE THE CHAIN LEAVES, AND WHY A BARE HEAD DOESN'T CLOSE IT
@@ -22,7 +22,7 @@
  * The question is not "is the head the same?" — it should not be. The question
  * is: **"is the history I saw before still a PREFIX of the history I see now?"**
  *
- * That is answerable. A receipt records `(head, length)` at a moment in time. To
+ * That is answerable. A checkpoint records `(head, length)` at a moment in time. To
  * check it later, look at position `length` in today's chain: if its
  * `chain_hash` is still `head`, everything you witnessed is intact and the chain
  * merely grew. If it differs, the history you saw has been rewritten — no matter
@@ -35,17 +35,17 @@
  * ============================================================================
  * THE PART THAT IS NOT CODE
  * ============================================================================
- * None of this works unless the receipt lives somewhere THE OPERATOR CANNOT
- * REWRITE. A receipt in the same database is worthless — an attacker who rewrites
- * the chain rewrites the receipt in the same transaction. So this module PRODUCES
- * receipts and VERIFIES against them; it deliberately does not store them.
+ * None of this works unless the checkpoint lives somewhere THE OPERATOR CANNOT
+ * REWRITE. A checkpoint in the same database is worthless — an attacker who rewrites
+ * the chain rewrites the checkpoint in the same transaction. So this module PRODUCES
+ * checkpoints and VERIFIES against them; it deliberately does not store them.
  * Publishing is a deployment decision (a transparency log, a status page, a
  * customer's inbox, a chat channel, a git commit — anything with a witness).
  *
  * The signature is NOT what makes this work, and it is worth being blunt: a
  * compromised gate has the key and signs whatever it likes. What makes it work is
  * that the AUDITOR HELD A COPY FROM BEFORE. The signature only stops a third
- * party fabricating a receipt to frame an honest operator — useful, but secondary.
+ * party fabricating a checkpoint to frame an honest operator — useful, but secondary.
  * If you take one thing from this file: the value is in the copy you don't
  * control, not in the cryptography.
  */
@@ -57,19 +57,19 @@ import { sha256OfJson } from "./canonical-hash.js";
 import { chainHead, GENESIS_CHAIN_HASH } from "./chain.js";
 import type { LedgerDb } from "./db.js";
 
-/** The claim inside a receipt: what the chain looked like at a moment. */
+/** The claim inside a checkpoint: what the chain looked like at a moment. */
 export interface HeadStatement {
-  readonly schema: "ramp/head-receipt-v1";
+  readonly schema: "ramp/head-checkpoint-v1";
   /** The chain hash of the most recent decision at that moment. */
   readonly head: string;
   /** How many decisions the chain held. The POSITION `head` sits at. */
   readonly length: number;
-  /** RFC 3339 instant the receipt was produced. */
+  /** RFC 3339 instant the checkpoint was produced. */
   readonly at: string;
 }
 
-/** A published head receipt: the statement plus the gate's signature over it. */
-export interface HeadReceipt {
+/** A published head checkpoint: the statement plus the gate's signature over it. */
+export interface HeadCheckpoint {
   readonly statement: HeadStatement;
   readonly signature: GateSignature;
 }
@@ -80,20 +80,20 @@ function statementDigest(s: HeadStatement): string {
 }
 
 /**
- * Produce a signed receipt for the chain's current head.
+ * Produce a signed checkpoint for the chain's current head.
  *
- * PUBLISH THE RESULT somewhere you do not control. A receipt that lives only in
+ * PUBLISH THE RESULT somewhere you do not control. A checkpoint that lives only in
  * the ledger it describes proves nothing: whoever rewrites the chain rewrites the
- * receipt beside it, in the same transaction.
+ * checkpoint beside it, in the same transaction.
  */
 export function publishHead(
   db: LedgerDb,
   gateKey: KeyObject,
   gateKeyId: string,
   at: string = new Date().toISOString(),
-): HeadReceipt {
+): HeadCheckpoint {
   const { head, length } = chainHead(db);
-  const statement: HeadStatement = { schema: "ramp/head-receipt-v1", head, length, at };
+  const statement: HeadStatement = { schema: "ramp/head-checkpoint-v1", head, length, at };
   return { statement, signature: signBundleDigest(statementDigest(statement), gateKey, gateKeyId) };
 }
 
@@ -108,14 +108,14 @@ export interface ConsistencyResult {
   readonly consistent: boolean;
   readonly code: ConsistencyFailure | "ok";
   readonly detail: string;
-  /** How many decisions have been appended since the receipt. */
+  /** How many decisions have been appended since the checkpoint. */
   readonly grownBy: number;
 }
 
 /** Total structural check. Any shape yields a boolean, never a throw. */
-function looksLikeReceipt(v: unknown): v is HeadReceipt {
+function looksLikeCheckpoint(v: unknown): v is HeadCheckpoint {
   if (typeof v !== "object" || v === null) return false;
-  const r = v as HeadReceipt;
+  const r = v as HeadCheckpoint;
   return (
     typeof r.statement === "object" &&
     r.statement !== null &&
@@ -127,10 +127,10 @@ function looksLikeReceipt(v: unknown): v is HeadReceipt {
 }
 
 /**
- * THE CHECK. Is the history in `receipt` still a PREFIX of the chain today?
+ * THE CHECK. Is the history in `checkpoint` still a PREFIX of the chain today?
  *
  * Not "is the head unchanged" — it should have changed; the chain grows. This
- * asks whether everything the receipt witnessed is still there, unaltered, in the
+ * asks whether everything the checkpoint witnessed is still there, unaltered, in the
  * same order, with new decisions appended after it.
  *
  * WHAT PASSING MEANS, PRECISELY. The prefix has not been REPLACED: nothing was
@@ -151,41 +151,41 @@ function looksLikeReceipt(v: unknown): v is HeadReceipt {
  * RUN BOTH. `pnpm proof` does, and says so.
  *
  * @param keyring trusted gate keys. Supplied OUT OF BAND — a key read from the
- *   receipt would prove nothing, since a forger includes their own.
+ *   checkpoint would prove nothing, since a forger includes their own.
  *
  * Total: malformed input is a verdict, never a throw.
  */
-export function verifyAgainstReceipt(
+export function verifyAgainstCheckpoint(
   db: LedgerDb,
-  receipt: unknown,
+  checkpoint: unknown,
   keyring: ReadonlyMap<string, KeyObject>,
 ): ConsistencyResult {
-  if (!looksLikeReceipt(receipt)) {
-    return { consistent: false, code: "malformed", detail: "not a HeadReceipt", grownBy: 0 };
+  if (!looksLikeCheckpoint(checkpoint)) {
+    return { consistent: false, code: "malformed", detail: "not a HeadCheckpoint", grownBy: 0 };
   }
-  const { statement } = receipt;
+  const { statement } = checkpoint;
 
   // Authenticity first: never reason about the contents of a statement we have
-  // not established is genuine. This stops a third party fabricating a receipt
+  // not established is genuine. This stops a third party fabricating a checkpoint
   // to frame an honest operator.
-  const sig = verifyBundleSignature(statementDigest(statement), receipt.signature, keyring);
+  const sig = verifyBundleSignature(statementDigest(statement), checkpoint.signature, keyring);
   if (!sig.verified) {
     return {
       consistent: false,
       code: "bad_signature",
-      detail: `receipt signature: ${sig.detail}`,
+      detail: `checkpoint signature: ${sig.detail}`,
       grownBy: 0,
     };
   }
 
   const now = chainHead(db);
 
-  // Genesis receipts are trivially consistent with anything.
+  // Genesis checkpoints are trivially consistent with anything.
   if (statement.length === 0) {
     return {
       consistent: statement.head === GENESIS_CHAIN_HASH,
       code: statement.head === GENESIS_CHAIN_HASH ? "ok" : "history_rewritten",
-      detail: "receipt was taken at genesis",
+      detail: "checkpoint was taken at genesis",
       grownBy: now.length,
     };
   }
@@ -197,7 +197,7 @@ export function verifyAgainstReceipt(
       consistent: false,
       code: "history_truncated",
       detail:
-        `the chain now holds ${now.length} decisions but the receipt witnessed ` +
+        `the chain now holds ${now.length} decisions but the checkpoint witnessed ` +
         `${statement.length}. ${statement.length - now.length} decision(s) that ` +
         `demonstrably existed are gone.`,
       grownBy: 0,
@@ -224,7 +224,7 @@ export function verifyAgainstReceipt(
       consistent: false,
       code: "history_rewritten",
       detail:
-        `position ${statement.length} now hashes to ${at.h.slice(0, 18)}… but the receipt ` +
+        `position ${statement.length} now hashes to ${at.h.slice(0, 18)}… but the checkpoint ` +
         `witnessed ${statement.head.slice(0, 18)}…. The history you saw has been REWRITTEN. ` +
         `Today's chain may be internally perfect and it is not the one you were shown.`,
       grownBy: now.length - statement.length,
@@ -235,7 +235,7 @@ export function verifyAgainstReceipt(
     consistent: true,
     code: "ok",
     detail:
-      `everything the receipt witnessed (${statement.length} decision(s)) is intact; ` +
+      `everything the checkpoint witnessed (${statement.length} decision(s)) is intact; ` +
       `${now.length - statement.length} appended since.`,
     grownBy: now.length - statement.length,
   };

@@ -1,14 +1,16 @@
 # `@ramp/client` — the typed agent SDK
 
-Build a spending agent on the gate in a few lines. Composes the same pieces the
-PreToolUse hook and the MCP tool compose — attestation verification, the
-fail-closed purchase lifecycle, the read-only fact source — behind one typed
-object.
+Build a provable spending agent on the authorization kernel in a few lines.
+Composes the same pieces the PreToolUse hook and the MCP tool compose — agent
+identity signing, attestation verification, the fail-closed purchase lifecycle,
+the read-only fact source — behind one typed object.
 
 ```ts
 import { createRampClient } from "@ramp/client";
 
-const ramp = createRampClient();
+// The SDK signs every request with the agent's Ed25519 private key
+// (see "Authenticated identity").
+const ramp = createRampClient({ identityKey: agentSigningKey });
 
 // Ask before you spend.
 const budget = ramp.budget("agent_47");
@@ -27,6 +29,22 @@ else                             { /* denied — r.reasons says why */ }
 
 ramp.close();
 ```
+
+## Authenticated identity — the SDK signs for you
+
+`requestingAgent` is not a trusted string anywhere in this system. Every
+`SpendRequest` carries an `identity` field: an Ed25519 signature over the
+canonical core of the request (`vendorId`, `amount`, `currency`, `category`,
+`invoiceRef`, `requestingAgent`). Given the agent's private key at construction
+(the `identityKey` option), the SDK computes this signature automatically on
+every `pay` — you
+never assemble it by hand. Both gates (the PreToolUse hook and the
+self-enforcing payments MCP tool) verify the signature against the ledger's
+**agent registry** (authoritative public keys, active/revoked status); the
+result is the authenticated fact `agent_identity_verified`, and the kernel
+denies unauthenticated or impersonated requests via
+`deny/unauthenticated_agent`. A request signed with the wrong or revoked key is
+denied no matter which path it takes.
 
 ## It is a convenience, not the enforcement boundary
 

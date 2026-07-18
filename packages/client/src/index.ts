@@ -8,7 +8,10 @@
  * to make a provable payment.
  *
  *   import { createRampClient } from "@ramp/client";
- *   const ramp = createRampClient();
+ *   import { demoAgentKeypair } from "@ramp/attestation";
+ *   // The agent's OWN private key — pay() signs every request's identity core
+ *   // with it, and the gate verifies against the registry's public key.
+ *   const ramp = createRampClient({ identityKey: demoAgentKeypair("agent_47").privateKey });
  *   const r = await ramp.pay({
  *     vendorId: "acme_corp", amount: 340, currency: "USD",
  *     category: "office_supplies", requestingAgent: "agent_47",
@@ -39,7 +42,7 @@ import {
   type LedgerDb,
   type RequestPurchaseResult,
   type ExecutorRequest,
-  type ExecutorReceipt,
+  type SettlementRecord,
   type PaymentExecutor,
 } from "@ramp/ledger";
 import {
@@ -50,11 +53,15 @@ import {
   demoNotaryPrivateKey,
   DEMO_NOTARY_KEY_ID,
   ATTESTATION_VERSION,
+  signSpendRequest,
+  verifyAgentIdentity,
 } from "@ramp/attestation";
+import { createPrivateKey } from "node:crypto";
+import type { KeyObject } from "node:crypto";
 import type { SpendRequest } from "@ramp/shared";
 
 /**
- * A deterministic sandbox executor — settles a fake receipt, moves no real money.
+ * A deterministic sandbox executor — settles a fake settlement record, moves no real money.
  *
  * The SDK ships its own rather than importing one so `@ramp/client` does not
  * depend on the MCP app. A real deployment injects a live executor via
@@ -62,9 +69,9 @@ import type { SpendRequest } from "@ramp/shared";
  */
 function sandboxExecutor(): PaymentExecutor {
   return {
-    execute(req: ExecutorRequest): ExecutorReceipt {
+    execute(req: ExecutorRequest): SettlementRecord {
       return {
-        receiptId: `rcpt_${req.decisionId.slice(0, 8)}`,
+        settlementId: `rcpt_${req.decisionId.slice(0, 8)}`,
         executionId: `exec_${req.decisionId.slice(0, 8)}`,
         status: "settled",
         provider: "sandbox",
@@ -85,6 +92,19 @@ export interface RampClientOptions {
   readonly provision?: boolean;
   /** Inject a real payment executor. Defaults to the sandbox. */
   readonly executor?: PaymentExecutor;
+  /**
+   * The AGENT'S Ed25519 private key (PKCS#8 PEM or a KeyObject). When set,
+   * `pay()` signs every request's identity core automatically
+   * (@ramp/attestation's `signSpendRequest`), so the honest path needs no
+   * manual signing. Without it — and without a pre-signed `identity` on the
+   * request — the gate denies on `deny/unauthenticated_agent`, because an
+   * unsigned request proves nothing about who sent it.
+   *
+   * This key never reaches the ledger or the verifier: the SDK signs with it,
+   * and the gate checks against the PUBLIC key the agent registry holds. Demo
+   * agents: `demoAgentKeypair(agentId).privateKey` from @ramp/attestation.
+   */
+  readonly identityKey?: string | KeyObject;
 }
 
 /** A budget summary for one agent (read-only). */
@@ -115,7 +135,14 @@ export interface RampClient {
     amount: number;
     category: string;
     attested?: boolean;
-  }): { outcome: string; firedRules: readonly string[]; reasons: readonly string[]; assumedAttested: boolean };
+    identityVerified?: boolean;
+  }): {
+    outcome: string;
+    firedRules: readonly string[];
+    reasons: readonly string[];
+    assumedAttested: boolean;
+    assumedIdentityVerified: boolean;
+  };
   /** How much room an agent has left today. Throws for an unknown agent (fail-closed). */
   budget(agent: string): BudgetSummary;
   /** Whether a human has resolved a held decision. `null` if unresolved. */
@@ -143,32 +170,62 @@ export function createRampClient(opts: RampClientOptions = {}): RampClient {
   const factSource = new LedgerFactSource(db);
   const executor = opts.executor ?? sandboxExecutor();
   const { kind: kernelId, kernel } = getKernel();
+  // Normalise the identity key ONCE. A bad PEM fails loudly here, at client
+  // construction — a signing key that cannot sign is a configuration error, not
+  // a per-payment surprise.
+  const identityKey: KeyObject | undefined =
+    opts.identityKey === undefined
+      ? undefined
+      : typeof opts.identityKey === "string"
+        ? createPrivateKey(opts.identityKey)
+        : opts.identityKey;
 
   return {
     async pay(request: SpendRequest): Promise<RequestPurchaseResult> {
+      // Sign the identity core with the agent's key, unless the caller already
+      // attached a signature (a pre-signed request is respected verbatim — the
+      // SDK must not re-sign what another key holder signed).
+      const signed: SpendRequest =
+        identityKey !== undefined && request.identity === undefined
+          ? signSpendRequest(request, identityKey)
+          : request;
+
       // Verify the attestation the SAME way the hook does — one verifier.
-      const registeredDomain = safe(() => factSource.getVendorDomain(request.vendorId), null);
+      const registeredDomain = safe(() => factSource.getVendorDomain(signed.vendorId), null);
       const invoiceDigest = digestInvoice(
-        typeof request.invoiceDocument === "string" ? request.invoiceDocument : "",
+        typeof signed.invoiceDocument === "string" ? signed.invoiceDocument : "",
       );
-      const att = verifyAttestation(request.attestation, {
+      const att = verifyAttestation(signed.attestation, {
         keyring: demoKeyring(),
         expect: {
           invoiceDigest,
           registeredDomain,
-          amount: request.amount,
-          currency: request.currency,
+          amount: signed.amount,
+          currency: signed.currency,
         },
         now: Date.now(),
       });
+
+      // Verify the identity the SAME way the gates do: signature vs the
+      // REGISTRY's key. The SDK signing above is a convenience; this check is
+      // the judgement, and it is identical whether the SDK signed or the caller
+      // did. Signing with an unregistered key still denies.
+      const agentKeyPem = safe(
+        () => factSource.getAgentPublicKey(signed.requestingAgent),
+        null,
+      );
+      const agentIdentityVerified =
+        agentKeyPem !== null && verifyAgentIdentity(signed, agentKeyPem);
+
       return requestPurchase({
-        request,
+        request: signed,
         kernel,
         kernelId,
         factSource,
         db,
         executor,
         attestationPresent: att.verified === true,
+        agentIdentityVerified,
       });
     },
 
@@ -181,6 +238,7 @@ export function createRampClient(opts: RampClientOptions = {}): RampClient {
           amount: input.amount,
           category: input.category,
           attested: input.attested,
+          identityVerified: input.identityVerified,
         },
         kernel,
       );
@@ -189,6 +247,7 @@ export function createRampClient(opts: RampClientOptions = {}): RampClient {
         firedRules: r.firedRules,
         reasons: r.reasons,
         assumedAttested: r.assumedAttested,
+        assumedIdentityVerified: r.assumedIdentityVerified,
       };
     },
 

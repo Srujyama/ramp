@@ -13,7 +13,7 @@ import type { DecisionView, ExecutionRecord, LedgerProof } from "./types.js";
 import { mkView } from "./testfixtures.js";
 
 const settledExec: ExecutionRecord = {
-  receiptId: "rcpt_1",
+  settlementId: "rcpt_1",
   executionId: "exec_1",
   status: "settled",
   provider: "sandbox",
@@ -204,6 +204,7 @@ function mkFacts(): DecisionView["facts"] {
     approved_categories: ["office_supplies"],
     agent_cleared_categories: ["office_supplies"],
     attestation_present: false,
+  agent_identity_verified: true,
   escalation_threshold: 400,
   vendor_risk_tier: "standard",
   budgets: [],

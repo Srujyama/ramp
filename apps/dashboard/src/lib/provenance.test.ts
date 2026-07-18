@@ -40,7 +40,7 @@ test("fact sources are extracted and labeled from the graph", () => {
 
 test("terminal step is honest: executed vs blocked vs failed", () => {
   const settled = decisionFlow(
-    mkView({ execution: { receiptId: "r", executionId: "e", status: "settled", provider: "sandbox", executedAt: "2026-07-14 10:00:00" } }),
+    mkView({ execution: { settlementId: "r", executionId: "e", status: "settled", provider: "sandbox", executedAt: "2026-07-14 10:00:00" } }),
   ).at(-1);
   assert.equal(settled?.title, "Payment executed");
   assert.equal(settled?.tone, "accent");
@@ -49,7 +49,7 @@ test("terminal step is honest: executed vs blocked vs failed", () => {
   assert.equal(denied?.title, "Payment blocked");
 
   const failed = decisionFlow(
-    mkView({ execution: { receiptId: "r", executionId: "e", status: "failed", provider: "sandbox", executedAt: "2026-07-14 10:00:00" } }),
+    mkView({ execution: { settlementId: "r", executionId: "e", status: "failed", provider: "sandbox", executedAt: "2026-07-14 10:00:00" } }),
   ).at(-1);
   assert.equal(failed?.tone, "deny");
 });

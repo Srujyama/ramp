@@ -18,6 +18,7 @@ import assert from "node:assert/strict";
 import type { SpendRequest } from "@ramp/shared";
 import { openLedger, closeLedger, IN_MEMORY_PATH } from "./db.js";
 import { LedgerFactSource, UnknownAgentError } from "./dal.js";
+import { demoAgentKeypair } from "@ramp/attestation";
 
 /** The canonical hero request from PITCH.md's demo beat 1. */
 const HERO_REQUEST: SpendRequest = {
@@ -332,5 +333,57 @@ test("a duplicate outside the window is not counted", () => {
     // The seed payment is 30 min old; a 10-minute window excludes it.
     assert.equal(fs.getDuplicateCount("acme_corp", 120, "subscriptions", 10), 0);
     assert.equal(fs.getDuplicateCount("acme_corp", 120, "subscriptions", 60), 1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Agent identity registry (D8).
+// ---------------------------------------------------------------------------
+
+test("the seeded registry PEMs match the demo derivation BYTE FOR BYTE", () => {
+  // sql/seed.sql carries the public keys as literals; @ramp/attestation derives
+  // the keypairs from published constants. If either side moves, the demo signs
+  // with keys the registry doesn't hold and every beat denies on
+  // deny/unauthenticated_agent. Pin the seam here, loudly.
+  withSeededDb((fs) => {
+    for (const id of ["agent_47", "agent_12", "agent_burst", "agent_dup"]) {
+      assert.equal(
+        fs.getAgentPublicKey(id),
+        demoAgentKeypair(id).publicKeyPem,
+        `seeded PEM for ${id} drifted from demoAgentKeypair's derivation`,
+      );
+    }
+  });
+});
+
+test("an unregistered agent has no key — null, never a default", () => {
+  withSeededDb((fs) => {
+    assert.equal(fs.getAgentPublicKey("agent_ghost"), null);
+  });
+});
+
+test("a REVOKED agent's key is unfetchable — revocation is a row update", () => {
+  const db = openLedger(IN_MEMORY_PATH, { provisionIfEmpty: true, seed: true });
+  try {
+    const fs = new LedgerFactSource(db);
+    assert.notEqual(fs.getAgentPublicKey("agent_47"), null);
+    db.prepare("UPDATE agent_registry SET status = 'revoked' WHERE agent_id = ?").run(
+      "agent_47",
+    );
+    // The key still EXISTS in the table; it must nonetheless be unfetchable —
+    // the 'active' filter lives inside the query, not in caller diligence.
+    assert.equal(fs.getAgentPublicKey("agent_47"), null);
+  } finally {
+    closeLedger(db);
+  }
+});
+
+test("the identity verdict flows through contextFor from the CONTEXT, never the request", () => {
+  withSeededDb((fs) => {
+    // Same request, different out-of-band verdicts: only the context moves the fact.
+    const withVerdict = fs.contextFor({ request: HERO_REQUEST, agentIdentityVerified: true });
+    assert.equal(withVerdict.agentIdentityVerified, true);
+    const without = fs.contextFor({ request: HERO_REQUEST });
+    assert.equal(without.agentIdentityVerified, false, "absent verdict must fail closed");
   });
 });

@@ -1,32 +1,33 @@
 #!/usr/bin/env node
 /**
- * The portable receipt — scripts/receipt.mjs   (invoked as `pnpm receipt`)
+ * The portable Authorization Proof — scripts/authproof.mjs   (invoked as `pnpm authproof`)
  *
- *   pnpm receipt                     # a receipt for the newest DENIED decision
- *   pnpm receipt <requestId>         # ...for a specific request id
- *   pnpm receipt <digestPrefix>      # ...for the bundle file <digestPrefix>.json
- *   pnpm receipt -- --out <path>     # write somewhere specific
+ *   pnpm authproof                   # an Authorization Proof for the newest DENIED decision
+ *   pnpm authproof <requestId>       # ...for a specific request id
+ *   pnpm authproof <digestPrefix>    # ...for the bundle file <digestPrefix>.json
+ *   pnpm authproof -- --out <path>   # write somewhere specific
  *
  * "Here — verify it yourself." This emits ONE self-contained `.mjs` file that a
  * judge, an auditor, or a customer can run with nothing but `node`:
  *
- *     node ramp-receipt-<id>.mjs
+ *     node ramp-authorization-proof-<id>.mjs
  *     → RESULT: VERIFIED ✓
  *
- * The receipt has NO dependencies and needs NO network, NO database, and nothing
- * from this repo. It re-derives the decision from its own recorded facts using the
- * same policy, checks every digest, verifies the gate's Ed25519 signature against
- * the embedded PUBLIC key, and confirms nothing was altered after sealing.
+ * The Authorization Proof has NO dependencies and needs NO network, NO database,
+ * and nothing from this repo. It re-derives the decision from its own recorded
+ * facts using the same policy, checks every digest, verifies the gate's Ed25519
+ * signature against the embedded PUBLIC key, and confirms nothing was altered
+ * after sealing.
  *
  * HOW IT STAYS HONEST: the verifier body is the repo's real `verify-ramp-proof.mjs`
  * inlined VERBATIM — the same file whose parity against the production kernel is
  * cross-checked in CI on thousands of randomized fact sets. We do not hand-copy the
- * rules into the receipt; we embed the audited verifier. Only a PUBLIC key is
- * embedded (safe to share; it verifies signatures, it cannot make them).
+ * rules into the Authorization Proof; we embed the audited verifier. Only a PUBLIC
+ * key is embedded (safe to share; it verifies signatures, it cannot make them).
  *
- * The inlined verifier's own CLI does not fire inside the receipt: it guards on the
- * filename ending in `verify-ramp-proof.mjs`, and a receipt is named otherwise.
- * (Named `receipt`; pnpm has no builtin by that name.)
+ * The inlined verifier's own CLI does not fire inside the Authorization Proof: it
+ * guards on the filename ending in `verify-ramp-proof.mjs`, and an Authorization
+ * Proof is named otherwise. (Named `authproof`; pnpm has no builtin by that name.)
  */
 import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -38,7 +39,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
 const VERIFIER_PATH = join(ROOT, "verify-ramp-proof.mjs");
 const BUNDLE_DIR = process.env.RAMP_BUNDLE_DIR ?? join(ROOT, ".ramp", "bundles");
-const RECEIPT_DIR = join(ROOT, ".ramp", "receipts");
+const AUTHPROOF_DIR = join(ROOT, ".ramp", "authproofs");
 
 const argv = process.argv.slice(2);
 const outIdx = argv.indexOf("--out");
@@ -46,7 +47,7 @@ const outPath = outIdx >= 0 ? argv[outIdx + 1] : undefined;
 const selector = argv.find((a, i) => !a.startsWith("--") && argv[i - 1] !== "--out");
 
 function fail(msg) {
-  process.stderr.write(`receipt: ${msg}\n`);
+  process.stderr.write(`authproof: ${msg}\n`);
   process.exit(1);
 }
 
@@ -81,7 +82,7 @@ function pickBundle() {
     if (matches.length) return matches[matches.length - 1].p;
     fail(`no bundle matches "${selector}" (tried filename prefix and requestId). See \`pnpm proof\`.`);
   }
-  // 3. default: the newest DENY bundle (the most compelling receipt), else any.
+  // 3. default: the newest DENY bundle (the most compelling proof), else any.
   const all = files.map((f) => join(BUNDLE_DIR, f)).map((p) => ({ p, b: loadBundle(p) })).filter((x) => x.b);
   const deny = all.filter((x) => x.b.decision?.decision === "deny");
   const pool = deny.length ? deny : all;
@@ -93,8 +94,9 @@ const bundlePath = pickBundle();
 const bundle = loadBundle(bundlePath);
 if (!bundle) fail(`could not parse bundle ${bundlePath}.`);
 
-// The gate PUBLIC key, in PEM — derived now so the receipt always carries the
-// current demo gate key. A public key only VERIFIES signatures; embedding it is safe.
+// The gate PUBLIC key, in PEM — derived now so the Authorization Proof always
+// carries the current demo gate key. A public key only VERIFIES signatures;
+// embedding it is safe.
 // demoGatePublicKey() may hand back a KeyObject or a PEM string; normalise to PEM.
 const gateKeyRaw = demoGatePublicKey();
 const gateKeyObj =
@@ -105,15 +107,15 @@ const verifierSrc = readFileSync(VERIFIER_PATH, "utf8");
 const reqId = String(bundle.requestId ?? "decision");
 const safeId = reqId.replace(/[^A-Za-z0-9_.-]/g, "_");
 
-// ---- assemble the self-contained receipt ----------------------------------
+// ---- assemble the self-contained Authorization Proof -----------------------
 // The verifier source is embedded verbatim (its CLI won't fire — filename guard).
 // Then the bundle, the gate public key, and a driver that runs verifyBundle.
 const driver = `
 // ============================================================================
-// EMBEDDED DECISION RECEIPT — generated by \`pnpm receipt\`. Everything below is
-// data + a driver; everything above is the repo's real verify-ramp-proof.mjs,
+// EMBEDDED AUTHORIZATION PROOF — generated by \`pnpm authproof\`. Everything below
+// is data + a driver; everything above is the repo's real verify-ramp-proof.mjs,
 // inlined verbatim (its own CLI is inert here because this file is named
-// differently). Run:  node __RECEIPT_BASENAME__
+// differently). Run:  node __AUTHPROOF_BASENAME__
 // ============================================================================
 const BUNDLE = ${JSON.stringify(bundle, null, 2)};
 
@@ -122,7 +124,7 @@ const GATE_KEY_ID = ${JSON.stringify(DEMO_GATE_KEY_ID)};
 
 {
   const out = process.stdout;
-  out.write("\\n=== RAMP decision receipt — verify it yourself, offline, zero deps ===\\n\\n");
+  out.write("\\n=== RAMP Authorization Proof — verify it yourself, offline, zero deps ===\\n\\n");
   out.write("  request:  " + (BUNDLE.requestId ?? "(none)") + "\\n");
   out.write("  decision: " + (BUNDLE.decision?.decision ?? "(none)").toUpperCase() + "\\n");
   const reasons = BUNDLE.decision?.reasons ?? [];
@@ -139,7 +141,7 @@ const GATE_KEY_ID = ${JSON.stringify(DEMO_GATE_KEY_ID)};
     out.write("  matched; every digest checks out; the gate signature is authentic; and\\n");
     out.write("  nothing was altered after sealing. You did not trust the gate.\\n\\n");
     out.write("  (A pass does NOT prove the facts were true, nor that no OTHER decision is\\n");
-    out.write("   missing — this receipt is one decision. See the header of the verifier above.)\\n\\n");
+    out.write("   missing — this Authorization Proof is one decision. See the header of the verifier above.)\\n\\n");
     process.exit(0);
   } else {
     out.write("  RESULT: NOT VERIFIED \\u2717\\n\\n");
@@ -150,19 +152,19 @@ const GATE_KEY_ID = ${JSON.stringify(DEMO_GATE_KEY_ID)};
 }
 `;
 
-const receipt = `${verifierSrc}\n${driver}`;
+const authproof = `${verifierSrc}\n${driver}`;
 
-const target = outPath ?? join(RECEIPT_DIR, `ramp-receipt-${safeId}.mjs`);
+const target = outPath ?? join(AUTHPROOF_DIR, `ramp-authorization-proof-${safeId}.mjs`);
 // Always ensure the destination directory exists — a caller-supplied `--out` may
 // point into a directory that does not exist yet (e.g. a fresh CI checkout has no
-// .ramp/receipts/), and writeFileSync would otherwise throw ENOENT.
+// .ramp/authproofs/), and writeFileSync would otherwise throw ENOENT.
 const targetDir = dirname(target);
 if (!existsSync(targetDir)) mkdirSync(targetDir, { recursive: true });
 // Replace the basename placeholder in the banner now that we know the path.
-writeFileSync(target, receipt.replace("__RECEIPT_BASENAME__", basename(target)), "utf8");
+writeFileSync(target, authproof.replace("__AUTHPROOF_BASENAME__", basename(target)), "utf8");
 
 process.stdout.write(
-  `\n  Wrote a self-contained proof receipt:\n    ${target}\n\n` +
+  `\n  Wrote a self-contained Authorization Proof:\n    ${target}\n\n` +
     `  It has zero dependencies and needs nothing from this repo. Hand it to anyone;\n` +
     `  they verify the decision themselves with just Node:\n\n` +
     `    node ${target}\n\n`,

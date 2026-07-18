@@ -39,6 +39,11 @@ import type { LedgerDb } from "./db.js";
  */
 export const LEDGER_QUERIES = {
   agentExists: "SELECT 1 AS ok FROM agents WHERE agent_id = ?",
+  // The 'active' filter is INSIDE the query on purpose: a revoked agent's key
+  // must be unfetchable, not fetched-and-hopefully-checked. Revocation is a row
+  // UPDATE that takes effect on the next signature check, with no code change.
+  agentPublicKey:
+    "SELECT public_key_pem FROM agent_registry WHERE agent_id = ? AND status = 'active'",
   dailyTotalSoFar:
     "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE agent_id = ? AND date(ts) = date('now')",
   vendorVerified: "SELECT verified FROM vendors WHERE vendor_id = ?",
@@ -179,6 +184,24 @@ export class LedgerFactSource implements AuthoritativeFactSource {
       | { total: number }
       | undefined;
     return row ? Number(row.total) : 0;
+  }
+
+  /**
+   * The agent's REGISTERED public key (SPKI PEM), or null if the agent has no
+   * 'active' registry row. Unknown and revoked agents both return null — and a
+   * null key can never verify a signature, so both fail closed into
+   * `agent_identity_verified: false` (deny/unauthenticated_agent).
+   *
+   * The ledger only HOLDS keys. The signature check itself is
+   * @ramp/attestation's `verifyAgentIdentity`, called by the gates — the same
+   * split as the vendor registry vs `verifyAttestation`: this package owns the
+   * trust decision (which key), the identity layer owns the mechanism.
+   */
+  getAgentPublicKey(agentId: string): string | null {
+    const row = this.#db.prepare(LEDGER_QUERIES.agentPublicKey).get(agentId) as
+      | { public_key_pem: string | null }
+      | undefined;
+    return row?.public_key_pem ?? null;
   }
 
   /**
@@ -362,9 +385,10 @@ export class LedgerFactSource implements AuthoritativeFactSource {
    * `SpendRequest` fields are used ONLY as lookup keys (`vendorId`,
    * `requestingAgent`); every returned value is an authoritative DB read.
    *
-   * `attestationPresent` is supplied by the caller's attestation layer
-   * (@ramp/attestation verifies the signature out of band) and defaults to
-   * false. It is NEVER read off the request.
+   * `attestationPresent` and `agentIdentityVerified` are supplied by the
+   * caller's verification layers (@ramp/attestation checks both signatures out
+   * of band — the notary's and the agent's) and default to false. NEITHER is
+   * ever read off the request.
    */
   contextFor(ctx: AuthoritativeContext): AuthoritativeFacts {
     const req = ctx.request;
@@ -377,6 +401,7 @@ export class LedgerFactSource implements AuthoritativeFactSource {
       approvedCategories: this.getApprovedCategories(),
       agentClearedCategories: this.getAgentClearances(req.requestingAgent),
       attestationPresent: ctx.attestationPresent ?? false,
+      agentIdentityVerified: ctx.agentIdentityVerified ?? false,
       escalationThreshold: limits.escalationThreshold,
       vendorRiskTier: this.getVendorRiskTier(req.vendorId),
       budgets: this.getBudgetsFor(req.category, req.vendorId, req.requestingAgent),
@@ -394,12 +419,12 @@ export class LedgerFactSource implements AuthoritativeFactSource {
   /**
    * The provenance entries for exactly the facts THIS source produced.
    *
-   * Six of the twelve `Facts` fields: the ones that gate the decision. The other
-   * six (the identity/intent keys and the attestation verdict) are recorded by
-   * their own producers — the hook and @ramp/attestation respectively — because
-   * the rule that keeps provenance honest is that WHOEVER SOURCES A FACT RECORDS
-   * IT. A central recorder that describes reads it did not perform is writing
-   * fiction, and it drifts on the first refactor.
+   * Exactly the `Facts` fields this source reads from the DB. The rest (the
+   * identity/intent keys, the attestation verdict, and the agent-identity
+   * verdict) are recorded by their own producers — the hook and
+   * @ramp/attestation — because the rule that keeps provenance honest is that
+   * WHOEVER SOURCES A FACT RECORDS IT. A central recorder that describes reads
+   * it did not perform is writing fiction, and it drifts on the first refactor.
    *
    * Note every `query` below is the same constant the read actually executed.
    */

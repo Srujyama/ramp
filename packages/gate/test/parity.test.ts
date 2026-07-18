@@ -30,6 +30,7 @@ function baseFacts(overrides: Partial<Facts> = {}): Facts {
     // True since pillar 4: D6 denies without a verified attestation, so the
     // baseline (an ALLOW case) must carry one.
     attestation_present: true,
+    agent_identity_verified: true,
   escalation_threshold: 400,
   vendor_risk_tier: "standard",
   budgets: [],
@@ -47,6 +48,7 @@ const CASES: readonly Facts[] = [
   baseFacts({ vendor: "sketchy_llc", vendor_verified: false }), // unverified
   baseFacts({ category: "crypto" }), // unapproved + uncleared
   baseFacts({ attestation_present: false }), // D6: unattested
+  baseFacts({ agent_identity_verified: false }), // D8: unauthenticated agent
   // Every deny at once — pins the full fixed ordering across both kernels.
   baseFacts({
     vendor: "sketchy_llc",
@@ -54,6 +56,7 @@ const CASES: readonly Facts[] = [
     amount: 999,
     category: "crypto",
     attestation_present: false,
+    agent_identity_verified: false,
   }),
   baseFacts({ category: "travel" }), // approved but uncleared
   baseFacts({ amount: 500, daily_total_so_far: 1000 }), // cap boundary

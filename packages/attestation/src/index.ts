@@ -41,3 +41,17 @@ export {
   demoNotaryPrivateKey,
   DEMO_NOTARY_KEY_ID,
 } from "./notary.js";
+
+// Agent identity (registered-key request signing): who is asking, proven
+// against the ledger's agent registry rather than typed into a string field.
+// `verifyAgentIdentity` is the ONE verification seam — see agent-identity.ts.
+export {
+  verifyAgentIdentity,
+  signSpendRequest,
+  agentIdentityCore,
+  agentIdentitySigningBytes,
+  demoAgentKeypair,
+  AGENT_IDENTITY_DOMAIN,
+  DEMO_AGENT_IDS,
+} from "./agent-identity.js";
+export type { DemoAgentKeypair } from "./agent-identity.js";

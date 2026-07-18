@@ -1,9 +1,9 @@
 # @ramp/dashboard
 
-The **read-only audit console** for **Provable Agent Spend** — the trust layer
-between AI agents and money. Every autonomous purchase is policy-controlled,
-recorded, traceable, and independently verifiable, and this console lets a human
-see and *independently confirm* all of it.
+The **read-only audit console** for **Provable Agent Spend** — authorization
+infrastructure for AI-agent payments. Every autonomous purchase decision is
+policy-controlled, recorded, traceable, and independently verifiable, and this
+console lets a human see and *independently confirm* all of it.
 
 It **enforces nothing**. The security boundary is the deterministic policy gate
 and the Claude Code `PreToolUse` hook. This app only reads the append-only
@@ -19,7 +19,7 @@ the visual system.
 |---|---|---|
 | `/` | **Overview** | Value-prop hero, the 6-step workflow strip, live KPI tiles (total, allowed, denied, proofs valid, failed/corrupt), a **Recent activity** feed of the five most recent decisions (each with outcome/proof/payment chips, a deterministic explanation, a relative timestamp, an honest "Updated Xs ago", and a link to detail), and a "How a purchase is evaluated and proven" explainer. |
 | `/decisions` | **Decisions** | The real ledger table: Time, Agent, Vendor, Amount, Outcome, Proof, Payment, and a deterministic **Explanation** (fired rules kept visible beneath). Filters by outcome, status, agent, and fired rule; cursor "Load more" pagination; corrupt rows flagged. |
-| `/decisions/:id` | **Decision detail** | The auditor view, built around the **execution timeline** (below) with request, outcome + fired rules, provenance flow, trusted facts, proof id + independent verification, policy digest, and the sandbox receipt beneath it. |
+| `/decisions/:id` | **Decision detail** | The auditor view, built around the **execution timeline** (below) with request, outcome + fired rules, provenance flow, trusted facts, proof id + independent verification, policy digest, and the sandbox settlement record beneath it. |
 | `/policy` | **Policy** | The caps and clearances the kernel enforces, **derived** from the authoritative facts on recorded decisions, plus the **Policy digest** and a read-only **Policy simulator** (below). |
 
 Navigation is deliberately only **Overview / Decisions / Policy**. The former
@@ -140,10 +140,10 @@ reads.
 
 ## Sandbox limitations (be explicit)
 
-- **No real money moves.** The executor is a deterministic sandbox and receipts
-  are simulated.
+- **No real money moves.** The executor is a deterministic sandbox and
+  settlement records are simulated.
 - `RAMP_FAIL_VENDORS` forces a sandbox failure so the demo can show a failed
-  receipt.
+  settlement.
 - Attestation is honest — it is never reported as "verified" at the hook.
 
 ## Known limitations

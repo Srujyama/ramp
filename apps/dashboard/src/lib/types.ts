@@ -81,7 +81,7 @@ export interface DecisionProofVerification {
 export type ExecutionStatus = "settled" | "failed";
 
 export interface ExecutionRecord {
-  receiptId: string;
+  settlementId: string;
   executionId: string;
   status: ExecutionStatus;
   provider: string;
@@ -140,6 +140,13 @@ export interface SimulationInput {
    * so without this every simulation would deny on `deny/attestation_invalid`.
    */
   attested?: boolean;
+  /**
+   * Whether to assume the hypothetical request was signed by the agent's
+   * registered key. Defaults to `true` server-side for the same reason as
+   * `attested` — a hypothetical carries no signature, and without the premise
+   * every simulation would deny on `deny/unauthenticated_agent`.
+   */
+  identityVerified?: boolean;
 }
 
 /**
@@ -157,6 +164,8 @@ export interface SimulationResult {
   currency: string;
   /** The attestation premise this simulation assumed (see `SimulationInput.attested`). */
   assumedAttested: boolean;
+  /** The identity premise this simulation assumed (see `SimulationInput.identityVerified`). */
+  assumedIdentityVerified: boolean;
   simulationOnly: true;
 }
 

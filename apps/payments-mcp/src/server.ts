@@ -14,7 +14,7 @@
  * Money moves ONLY on a decision that policy allowed, that was durably persisted,
  * and whose proof re-verified from the store. A deny (or any construction/audit
  * failure) short-circuits before the executor is ever touched. The executor here
- * is the SANDBOX executor — it settles a deterministic fake receipt and moves NO
+ * is the SANDBOX executor — it settles a deterministic fake settlement record and moves NO
  * real money and surfaces NO credentials.
  *
  * Honest note on defense-in-depth: under Claude Code the PreToolUse hook (matcher
@@ -34,6 +34,7 @@ import {
   verifyAttestation,
   demoKeyring,
   digestInvoice,
+  verifyAgentIdentity,
 } from "@ramp/attestation";
 import {
   requestPurchase,
@@ -110,6 +111,20 @@ const payVendorInputShape = {
         "digest, the vendor's registered domain, amount, currency, freshness). " +
         "Without a VERIFIED attestation the gate denies (deny/attestation_invalid).",
     ),
+  identity: z
+    .object({
+      scheme: z.literal("ed25519"),
+      signature: z.string(),
+    })
+    .optional()
+    .describe(
+      "The requesting agent's Ed25519 signature over the request's identity core " +
+        "(vendorId, amount, currency, category, invoiceRef, requestingAgent). A " +
+        "CLAIM, not an identity: it is verified against the public key the agent " +
+        "registry holds for requestingAgent. Missing, wrong-key, or tampered " +
+        "signatures — and unregistered/revoked agents — are denied " +
+        "(deny/unauthenticated_agent).",
+    ),
   reason: z
     .string()
     .optional()
@@ -146,6 +161,8 @@ type PayVendorArgs = {
   invoiceDocument?: string;
   /** Untrusted attestation blob. Verified here; presenting one grants nothing. */
   attestation?: unknown;
+  /** Untrusted identity claim. Verified here against the agent registry's key. */
+  identity?: { scheme: "ed25519"; signature: string };
   reason?: string;
   toolCallId?: string;
   taskId?: string;
@@ -174,6 +191,26 @@ function registeredDomainOrNull(
 ): string | null {
   try {
     return factSource.getVendorDomain(vendorId);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The agent's REGISTERED public key, or null if it cannot be read.
+ *
+ * Same fail-closed shape (and the same rationale) as {@link registeredDomainOrNull}:
+ * `verifyAgentIdentity` treats a null key as "no registered identity to verify
+ * against", so no signature can verify, so `agent_identity_verified` is false,
+ * so D8 denies. An unreadable registry blocks the payment; it never waves it
+ * through — and the lifecycle below would independently fail on facts anyway.
+ */
+function agentKeyOrNull(
+  factSource: LedgerFactSource,
+  agentId: string,
+): string | null {
+  try {
+    return factSource.getAgentPublicKey(agentId);
   } catch {
     return null;
   }
@@ -216,7 +253,7 @@ export interface PayVendorDeps {
 
 /**
  * Sandbox failure seam for demos/tests. `RAMP_FAIL_VENDORS` is a comma-separated
- * list of vendorIds the sandbox executor should return a `failed` receipt for.
+ * list of vendorIds the sandbox executor should return a `failed` settlement record for.
  * This lets a LIVE stdio server deterministically exercise the `executor_error`
  * path (allowed + persisted + verified, then payment fails) with no real
  * provider and no secret. Unset/empty → the sandbox always settles. It can only
@@ -272,8 +309,10 @@ export async function handlePayVendor(
     ...deps,
   };
 
-  // Build the SpendRequest from ONLY the six trusted policy fields. `reason` is
-  // deliberately excluded — it is UX narration, not a fact.
+  // Build the SpendRequest from ONLY the policy fields + the two signed claims
+  // (attestation rides separately below; identity travels ON the request so the
+  // verifier sees exactly what was signed). `reason` is deliberately excluded —
+  // it is UX narration, not a fact.
   const request: SpendRequest = {
     vendorId: args.vendorId,
     amount: args.amount,
@@ -281,6 +320,7 @@ export async function handlePayVendor(
     category: args.category,
     requestingAgent: args.requestingAgent,
     ...(args.invoiceRef !== undefined ? { invoiceRef: args.invoiceRef } : {}),
+    ...(args.identity !== undefined ? { identity: args.identity } : {}),
   };
 
   // Defense in depth: the SDK already validated the zod shape, but re-check with
@@ -342,6 +382,16 @@ export async function handlePayVendor(
       now: Date.now(),
     });
 
+    // AGENT IDENTITY. Same verifier the PreToolUse hook calls
+    // (verifyAgentIdentity) against the same registry key — one verifier, two
+    // independent gates, no second opinion. The verdict is a boolean that
+    // becomes the `agent_identity_verified` fact; a missing/forged/wrong-key
+    // signature and an unregistered/revoked agent all reduce to `false`, and
+    // D8 denies on false.
+    const agentKeyPem = agentKeyOrNull(factSource, request.requestingAgent);
+    const agentIdentityVerified =
+      agentKeyPem !== null && verifyAgentIdentity(request, agentKeyPem);
+
     const r = await runPurchase({
       request,
       kernel,
@@ -350,6 +400,7 @@ export async function handlePayVendor(
       db,
       executor,
       attestationPresent: attestationResult.verified === true,
+      agentIdentityVerified,
       // Forwarded to provenance only when genuinely present.
       toolCallId: args.toolCallId,
       taskId: args.taskId,
@@ -364,7 +415,7 @@ export async function handlePayVendor(
 
 /**
  * Map a `RequestPurchaseResult` to the stable, whitelisted structuredContent
- * schema. Each branch copies only non-sensitive fields — the executor receipt
+ * schema. Each branch copies only non-sensitive fields — the executor settlement record
  * carries no secrets by contract, and we never spread it wholesale.
  */
 function mapResult(
@@ -372,7 +423,7 @@ function mapResult(
   request: SpendRequest,
 ): PayVendorResult {
   if (r.status === "allowed") {
-    const receipt = r.receipt;
+    const settlement = r.settlement;
     return toResult(
       {
         status: "allowed",
@@ -380,7 +431,7 @@ function mapResult(
         requestId: r.requestId,
         // execution-scoped id — NOT a policy-correlation id. Use decisionId/requestId
         // to correlate a payment with its policy decision; this ties it to the run.
-        executionId: receipt ? receipt.executionId : null,
+        executionId: settlement ? settlement.executionId : null,
         vendor: request.vendorId,
         amount: request.amount,
         currency: request.currency,
@@ -388,8 +439,8 @@ function mapResult(
         firedRules: r.firedRules,
         proofId: r.proofId,
         proofVerified: r.proofVerified,
-        paymentStatus: receipt ? receipt.status : null,
-        receiptId: receipt ? receipt.receiptId : null,
+        paymentStatus: settlement ? settlement.status : null,
+        settlementId: settlement ? settlement.settlementId : null,
         message: r.message,
       },
       false,
@@ -442,7 +493,7 @@ export function createServer(deps: PayVendorDeps = {}): McpServer {
         "Request a vendor payment. Self-enforcing: evaluates policy, persists a " +
         "tamper-evident proof, independently re-verifies it, and only then settles " +
         "a SANDBOX (fake, no real money) payment. Denies and failures never pay. " +
-        "Returns a structured receipt on allow or a structured denial otherwise.",
+        "Returns a structured settlement record on allow or a structured denial otherwise.",
       inputSchema: payVendorInputShape,
     },
     async (args) => handlePayVendor(args as PayVendorArgs, deps),

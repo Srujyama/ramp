@@ -78,6 +78,20 @@ export type Derivation =
       readonly statementDigest: string;
       readonly verified: boolean;
     }
+  /**
+   * Established by the identity layer's verdict: the request's signature judged
+   * against the agent registry's key (@ramp/attestation's `verifyAgentIdentity`).
+   * Records WHICH identity was judged and whether a registered key existed —
+   * never the signature bytes themselves (bytes off the wire are claims, and a
+   * provenance graph records verdicts about claims, not the claims).
+   */
+  | {
+      readonly kind: "agent_identity";
+      readonly agentId: string;
+      readonly scheme: string;
+      readonly keyRegistered: boolean;
+      readonly verified: boolean;
+    }
   /** Produced by declassifying quarantined content through a bounded codomain. */
   | {
       readonly kind: "declassified";

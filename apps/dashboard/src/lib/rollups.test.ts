@@ -31,7 +31,7 @@ test("summarizeVendors: unknown vendor without facts has null verified/riskTier,
 
 test("summarizeVendors: settledSpend excludes denies and failed executions", () => {
   const rows = [
-    mkView({ decisionId: "d1", vendorId: "acme_corp", outcome: "allow", amount: 100, execution: { receiptId: "r1", executionId: "e1", status: "settled", provider: "sandbox", executedAt: "2026-07-15 10:00:00" } }),
+    mkView({ decisionId: "d1", vendorId: "acme_corp", outcome: "allow", amount: 100, execution: { settlementId: "r1", executionId: "e1", status: "settled", provider: "sandbox", executedAt: "2026-07-15 10:00:00" } }),
     mkView({ decisionId: "d2", vendorId: "acme_corp", outcome: "deny", status: "denied", amount: 5000, execution: null }),
   ];
   const [v] = summarizeVendors(rows);
@@ -53,9 +53,9 @@ test("summarizeVendors/summarizeCategories: allowed-but-unexecuted money is not 
   // Same rule as agents.ts, via the one shared predicate: authorisation is not
   // settlement, so an allow with no execution row contributes nothing.
   const rows = [
-    mkView({ decisionId: "d1", vendorId: "acme_corp", category: "software", outcome: "allow", amount: 100, execution: { receiptId: "r1", executionId: "e1", status: "settled", provider: "sandbox", executedAt: "2026-07-15 10:00:00" } }),
+    mkView({ decisionId: "d1", vendorId: "acme_corp", category: "software", outcome: "allow", amount: 100, execution: { settlementId: "r1", executionId: "e1", status: "settled", provider: "sandbox", executedAt: "2026-07-15 10:00:00" } }),
     mkView({ decisionId: "d2", vendorId: "acme_corp", category: "software", outcome: "allow", amount: 9000, execution: null }),
-    mkView({ decisionId: "d3", vendorId: "acme_corp", category: "software", outcome: "allow", amount: 700, execution: { receiptId: "r3", executionId: "e3", status: "failed", provider: "sandbox", executedAt: "2026-07-15 10:00:00" } }),
+    mkView({ decisionId: "d3", vendorId: "acme_corp", category: "software", outcome: "allow", amount: 700, execution: { settlementId: "r3", executionId: "e3", status: "failed", provider: "sandbox", executedAt: "2026-07-15 10:00:00" } }),
   ];
   const [v] = summarizeVendors(rows);
   assert.ok(v);
@@ -78,7 +78,7 @@ test("dailySpend: an allowed-but-unexecuted decision counts as allowed but adds 
 
 test("dailySpend buckets by UTC calendar day, oldest first, and never invents a settled amount for a deny", () => {
   const rows = [
-    mkView({ decisionId: "d1", ts: "2026-07-15 09:00:00", outcome: "allow", amount: 100, execution: { receiptId: "r1", executionId: "e1", status: "settled", provider: "sandbox", executedAt: "2026-07-15 09:00:00" } }),
+    mkView({ decisionId: "d1", ts: "2026-07-15 09:00:00", outcome: "allow", amount: 100, execution: { settlementId: "r1", executionId: "e1", status: "settled", provider: "sandbox", executedAt: "2026-07-15 09:00:00" } }),
     mkView({ decisionId: "d2", ts: "2026-07-15 15:00:00", outcome: "deny", status: "denied", amount: 9999, execution: null }),
     mkView({ decisionId: "d3", ts: "2026-07-14 09:00:00", outcome: "escalate", status: "escalated", amount: 450, execution: null }),
   ];

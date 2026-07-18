@@ -8,11 +8,20 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { demoAgentKeypair, signSpendRequest } from "@ramp/attestation";
 import { createRampClient, withRampClient } from "./index.js";
 
-/** A seeded in-memory client per test — throwaway, no on-disk state. */
-function client() {
-  return createRampClient({ dbPath: ":memory:", provision: true });
+/**
+ * A seeded in-memory client per test — throwaway, no on-disk state. A client
+ * belongs to ONE agent, so it carries that agent's identity key: `pay()` signs
+ * each request with it and the gate verifies against the seeded registry.
+ */
+function client(agentId = "agent_47") {
+  return createRampClient({
+    dbPath: ":memory:",
+    provision: true,
+    identityKey: demoAgentKeypair(agentId).privateKey,
+  });
 }
 
 const HERO = {
@@ -76,7 +85,7 @@ test("pay: over the per-txn cap denies, judged identically to the hook", async (
 test("pay: an escalation is HELD, not paid", async () => {
   // $450 is within the cap, over the escalation threshold (400). agent_12 has the
   // daily headroom (agent_47 does not — its prior would deny first).
-  const ramp = client();
+  const ramp = client("agent_12");
   try {
     const req = ramp.withDemoAttestation({
       ...HERO,
@@ -134,7 +143,7 @@ test("budget: an unknown agent throws (fail-closed)", () => {
 });
 
 test("approval: unresolved is null; a paid decision shows its verdict path", async () => {
-  const ramp = client();
+  const ramp = client("agent_12");
   try {
     const req = ramp.withDemoAttestation({
       ...HERO,
@@ -163,6 +172,56 @@ test("decisions: the log reflects what the SDK did", async () => {
   }
 });
 
+test("pay: a client with NO identity key is denied — unsigned proves nothing", async () => {
+  const ramp = createRampClient({ dbPath: ":memory:", provision: true });
+  try {
+    const r = await ramp.pay(ramp.withDemoAttestation({ ...HERO }));
+    assert.equal(r.status, "denied");
+    assert.ok(r.firedRules.includes("deny/unauthenticated_agent"));
+    assert.equal(r.executed, false);
+  } finally {
+    ramp.close();
+  }
+});
+
+test("pay: THE IMPERSONATION — agent_47's name with agent_12's key is denied", async () => {
+  // The client signs honestly with the key it was given; the key is simply not
+  // the one the registry holds for the CLAIMED agent. The signature is
+  // mathematically valid and still proves nothing about agent_47.
+  const ramp = client("agent_12");
+  try {
+    const r = await ramp.pay(ramp.withDemoAttestation({ ...HERO })); // claims agent_47
+    assert.equal(r.status, "denied");
+    assert.ok(r.firedRules.includes("deny/unauthenticated_agent"));
+    assert.equal(r.executed, false);
+  } finally {
+    ramp.close();
+  }
+});
+
+test("pay: a tampered core field after signing is denied", async () => {
+  // Pre-sign a $15 request with the RIGHT key, then present the signature on a
+  // $340 one. The SDK respects a pre-signed request verbatim (it must not
+  // re-sign what another key holder signed), so the stale signature reaches the
+  // verifier — and dies there, because amount is inside the signed core.
+  const ramp = client();
+  try {
+    const small = ramp.withDemoAttestation({ ...HERO, amount: 15, invoiceRef: "inv_small" });
+    const signedSmall = signSpendRequest(small, demoAgentKeypair("agent_47").privateKey);
+    const inflated = ramp.withDemoAttestation({
+      ...HERO,
+      amount: 340,
+      invoiceRef: "inv_small",
+    });
+    const r = await ramp.pay({ ...inflated, identity: signedSmall.identity });
+    assert.equal(r.status, "denied");
+    assert.ok(r.firedRules.includes("deny/unauthenticated_agent"));
+    assert.equal(r.executed, false);
+  } finally {
+    ramp.close();
+  }
+});
+
 test("withRampClient closes the handle even on throw", async () => {
   await assert.rejects(
     withRampClient({ dbPath: ":memory:", provision: true }, async (ramp) => {
@@ -176,8 +235,9 @@ test("withRampClient closes the handle even on throw", async () => {
 
 test("the SDK reuses the real kernel — same verdict as evaluating directly", async () => {
   // Sanity that "convenience, not a second policy path" holds: preview (which runs
-  // the real kernel) agrees with pay's outcome for the same facts.
-  const ramp = client();
+  // the real kernel) agrees with pay's outcome for the same facts. agent_12's own
+  // client — pay() signs as the client's agent, and this payment is agent_12's.
+  const ramp = client("agent_12");
   try {
     const preview = ramp.preview({
       requestingAgent: "agent_12",

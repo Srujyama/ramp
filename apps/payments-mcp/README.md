@@ -1,27 +1,39 @@
 # @ramp/payments-mcp — the enforcing payments MCP server
 
-**Provable Agent Spend** is a secure payment layer for AI agents. This package is
+**Provable Agent Spend** is authorization infrastructure for AI-agent payments:
+a decision-verification layer that sits beneath any agentic payment platform
+(including Ramp's) as complementary infrastructure. Platforms prove *who
+authorized* a payment; this layer proves *the authorization decision itself was
+correct given authenticated facts* — independently verifiable. This package is
 its agent-facing surface: a [Model Context Protocol](https://modelcontextprotocol.io)
 server that exposes one tool, **`pay_vendor`** (full MCP name
 **`mcp__payments__pay_vendor`**), over stdio.
 
-An agent does not "pay" directly. It **requests** a purchase. The server then runs
-the full provable-spend lifecycle before any payment is attempted:
+An agent does not "pay" directly. It **requests** a purchase. The server is
+**self-enforcing** — the second independent gate over the same authorization
+kernel as the PreToolUse hook — and runs the full provable-spend lifecycle
+before any payment is attempted:
 
-- **Policy-controlled** — the request is decided by the deterministic policy kernel
-  (`@ramp/gate`) against **authoritative** facts read from the ledger (`@ramp/ledger`),
-  never from the model's narration.
+- **Authenticated** — the request's Ed25519 `identity` signature is verified
+  against the ledger's **agent registry** (authoritative public keys,
+  active/revoked status); the result is the authenticated fact
+  `agent_identity_verified`, and the kernel denies unauthenticated or
+  impersonated requests via `deny/unauthenticated_agent`.
+- **Policy-controlled** — the request is decided by the deterministic authorization
+  kernel (`@ramp/gate`) against **authenticated** facts read from the ledger
+  (`@ramp/ledger`), never from the model's narration.
 - **Tamper-evident** — every decision is persisted with a proof whose id is derived
   from its content, so a tampered record is detectable.
-- **Independently verifiable** — the proof is re-verified from the persisted record
-  *before* any money-movement is attempted, and can be re-verified again out-of-band
-  from the shell.
+- **Independently verifiable** — the authorization proof is re-verified from the
+  persisted record *before* any money-movement is attempted, and can be re-verified
+  again out-of-band from the shell.
 - **Traceable** — a trusted provenance graph is derived for each decision, and the
   audit trail is exposed read-only over HTTP.
 
 > **Sandbox only.** No real money moves. No payment provider is configured. The
 > executor behind this server is a deterministic **sandbox** (`SandboxExecutor`) that
-> mints fake receipts. See [Payment-executor boundary](#payment-executor-boundary).
+> mints simulated settlement records. See
+> [Payment-executor boundary](#payment-executor-boundary).
 
 ---
 
@@ -73,7 +85,7 @@ no real provider is configured. Everything is optional and has a safe default:
 | --- | --- | --- |
 | `RAMP_KERNEL` | *(unset)* | Set to `wasm` to select the wasm-backed kernel **iff** the compiled artifact (`wasm/pkg`) is resolvable; otherwise the always-available TypeScript **reference kernel** is used. Leave unset for the reference kernel. |
 | `RAMP_DB_PATH` | `ramp.db` | Path to the SQLite audit ledger. **Honored by the server** (as well as the bridge and the `verify-proof` CLI): set it to one absolute path so all three read/write the **same** file. Unset → `ramp.db` relative to the process working directory. |
-| `RAMP_FAIL_VENDORS` | *(unset)* | Comma-separated `vendorId`s the sandbox executor should return a **failed** receipt for. Lets a live server deterministically demo the `executor_error` path (allowed + persisted + verified, then the payment fails) with no real provider and no secret. It can only make an allowed payment fail — never turn a deny into a payment. |
+| `RAMP_FAIL_VENDORS` | *(unset)* | Comma-separated `vendorId`s the sandbox executor should return a **failed** settlement record for. Lets a live server deterministically demo the `executor_error` path (allowed + persisted + verified, then the payment fails) with no real provider and no secret. It can only make an allowed payment fail — never turn a deny into a payment. |
 
 ```bash
 # .env.example — copy, adjust, and DO NOT commit real values.
@@ -95,15 +107,16 @@ verified:
 ```
 agent request
   → isSpendRequest guard            (invalid → policy_error, NO execution)
+  → verify Ed25519 agent identity   (vs the ledger agent registry → agent_identity_verified fact)
   → authoritative facts             (ledger read; throw → policy_error)
-  → kernel.evaluate(facts)          (policy decision; throw → policy_error)
+  → kernel.evaluate(facts)          (authorization decision; unauthenticated → deny; throw → policy_error)
   → derive trusted provenance       (throw → policy_error)
   → build tamper-evident proof      (throw → policy_error)
   → persist decision + proof        (conflict/throw → audit_error, NO execution)
   → re-read + INDEPENDENTLY verify  (!verified → audit_error, NO execution)
-  → if decision == "deny"           → denied, NO execution, NO receipt
+  → if decision == "deny"           → denied, NO execution, NO settlement
   → else execute sandbox payment    (throw / status "failed" → executor_error)
-  → structured receipt or denial
+  → structured settlement record or denial
 ```
 
 **Fail-closed is the whole point.** Any failure to gather facts, decide policy, build
@@ -117,7 +130,7 @@ sense) happens on exactly one path: allowed **and** persisted **and** re-verifie
 
 ### Input
 
-The six `SpendRequest` fields plus three optional, non-authoritative fields:
+The `SpendRequest` fields plus three optional, non-authoritative fields:
 
 | field | type | notes |
 | --- | --- | --- |
@@ -125,7 +138,8 @@ The six `SpendRequest` fields plus three optional, non-authoritative fields:
 | `amount` | `integer ≥ 0` | whole currency units; non-integer / negative is rejected at the zod boundary and re-guarded |
 | `currency` | `string` | ISO 4217, e.g. `"USD"` |
 | `category` | `string` | spend category, e.g. `"office_supplies"` |
-| `requestingAgent` | `string` | agent id, e.g. `"agent_47"` |
+| `requestingAgent` | `string` | agent id, e.g. `"agent_47"` — **a key, not a credential**; authenticated via `identity` |
+| `identity` | `{ scheme: "ed25519", signature }` | the agent's Ed25519 signature over the canonical identity core of the request (`vendorId`, `amount`, `currency`, `category`, `invoiceRef`, `requestingAgent`); verified against the ledger's **agent registry** (active keys only). Missing/invalid/revoked → `agent_identity_verified: false` → `deny/unauthenticated_agent`. The SDK (`createRampClient`) signs automatically. |
 | `invoiceRef` | `string` (opt) | invoice / attestation reference |
 | `reason` | `string` (opt) | human-readable rationale; **provenance / UX only**, never a policy input |
 | `toolCallId` | `string` (opt) | optional trusted provenance node; omit if not genuinely present |
@@ -143,7 +157,7 @@ There are three shapes.
   "status": "allowed",
   "decisionId": "dec_…",
   "requestId": "…",            // correlation label = facts.request_id (invoiceRef) or decisionId
-  "executionId": "exec_…",     // from the receipt; execution-scoped, NOT a policy-correlation id
+  "executionId": "exec_…",     // from the settlement record; execution-scoped, NOT a policy-correlation id
   "vendor": "acme_corp",
   "amount": 40,
   "currency": "USD",
@@ -151,13 +165,13 @@ There are three shapes.
   "firedRules": ["…"],
   "proofId": "proof_…",
   "proofVerified": true,
-  "paymentStatus": "settled",  // = receipt.status
-  "receiptId": "rcpt_…",       // provider settlement id
+  "paymentStatus": "settled",  // = settlement-record status
+  "settlementId": "rcpt_…",    // provider settlement id
   "message": "Payment settled: 40 USD to acme_corp (rcpt_…)"
 }
 ```
 
-**DENY** — policy denied; **no payment, no receipt, no executionId**:
+**DENY** — policy denied; **no payment, no settlement id, no executionId**:
 
 ```jsonc
 {
@@ -202,41 +216,44 @@ No response — allow, deny, or error — ever contains secrets or credentials.
 
 ```ts
 interface PaymentExecutor {
-  execute(req: ExecutorRequest): Promise<ExecutorReceipt> | ExecutorReceipt;
+  // returns a settlement record ({ settlementId, executionId, status, provider, executedAt })
+  execute(req: ExecutorRequest): Promise<SettlementRecord> | SettlementRecord;
 }
 ```
 
-**SANDBOX ONLY.** The `SandboxExecutor` is deterministic and mints fake receipts. **No
-real money moves and no real payment provider is configured anywhere in this repo.**
+**SANDBOX ONLY.** The `SandboxExecutor` is deterministic and mints simulated
+settlement records. **No real money moves and no real payment provider is configured
+anywhere in this repo.**
 
 A real adapter (Stripe, the Ramp API, …) would implement the **same**
-`PaymentExecutor` interface and be injected in place of the sandbox. It would read its
-credentials from server-side environment configuration and **never** surface them to
-the agent, the tool response, or the receipt. The agent-facing contract would not
-change.
+`PaymentExecutor` interface and be injected in place of the sandbox — this layer is
+authorization infrastructure *beneath* whatever platform actually moves the money,
+not a replacement for it. The adapter would read its credentials from server-side
+environment configuration and **never** surface them to the agent, the tool
+response, or the settlement record. The agent-facing contract would not change.
 
 ---
 
-## Receipt semantics
+## Settlement-record semantics
 
-A receipt carries two ids with different meanings — do not conflate them:
+A settlement record carries two ids with different meanings — do not conflate them:
 
-- **`receiptId`** — the provider **settlement id** (`rcpt_…`). In the sandbox it is a
+- **`settlementId`** — the provider **settlement id** (`rcpt_…`). In the sandbox it is a
   deterministic hash of the decision + request fields, so identical requests yield
   identical settlement ids (idempotent retries collapse).
 - **`executionId`** — an **execution-scoped** id (`exec_…`), derived deterministically
   from the decisionId. It marks *this execution* of the payment. It is **NOT a
   policy-correlation id** — do not use it to tie a decision back to a policy evaluation.
 
-The receipt never contains card numbers, API keys, or provider credentials.
+The settlement record never contains card numbers, API keys, or provider credentials.
 
 ---
 
 ## Correlation-id limitation (honest)
 
 - On the **MCP tool path**, a single `decisionId` is minted inside `requestPurchase`
-  and propagates through policy → ledger → proof → execution → receipt. That gives you
-  end-to-end correlation *within a tool call*.
+  and propagates through policy → ledger → proof → execution → settlement record. That
+  gives you end-to-end correlation *within a tool call*.
 - Under **Claude Code**, the repo also ships a `PreToolUse` hook
   (`.claude/hooks/evaluate.mjs`) that **independently** evaluates the same request and
   writes its own audit entry **before** the tool runs. The hook and the tool are two
@@ -260,23 +277,27 @@ enforcement layers that happen to reach the same fail-closed conclusion.
 - **Attestation is labeled honestly.** Proof attestation status is `absent` or
   `present_unverified` — never `"verified"` unless a real verification check exists.
   The absence of an invoice/attestation is stated plainly, not papered over.
-- **The sandbox executor is not a real charge.** A settled sandbox receipt is a
-  simulation.
+- **The sandbox executor is not a real charge.** A settled sandbox settlement record
+  is a simulation.
 
 ---
 
-## Out of scope
+## Out of scope — this layer complements platforms, it does not compete with them
 
-This layer decides and records agent spend. It intentionally does **not** provide:
-forecasting or analytics, reimbursement flows, approval queues, multiple/real payment
-providers, or a policy-authoring UI. Policy is authored in `@ramp/gate`; facts live in
-`@ramp/ledger`.
+This layer verifies and records agent-spend **authorization decisions**. Product
+features like forecasting, analytics, reimbursement flows, approval queues, card
+programs, and real payment rails belong to agentic payment platforms (Ramp among
+them) — this layer deliberately provides none of that and sits **beneath** such
+platforms as complementary infrastructure. A platform proves *who authorized* a
+payment; this layer proves *the authorization decision itself was correct given
+authenticated facts*, and makes that proof independently verifiable. Policy is
+authored in `@ramp/gate`; authenticated facts live in `@ramp/ledger`.
 
 ## Future: real-provider integration
 
 Swapping the sandbox for a real provider is a single, contained change: implement
 `PaymentExecutor` against the provider's API, load credentials server-side from env,
-keep them out of every response and receipt, and inject that executor where
+keep them out of every response and settlement record, and inject that executor where
 `makeSandboxExecutor()` is used today. The lifecycle, the fail-closed guarantees, and
 the agent-facing response schemas stay identical.
 
@@ -293,12 +314,13 @@ A numbered end-to-end demo. Run everything from the **repo root** (or set
    [`mcp-clients/`](./mcp-clients/)), or smoke-test with
    `pnpm --filter @ramp/payments-mcp start`.
 3. **Allowed purchase.** From the agent, call `mcp__payments__pay_vendor` with a
-   within-policy request (verified vendor, under cap, cleared category). Expect
-   `status: "allowed"`, a `receiptId`, `paymentStatus: "settled"`, and
-   `proofVerified: true`. Note the returned `decisionId`.
+   within-policy request (verified vendor, under cap, cleared category, signed
+   agent identity). Expect `status: "allowed"`, a `settlementId`,
+   `paymentStatus: "settled"`, and `proofVerified: true`. Note the returned
+   `decisionId`.
 4. **Denied purchase.** Call `pay_vendor` with an over-limit or unverified-vendor
    request. Expect `status: "denied"`, `firedRules` naming the rule(s), **no
-   `receiptId`**, and still `proofVerified: true`. Note this `decisionId` too.
+   `settlementId`**, and still `proofVerified: true`. Note this `decisionId` too.
 5. **Start the read-only audit bridge.** `pnpm --filter @ramp/ledger bridge`
    (defaults to `http://localhost:8787`; honors `PORT`, `RAMP_DB_PATH`,
    `RAMP_BRIDGE_ORIGIN`). It is **GET-only** — there is no mutation route.

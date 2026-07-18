@@ -45,6 +45,7 @@ function facts(over: Partial<Facts> = {}): Facts {
     approved_categories: ["office_supplies", "software", "travel"],
     agent_cleared_categories: ["office_supplies", "software"],
     attestation_present: false,
+  agent_identity_verified: true,
     escalation_threshold: 400,
     vendor_risk_tier: "standard",
     budgets: [],
@@ -130,13 +131,13 @@ test("GET /decisions returns the seeded decisions", async () => {
   );
 });
 
-test("GET /decisions/:id surfaces the sandbox execution receipt", async () => {
+test("GET /decisions/:id surfaces the sandbox settlement record", async () => {
   await withBridge(
     (db) => {
       recordDecision(db, { decisionId: "paid", request: req, facts: facts(), decision: ALLOW });
       recordExecution(db, {
         decisionId: "paid",
-        receiptId: "rcpt_http01",
+        settlementId: "rcpt_http01",
         executionId: "exec_http01",
         status: "settled",
         provider: "sandbox",
@@ -146,10 +147,10 @@ test("GET /decisions/:id surfaces the sandbox execution receipt", async () => {
       const res = await fetch(`${base}/decisions/paid`);
       assert.equal(res.status, 200);
       const body = (await res.json()) as {
-        execution: { receiptId: string; status: string; provider: string } | null;
+        execution: { settlementId: string; status: string; provider: string } | null;
       };
       assert.ok(body.execution);
-      assert.equal(body.execution.receiptId, "rcpt_http01");
+      assert.equal(body.execution.settlementId, "rcpt_http01");
       assert.equal(body.execution.status, "settled");
       assert.equal(body.execution.provider, "sandbox");
     },

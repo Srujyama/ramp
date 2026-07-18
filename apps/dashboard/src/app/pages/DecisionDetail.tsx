@@ -125,6 +125,7 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
                 <Row k="Approved categories">{facts.approved_categories.join(", ") || "—"}</Row>
                 <Row k="Agent cleared for">{facts.agent_cleared_categories.join(", ") || "—"}</Row>
                 <Row k="Attestation">{facts.attestation_present ? "Present" : "Absent"}</Row>
+                <Row k="Agent identity">{facts.agent_identity_verified ? "Verified" : "Unverified"}</Row>
               </KvList>
             ) : (
               <p className="text-[13px] text-ink-muted">No facts were recorded for this row.</p>
@@ -202,8 +203,8 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
         <Card>
           <CardHeader>
             <div>
-              <CardTitle>Payment · sandbox receipt</CardTitle>
-              <CardDescription>No real money moves; a failed receipt is never shown as settled.</CardDescription>
+              <CardTitle>Payment · sandbox settlement</CardTitle>
+              <CardDescription>No real money moves; a failed settlement record is never shown as settled.</CardDescription>
             </div>
           </CardHeader>
           <CardContent>
@@ -212,8 +213,8 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
                 <Row k="Status">
                   <StatusChip chip={paymentChip(v)} />
                 </Row>
-                <Row k="Receipt id">
-                  <CopyId id={v.execution.receiptId} />
+                <Row k="Settlement id">
+                  <CopyId id={v.execution.settlementId} />
                 </Row>
                 <Row k="Execution id">
                   <span className="font-mono text-[12px]">{v.execution.executionId}</span>

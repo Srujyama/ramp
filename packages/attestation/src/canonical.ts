@@ -8,7 +8,7 @@
  *
  * What stays here is the part that is specific to attestation: DOMAIN
  * SEPARATION. Without it, a signature the notary produced for some OTHER purpose
- * — a login challenge, a receipt, a different protocol version sharing the key —
+ * — a login challenge, a billing statement, a different protocol version sharing the key —
  * is a valid signature over bytes that might also parse as an attestation. The
  * prefix means "this key holder signed this, AS a ramp attestation, at this
  * version," so a signature from any other context simply is not over these bytes.

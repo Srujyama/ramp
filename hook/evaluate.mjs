@@ -16,6 +16,12 @@
 //      against a trusted notary keyring AND checked to bind to THIS payment
 //      (invoice digest, the vendor's REGISTERED domain, amount, currency,
 //      freshness). Only the resulting boolean becomes a fact.
+//   2b. AGENT IDENTITY (@ramp/attestation + the ledger's agent_registry) — the
+//      request's Ed25519 signature is verified against the public key the
+//      registry holds for `requestingAgent` (status 'active' only). The agent
+//      id is a lookup KEY; the signature is what makes it real. Only the
+//      resulting boolean becomes a fact; false denies
+//      (deny/unauthenticated_agent).
 //   3. AUTHORITATIVE FACTS (@ramp/ledger) — every gating fact is a DB read keyed
 //      by the request's identity fields. Nothing is copied out of the request.
 //   4. KERNEL (@ramp/gate) — pure, deterministic, deny-dominates.
@@ -198,10 +204,23 @@ async function main() {
       now: Date.now(),
     });
 
+    // ---- 5b. IDENTITY: who is asking, proven rather than typed ---------
+    // The registered key comes from the LEDGER's agent_registry ('active' rows
+    // only), never from the request — same shape as the vendor's registered
+    // domain above. A missing key (unknown OR revoked agent), a missing
+    // signature, and a bad signature all collapse to `false`; the KERNEL denies
+    // on false (deny/unauthenticated_agent). The hook itself still only fails
+    // closed on infrastructure errors — an unauthenticated agent is a POLICY
+    // deny with a fired rule, not an infra deny.
+    const agentKeyPem = factSource.getAgentPublicKey(req.requestingAgent);
+    const agentIdentityVerified =
+      agentKeyPem !== null && attestationLib.verifyAgentIdentity(req, agentKeyPem);
+
     // ---- 6. AUTHORITATIVE facts + their provenance ---------------------
     const ctx = {
       request: req,
       attestationPresent: attestationResult.verified === true,
+      agentIdentityVerified,
     };
     const { facts: authoritative, provenance: ledgerProvenance } =
       factSource.contextWithProvenance(ctx);
@@ -254,6 +273,22 @@ async function main() {
             ? provenanceLib.digest(attestationResult.statement)
             : "0".repeat(64),
           verified: attestationResult.verified === true,
+        },
+      },
+      {
+        fact: "agent_identity_verified",
+        value: facts.agent_identity_verified,
+        source: "identity",
+        // Verdict metadata only — which identity was judged, whether a
+        // registered key existed, what scheme the claim used. NEVER the
+        // signature bytes: bytes off the wire are claims, and the graph records
+        // verdicts about claims, not the claims themselves.
+        derivation: {
+          kind: "agent_identity",
+          agentId: req.requestingAgent,
+          scheme: req.identity ? req.identity.scheme : "none",
+          keyRegistered: agentKeyPem !== null,
+          verified: agentIdentityVerified === true,
         },
       },
     ];
@@ -365,6 +400,17 @@ async function main() {
     }
     if (attestationResult.verified === false) {
       notes.push(`[attestation] ${attestationResult.code}: ${attestationResult.reason}`);
+    }
+    if (!agentIdentityVerified) {
+      // Content-free by construction: which failure shape, never signature bytes.
+      notes.push(
+        `[identity] agent "${req.requestingAgent}" unauthenticated: ` +
+          (agentKeyPem === null
+            ? "no active key registered for this agent id"
+            : req.identity
+              ? "the signature does not verify against the registered key"
+              : "no identity signature presented"),
+      );
     }
     if (bundleWrite.error) {
       notes.push(`[provenance] bundle not persisted: ${bundleWrite.error}`);

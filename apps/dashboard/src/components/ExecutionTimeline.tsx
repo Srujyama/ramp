@@ -29,7 +29,7 @@ const META_LABEL: Record<string, string> = {
   policy: "policy digest",
   decision: "decision",
   proof: "proof",
-  payment: "receipt",
+  payment: "settlement",
 };
 
 /** The trust-ladder chip folded into the relevant stage — no separate status cards. */

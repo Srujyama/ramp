@@ -859,9 +859,9 @@
 <div class="deck" id="deck">
 
   <!-- ===================================================== SLIDE 1 -->
-  <section class="slide coldopen" data-note="Everyone in agentic payments is racing to scope the card — smaller limits, single-use tokens. We're doing the thing none of them do: we prove the decision itself.">
+  <section class="slide coldopen" data-note="Everyone in agentic payments is racing to scope the card — smaller limits, single-use tokens. That proves who authorized a payment. We build the authorization infrastructure underneath: proof the decision itself was correct, independently verifiable.">
     <div class="stage">
-      <p class="eyebrow green">Provable Agent Spend</p>
+      <p class="eyebrow green">Provable Agent Spend — authorization infrastructure</p>
       <h1 class="megahead">Everyone else scopes the card.<br><span class="em">We prove the decision.</span></h1>
       <div class="body">
         <p>You gave an AI agent your company card.</p>
@@ -870,7 +870,7 @@
       <div class="signoff mono">
         <span>github.com/Srujyama/ramp</span>
         <span class="sep">·</span>
-        <span><span class="g">25 tests green</span></span>
+        <span><span class="g">566 tests green</span></span>
         <span class="sep">·</span>
         <span>the gate runs today</span>
       </div>
@@ -899,24 +899,24 @@
   </section>
 
   <!-- ===================================================== SLIDE 3 -->
-  <section class="slide" data-note="Every current answer is identity and blast-radius control — a smaller card at one vendor. None of them ask the only question that stops injection: was this decision computed from inputs you can trust?">
+  <section class="slide" data-note="Every current answer is identity and blast-radius control — a smaller card at one vendor. That proves who authorized a payment, and it's worth having. The question left open underneath — the one that stops injection: was this decision computed from inputs you can trust?">
     <div class="stage">
-      <p class="eyebrow">Why today's answers don't touch it</p>
-      <h1 class="headline">Scoping the credential controls the blast radius. Not the decision.</h1>
+      <p class="eyebrow">What today's answers prove — and the question underneath</p>
+      <h1 class="headline">Scoping the credential proves who may spend. Not that the decision was right.</h1>
       <div class="tablewrap">
         <table class="matrix">
           <thead>
-            <tr><th>Approach</th><th>What it controls</th><th>The question it never asks</th></tr>
+            <tr><th>Approach</th><th>What it proves</th><th>The question left open</th></tr>
           </thead>
           <tbody>
             <tr>
               <th>Visa / Mastercard / Stripe&#8211;OpenAI</th>
-              <td>Single-use <span class="mono">$500</span> card at one vendor</td>
-              <td class="ask">Was the decision computed from real inputs?</td>
+              <td>Who may spend: single-use <span class="mono">$500</span> card at one vendor</td>
+              <td class="ask">Was the decision computed from authenticated facts?</td>
             </tr>
             <tr>
               <th>Ramp Agentic Payments</th>
-              <td>Agent Cards, human-on-the-loop, 3-way match</td>
+              <td>Who authorized: Agent Cards, human-on-the-loop, 3-way match</td>
               <td class="ask">Is the invoice actually authentic?</td>
             </tr>
             <tr>
@@ -927,7 +927,7 @@
           </tbody>
         </table>
       </div>
-      <p class="footnote red">A scoped card still pays the fraudulent invoice. It just pays a smaller one.</p>
+      <p class="footnote red">A scoped card still pays the fraudulent invoice — just a smaller one. The layer underneath: prove the decision itself.</p>
     </div>
   </section>
 
@@ -944,7 +944,7 @@
         </div>
         <div class="crow prove">
           <span class="lbl">Prove<br><span style="color:var(--faint);font-weight:400;font-size:.8em;">ours</span></span>
-          <span class="flowtext">authoritative facts<span class="arw">→</span>strict rulebook<span class="arw">→</span><span class="tag-green">allow</span> / <span class="tag-red">deny</span> + receipt</span>
+          <span class="flowtext">authenticated facts<span class="arw">→</span>strict rulebook<span class="arw">→</span><span class="tag-green">allow</span> / <span class="tag-red">deny</span> + authorization proof</span>
         </div>
       </div>
       <p class="footnote">Same facts, same answer, every time. <span class="tag-red">Deny dominates.</span> Not a classifier that drifts with phrasing — a rule that matches or it doesn't.</p>
@@ -1056,7 +1056,7 @@
   </section>
 
   <!-- ===================================================== SLIDE 8 -->
-  <section class="slide" data-note="Here's the crux nobody else names: the kernel is only as good as its facts. Scalar facts must come from the ledger and the registry — never the model's narration — or the attacker just poisons the facts instead of the reasoning.">
+  <section class="slide" data-note="Here's the crux underneath everything: the kernel is only as good as its facts. Scalar facts must come from the ledger and the registry — never the model's narration — or the attacker just poisons the facts instead of the reasoning.">
     <div class="stage">
       <p class="eyebrow amber">The crux — where injection quietly moves</p>
       <h1 class="headline">A perfect rulebook on poisoned facts is still poisoned.</h1>
@@ -1067,6 +1067,7 @@
           <ul>
             <li><span class="mk">✓</span><span>ledger DB <span class="mono">(daily_total_so_far)</span></span></li>
             <li><span class="mk">✓</span><span>vendor registry <span class="mono">(vendor_verified)</span></span></li>
+            <li><span class="mk">✓</span><span>agent registry <span class="mono">(agent_identity_verified — Ed25519-signed request)</span></span></li>
             <li><span class="mk">✓</span><span>structured tool args <span class="mono">(amount, caps)</span></span></li>
           </ul>
         </div>
@@ -1079,7 +1080,7 @@
           </ul>
         </div>
       </div>
-      <p class="footnote green">The model's words are used only as KEYS to look facts up — never as facts.</p>
+      <p class="footnote green">The model's words are used only as KEYS to look facts up — never as facts. Even the agent's identity is a verified signature, not a claimed string: deny/unauthenticated_agent.</p>
     </div>
   </section>
 
@@ -1138,7 +1139,7 @@
   </section>
 
   <!-- ===================================================== SLIDE 11 -->
-  <section class="slide" data-note="A fake invoice with no attestation fails because vendor-verified is false — no receipt, no payment. And the provenance view traces any decision back through its facts to each authoritative source. This is what you hand an auditor.">
+  <section class="slide" data-note="A fake invoice with no attestation fails because vendor-verified is false — no attestation, no payment. And the provenance view traces any decision back through its facts to each authoritative source. This is what you hand an auditor.">
     <div class="stage">
       <p class="eyebrow">Live demo — 4 &amp; 5</p>
       <h1 class="headline">A spoof survives a 3-way match. It does not survive this.</h1>
@@ -1166,10 +1167,10 @@
   </section>
 
   <!-- ===================================================== SLIDE 12 -->
-  <section class="slide" data-note="Ramp's newest release is strong — Agent Cards, three-way match, cryptographic audit logs. And their own post lists what it doesn't solve: fabricated invoices, prompt injection, no document attestation, vendor identity by database lookup. That list is our product.">
+  <section class="slide" data-note="Ramp's newest release is strong — Agent Cards, three-way match, cryptographic audit logs. Those controls prove who may spend. And their own post lists what's out of scope: fabricated invoices, prompt injection, no document attestation, vendor identity by database lookup. That list is the layer we build underneath their platform — infrastructure they could consume, not a critique.">
     <div class="stage">
       <p class="eyebrow amber">Ramp's newest — in their own words</p>
-      <h1 class="headline">The gaps aren't our critique. They're Ramp's own list.</h1>
+      <h1 class="headline">The open items aren't our critique. They're Ramp's own list.</h1>
       <p class="lead">Ramp Agentic Payments ships: <span class="mono" style="color:var(--ink-2);">Agent Cards · human-on-the-loop · 3-way match · network fraud scoring · immutable audit logs with cryptographic hashes.</span></p>
       <div class="cols-hero">
         <div>
@@ -1184,7 +1185,7 @@
           </blockquote>
         </div>
         <div style="display:grid;place-items:center;">
-          <p class="heroline green" style="margin-top:0;font-size:clamp(24px,3.4vw,44px);text-align:center;">That list<br>is our product.</p>
+          <p class="heroline green" style="margin-top:0;font-size:clamp(24px,3.4vw,44px);text-align:center;">That list is the layer<br>we build underneath.</p>
         </div>
       </div>
     </div>
@@ -1198,11 +1199,11 @@
       <div class="rebuttal">
         <div class="reb">
           <div class="claim">"Ramp already does 3-way match."</div>
-          <div class="ans"><span class="arrow">→</span> <b>MATCH ≠ AUTHENTICATE.</b> Three documents checked against each other. Spoof all three together and the match passes. <span class="hi">Attestation binds the invoice bytes to a TLS session with a NAMED server</span>, checked against the registry. <b>Beat 4 is exactly this:</b> a lookalike domain, a byte-perfect invoice, a real signature — every document agrees, a 3-way match passes, and we deny.</div>
+          <div class="ans"><span class="arrow">→</span> <b>MATCH ≠ AUTHENTICATE — different guarantees, and they stack.</b> Three documents checked against each other. Spoof all three together and the match passes. <span class="hi">Attestation binds the invoice bytes to a TLS session with a NAMED server</span>, checked against the registry — an authenticated fact their matching pipeline could consume. <b>Beat 4 is exactly this:</b> a lookalike domain, a byte-perfect invoice, a real signature — every document agrees, a 3-way match passes, and we deny.</div>
         </div>
         <div class="reb">
           <div class="claim">"Ramp already has audit trails."</div>
-          <div class="ans"><span class="arrow">→</span> <b>THEIR LOG PROVES INTEGRITY. WE PROVE THREE THINGS.</b> An immutable log proves nobody <i>edited</i> a record — and every proof is an island, so <span class="hi">DELETE the inconvenient row and every remaining proof still verifies perfectly.</span> We chain them (deletion breaks it), and we re-run the kernel on the recorded facts to prove the decision was <i>right</i>, not merely unedited. <span class="hi">A perfectly intact record of a WRONG decision passes every hash check ever devised.</span></div>
+          <div class="ans"><span class="arrow">→</span> <b>A LOG PROVES INTEGRITY. DECISION VERIFICATION ADDS SOUNDNESS.</b> An immutable log proves nobody <i>edited</i> a record — a real guarantee — and every proof is an island, so <span class="hi">DELETE the inconvenient row and every remaining proof still verifies perfectly.</span> We chain them (deletion breaks it), and we re-run the kernel on the recorded facts to prove the decision was <i>right</i>, not merely unedited. <span class="hi">A perfectly intact record of a WRONG decision passes every hash check ever devised.</span> That's the layer an audit log could sit on top of.</div>
         </div>
       </div>
       <p class="footnote">Enforce-time, not after-the-fact. Authentic, not merely consistent. <b>You cannot reseal your way out of arithmetic.</b></p>
@@ -1210,10 +1211,10 @@
   </section>
 
   <!-- ===================================================== SLIDE 14 -->
-  <section class="slide" data-note="We're not the contrarian. Ramp is solving the platform problem — deploy agents in finance at scale. We solve the trust problem. Ramp would ideally be the platform our provable decisions run on — we're the missing layer they described in their own posts.">
+  <section class="slide" data-note="We're not the contrarian. Ramp is solving the platform problem — deploy agents in finance at scale. We're the authorization infrastructure underneath it: their platform proves who authorized a payment; we prove the authorization decision itself was correct given authenticated facts, independently verifiable. Ramp would ideally be the platform our authorization proofs run under — the layer they described in their own posts.">
     <div class="stage">
       <p class="eyebrow green">The winning frame</p>
-      <h1 class="headline">Ramp solves the platform problem. We solve the trust problem.</h1>
+      <h1 class="headline">Ramp builds the platform. We build the authorization layer beneath it.</h1>
       <p class="lead">Their own thesis: business finance is People, Vendors, and now <b>TOKENS.</b></p>
       <div class="stats">
         <div class="stat">
@@ -1228,14 +1229,14 @@
       <div class="compare" style="margin-bottom:0;">
         <div class="listcard">
           <h4 style="color:var(--ink-2);">Ramp</h4>
-          <p style="font-size:clamp(13px,1.3vw,16px);color:var(--ink-2);margin:0;line-height:1.5;">deploy agents in finance at scale <span style="color:var(--muted);">(the platform)</span></p>
+          <p style="font-size:clamp(13px,1.3vw,16px);color:var(--ink-2);margin:0;line-height:1.5;">deploy agents in finance at scale — prove <b>who authorized</b> each payment <span style="color:var(--muted);">(the platform)</span></p>
         </div>
         <div class="listcard good">
           <h4>Us</h4>
-          <p style="font-size:clamp(13px,1.3vw,16px);color:var(--ink-2);margin:0;line-height:1.5;">make each authorization logically sound AND grounded in verified inputs <span style="color:var(--green);">(the trust layer)</span></p>
+          <p style="font-size:clamp(13px,1.3vw,16px);color:var(--ink-2);margin:0;line-height:1.5;">prove each <b>authorization decision was correct</b> given authenticated facts — independently verifiable <span style="color:var(--green);">(the infrastructure underneath)</span></p>
         </div>
       </div>
-      <p class="heroline green">Complementary, not competing. We're the missing layer they already described.</p>
+      <p class="heroline green">Complementary, not competing. We're the authorization layer they already described.</p>
     </div>
   </section>
 
@@ -1350,14 +1351,14 @@
     </div>
   </section>
 
-  <!-- ===================================================== SLIDE 15f — PORTABLE RECEIPT -->
-  <section class="slide" data-note="The strongest version of 'don't trust us' is a file you run yourself. pnpm receipt emits one self-contained mjs for a decision — no install, no network, no database, nothing from our repo. Run it with plain node and it re-derives the decision from its own recorded facts, checks every digest, and verifies the gate's Ed25519 signature against an embedded public key — public keys verify signatures, they can't forge them. The verifier inside is our real verify-ramp-proof file inlined verbatim, the same one whose parity with the production kernel is cross-checked in CI on thousands of random fact sets. And tampering is caught: edit the embedded decision or one fact and it fails on a digest mismatch. CI proves this every run — generates a receipt, runs it, then tampers it and confirms rejection.">
+  <!-- ===================================================== SLIDE 15f — THE AUTHORIZATION PROOF -->
+  <section class="slide" data-note="The strongest version of 'don't trust us' is a file you run yourself. pnpm authproof emits one self-contained mjs — the Authorization Proof for a decision — no install, no network, no database, nothing from our repo. Run it with plain node and it re-derives the decision from its own recorded facts, checks every digest, and verifies the gate's Ed25519 signature against an embedded public key — public keys verify signatures, they can't forge them. The verifier inside is our real verify-ramp-proof file inlined verbatim, the same one whose parity with the production kernel is cross-checked in CI on thousands of random fact sets. And tampering is caught: edit the embedded decision or one fact and it fails on a digest mismatch. CI proves this every run — generates an Authorization Proof, runs it, then tampers it and confirms rejection.">
     <div class="stage">
       <p class="eyebrow green">Don't trust us — check it yourself</p>
-      <h1 class="headline">A proof you run yourself. One file, zero deps.</h1>
+      <h1 class="headline">The Authorization Proof: a proof you run yourself. One file, zero deps.</h1>
       <div class="cols">
         <div class="card">
-          <span class="stamp green">node ramp-receipt-inv_2026_07_0043.mjs</span>
+          <span class="stamp green">node ramp-authorization-proof-inv_2026_07_0043.mjs</span>
           <div class="mono" style="font-size:clamp(12px,1.25vw,16px);margin:16px 0 0;line-height:1.85;color:var(--ink-2);">
             <div>decision: <span class="tag-red">DENY</span> · attestation_invalid</div>
             <div style="margin-top:10px;"><span class="tag-green">RESULT: VERIFIED ✓</span></div>
@@ -1377,7 +1378,7 @@
   </section>
 
   <!-- ===================================================== SLIDE 15 -->
-  <section class="slide" data-note="This is not a slide-deck idea — the backbone is built and green. Five workspaces, CI, branch protection, twenty-five tests passing, the gate allows and denies live today. Everyone else scopes the card. We prove the decision — and here's the receipt.">
+  <section class="slide" data-note="This is not a slide-deck idea — the backbone is built and green. Nine workspaces, CI, branch protection, 566 tests passing, the gate allows and denies live today. Everyone else scopes the card. We prove the decision — and here's the Authorization Proof.">
     <div class="stage">
       <p class="eyebrow green">Status — not vaporware</p>
       <h1 class="headline">All four pillars are built. The gate runs today. It's green.</h1>
@@ -1386,14 +1387,14 @@
         <div class="status-row"><span class="ws">@ramp/provenance</span><span class="desc">PILLAR 2 — re-derivable decision bundles (soundness)</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/quarantine</span><span class="desc">PILLAR 3 — CaMeL wrapper + bounded declassifiers</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/attestation</span><span class="desc">PILLAR 4 — real Ed25519 notary + binding checks</span><span class="ck">✓</span></div>
-        <div class="status-row"><span class="ws">@ramp/ledger</span><span class="desc">authoritative facts + decision log + proofs + read-only bridge</span><span class="ck">✓</span></div>
+        <div class="status-row"><span class="ws">@ramp/ledger</span><span class="desc">authoritative facts + vendor &amp; agent registries + decision log + proofs + bridge</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/shared</span><span class="desc">frozen contract — Facts, Decision, RuleId, PolicyKernel</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/payments-mcp</span><span class="desc">self-enforcing tool + 4 read-only agent tools</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/client</span><span class="desc">typed SDK — build a spending agent in 5 lines</span><span class="ck">✓</span></div>
         <div class="status-row"><span class="ws">@ramp/dashboard</span><span class="desc">the audit console — re-derives decisions in your browser</span><span class="ck">✓</span></div>
       </div>
-      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">530 tests PASS</span> · <span class="tag-green">18 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
-      <p class="heroline">Everyone else scopes the card. <span class="tag-green">We prove the decision</span> — and here's the receipt.</p>
+      <p class="footnote" style="color:var(--ink-2);"><span class="tag-green">9 workspaces</span> · CI · branch protection · 4 collaborators · <span class="tag-green">566 tests PASS</span> · <span class="tag-green">20 demo beats</span><br>CI drives every beat above through the REAL hook and asserts the exit codes — the pitch is executable.</p>
+      <p class="heroline">Everyone else scopes the card. <span class="tag-green">We prove the decision</span> — and here's the Authorization Proof.</p>
     </div>
   </section>
 

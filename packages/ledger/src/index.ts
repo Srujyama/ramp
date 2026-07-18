@@ -11,17 +11,18 @@
  */
 export { migrateDecisionsChecks } from "./migrate.js";
 
-// The external witness. A receipt records (head, length); `verifyAgainstReceipt`
-// asks whether the history you saw is still a PREFIX of the chain today — which
-// is the question a growing chain can actually answer. Publish receipts somewhere
-// the operator cannot rewrite; a receipt stored beside the ledger proves nothing.
-export { publishHead, verifyAgainstReceipt } from "./head-receipt.js";
+// The external witness. A Head Checkpoint records (head, length);
+// `verifyAgainstCheckpoint` asks whether the history you saw is still a PREFIX of
+// the chain today — which is the question a growing chain can actually answer.
+// Publish checkpoints somewhere the operator cannot rewrite; a checkpoint stored
+// beside the ledger proves nothing.
+export { publishHead, verifyAgainstCheckpoint } from "./head-checkpoint.js";
 export type {
-  HeadReceipt,
+  HeadCheckpoint,
   HeadStatement,
   ConsistencyResult,
   ConsistencyFailure,
-} from "./head-receipt.js";
+} from "./head-checkpoint.js";
 
 // Human resolution of an escalation. NOTE: `resolveEscalation` is HUMAN-CHANNEL
 // ONLY — no MCP tool may reach it, or the requesting agent approves itself and
@@ -196,7 +197,7 @@ export { requestPurchase } from "./purchase.js";
 export type {
   PaymentExecutor,
   ExecutorRequest,
-  ExecutorReceipt,
+  SettlementRecord,
   FactSourcePort,
   PurchaseStatus,
   RequestPurchaseInput,
