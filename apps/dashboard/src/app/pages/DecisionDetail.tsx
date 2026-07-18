@@ -16,6 +16,7 @@ import { StatusChip } from "../../components/StatusChip.js";
 import { ExecutionTimeline } from "../../components/ExecutionTimeline.js";
 import { Rederive } from "../../components/Rederive.js";
 import { Explain } from "../../components/Explain.js";
+import { Attestation } from "../../components/Attestation.js";
 import type { DecisionView } from "../../lib/types.js";
 
 function Row({ k, children }: { k: string; children: ReactNode }): JSX.Element {
@@ -238,6 +239,8 @@ function DetailBody({ v }: { v: DecisionView }): JSX.Element {
       </div>
 
       <Explain facts={v.facts} decision={v.decision} />
+
+      <Attestation v={v} />
 
       <Card>
         <CardHeader>
