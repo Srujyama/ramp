@@ -30,6 +30,7 @@ import { listModelPricing } from "@ramp/ledger";
 import type { RampClient } from "@ramp/client";
 import { refreshPricing } from "./pricing.js";
 import { parseIntent, runTransaction } from "./transactions.js";
+import { adminState, runCreateAgent, runUpdateDials } from "./admin.js";
 
 /** What the control-plane request handler needs: the ledger + the real gate driver. */
 export interface ControlPlaneDeps {
@@ -134,6 +135,50 @@ export function createControlPlane(deps: ControlPlaneDeps): Server {
       return;
     }
 
+    // GET /admin/state — the current dials + approved categories the admin UI needs.
+    if (method === "GET" && path === "/admin/state") {
+      json(res, 200, adminState(db));
+      return;
+    }
+
+    // POST /agents — register a new agent + its clearances (INPUT tables only).
+    // Never writes a decision; changes what the NEXT decision for this agent will be.
+    if (method === "POST" && path === "/agents") {
+      let body: unknown;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        json(res, 400, { error: "request body must be small, well-formed JSON" });
+        return;
+      }
+      const out = runCreateAgent(db, body);
+      if ("error" in out) {
+        json(res, 400, out);
+        return;
+      }
+      json(res, 201, out);
+      return;
+    }
+
+    // PATCH /policy — retune the org policy dials (single-row policy_limits only).
+    // Never writes a decision; changes what EVERY subsequent decision is measured against.
+    if (method === "PATCH" && path === "/policy") {
+      let body: unknown;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        json(res, 400, { error: "request body must be small, well-formed JSON" });
+        return;
+      }
+      const out = runUpdateDials(db, body);
+      if ("error" in out) {
+        json(res, 400, out);
+        return;
+      }
+      json(res, 200, out);
+      return;
+    }
+
     json(res, 404, { error: "not found", plane: "demo-control-plane" });
   }
 }
@@ -173,7 +218,7 @@ export async function main(): Promise<void> {
     // eslint-disable-next-line no-console
     console.error(
       `[control-plane] DEMO control plane on http://localhost:${port} — NOT the audit bridge, NOT the gate.\n` +
-        `[control-plane]   GET /health · GET /pricing · POST /transaction`,
+        `[control-plane]   GET /health · GET /pricing · POST /transaction · GET /admin/state · POST /agents · PATCH /policy`,
     );
   });
 

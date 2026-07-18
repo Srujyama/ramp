@@ -102,6 +102,79 @@ export async function postTransaction(intent: TxIntent, signal?: AbortSignal): P
   return body as TxResult;
 }
 
+// --- admin: typed writes to INPUT tables (never a decision) -------------------
+
+/** The org policy dials the admin surface may read/retune. */
+export interface Dials {
+  readonly perTxnCap: number;
+  readonly dailyLimit: number;
+  readonly escalationThreshold: number;
+  readonly velocityLimit: number;
+  readonly velocityWindowMinutes: number;
+  readonly dedupWindowMinutes: number;
+  readonly currency: string;
+}
+
+/** What the admin form needs to render: current dials + the approved categories. */
+export interface AdminState {
+  readonly dials: Dials;
+  readonly categories: readonly string[];
+}
+
+export interface NewAgentInput {
+  readonly agentId: string;
+  readonly displayName: string;
+  readonly clearedCategories: readonly string[];
+}
+
+export interface DialPatchInput {
+  readonly perTxnCap?: number;
+  readonly dailyLimit?: number;
+  readonly escalationThreshold?: number;
+  readonly velocityLimit?: number;
+}
+
+/** Small helper: fetch JSON from the control plane with typed errors + optional method/body. */
+async function cpFetch<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${CONTROL_PLANE_URL}${path}`, {
+      ...init,
+      headers: { Accept: "application/json", ...(init?.body ? { "content-type": "application/json" } : {}), ...init?.headers },
+      signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new ControlPlaneError("unavailable", `Could not reach the demo control plane at ${CONTROL_PLANE_URL}. Start it with \`pnpm control-plane\`.`);
+  }
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    throw new ControlPlaneError("malformed", "Control plane returned a non-JSON response.");
+  }
+  if (!res.ok) {
+    const msg = typeof (body as { error?: unknown }).error === "string" ? (body as { error: string }).error : `HTTP ${res.status}`;
+    throw new ControlPlaneError("http", msg);
+  }
+  return body as T;
+}
+
+/** Current dials + approved categories for the admin form. */
+export function fetchAdminState(signal?: AbortSignal): Promise<AdminState> {
+  return cpFetch<AdminState>("/admin/state", undefined, signal);
+}
+
+/** Register a new agent + its category clearances (INPUT tables only, never a decision). */
+export function createAgent(input: NewAgentInput, signal?: AbortSignal): Promise<{ agentId: string; displayName: string; clearedCategories: string[] }> {
+  return cpFetch("/agents", { method: "POST", body: JSON.stringify(input) }, signal);
+}
+
+/** Retune the org policy dials; returns the resulting dials. */
+export function updateDials(patch: DialPatchInput, signal?: AbortSignal): Promise<Dials> {
+  return cpFetch<Dials>("/policy", { method: "PATCH", body: JSON.stringify(patch) }, signal);
+}
+
 /** Fetch model pricing from the control plane. Never throws for a demo-down plane; surfaces a typed error. */
 export async function fetchPricing(signal?: AbortSignal): Promise<PricingResponse> {
   let res: Response;
