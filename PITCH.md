@@ -3,9 +3,15 @@
 > **Single source of truth for the pitch.** The plan (`hackathon-plan.html`) and the slide
 > deck (`pitch-deck.html`) both derive from this file. **If you change the pitch, change it
 > HERE first, then propagate to both artifacts** (see `CLAUDE.md` → "Keeping the pitch in sync").
-> Last substantive update: 2026-07-17 — the WASM kernel now compiles and its **4-way parity is
-> proven in CI** (it had never built; the parity run caught three real drifts), and `pnpm redteam`
-> fires the attacker's playbook (**18 attacks, 0 breaches**) as a CI gate. Prior: velocity, windowed
+> Last substantive update: 2026-07-18 — **honest repositioning.** Removed the unsubstantiated
+> "Ramp admits these gaps" framing and the "a competitor provably fails our demo" language, and
+> reframed the pitch around the one thing that is actually ours: **decision reproducibility, not
+> observability** — a re-executable proof bundle, a notary-signed invoice→domain binding,
+> structural input isolation, and a general side-effect-authorization primitive. Added an explicit
+> **"What this is NOT"** candor section (production caller identity, full TLSNotary, external
+> receipt publication, a live quorum path). Prior: the WASM kernel compiles with **4-way parity
+> proven in CI**, and `pnpm redteam` fires the attacker's playbook (**18 attacks, 0 breaches**) as
+> a CI gate. Prior: velocity, windowed
 > budgets, duplicate detection, signed approvals, `pnpm stats`, the `@ramp/client` SDK, and the
 > operator/auditor CLIs `pnpm explain` / `simulate` / `policy-diff` / `receipt`. 544 tests, 19 demo
 > beats. Both HTML artifacts are propagated and in sync.

@@ -176,8 +176,32 @@ function proofStage(v: DecisionView): TimelineStage {
  * a policy DENIAL (`blocked`) separable from an executor FAILURE (`failed`) and
  * from a gate-only allow that was never executed (`skipped`).
  */
-function paymentStage(v: DecisionView): TimelineStage {
+/** A recorded human resolution of a held decision (from the approvals channel). */
+export interface Resolution {
+  readonly verdict: "approved" | "rejected";
+  readonly approvedBy: string;
+  readonly resolvedAt: string;
+}
+
+function paymentStage(v: DecisionView, resolution?: Resolution | null): TimelineStage {
   const receiptId = v.execution?.receiptId ?? undefined;
+  // A held decision that a human has since resolved: reflect that, don't keep
+  // reporting "held" forever.
+  if (v.outcome === "escalate" && resolution) {
+    return resolution.verdict === "approved"
+      ? {
+          key: "payment",
+          title: `Approved by ${resolution.approvedBy}`,
+          state: "done",
+          detail: `A human reviewed this held payment and approved it, so it is cleared to settle.`,
+        }
+      : {
+          key: "payment",
+          title: `Rejected by ${resolution.approvedBy}`,
+          state: "failed",
+          detail: `A human reviewed this held payment and rejected it, so it will not settle.`,
+        };
+  }
   if (v.execution) {
     if (v.execution.status === "settled") {
       return {
@@ -209,8 +233,7 @@ function paymentStage(v: DecisionView): TimelineStage {
       key: "payment",
       title: "Payment held",
       state: "pending",
-      detail:
-        "Policy escalated this to a human — executor never called. Held, awaiting approval.",
+      detail: "Policy escalated this to a human, so the executor was never called. It is held, awaiting approval.",
     };
   }
   if (v.outcome === "allow") {
@@ -230,13 +253,13 @@ function paymentStage(v: DecisionView): TimelineStage {
 }
 
 /** The six-stage execution lifecycle, in order. */
-export function buildTimeline(v: DecisionView): TimelineStage[] {
+export function buildTimeline(v: DecisionView, resolution?: Resolution | null): TimelineStage[] {
   return [
     requestStage(v),
     factsStage(v),
     policyStage(v),
     decisionStage(v),
     proofStage(v),
-    paymentStage(v),
+    paymentStage(v, resolution),
   ];
 }

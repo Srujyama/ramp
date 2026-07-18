@@ -241,6 +241,12 @@ export function fetchApprovals(signal?: AbortSignal): Promise<ApprovalsResponse>
   return cpFetch<ApprovalsResponse>("/approvals", undefined, signal);
 }
 
+/** The recorded human resolution for one decision (or null if still held / never held). */
+export async function fetchResolution(decisionId: string, signal?: AbortSignal): Promise<ApprovalRecord | null> {
+  const r = await cpFetch<{ resolution: ApprovalRecord | null }>(`/approvals/${encodeURIComponent(decisionId)}`, undefined, signal);
+  return r.resolution;
+}
+
 /** Resolve a held decision as a chosen approver — mints a real signed approval. */
 export function resolveApproval(
   input: { decisionId: string; verdict: "approved" | "rejected"; approverKeyId: string; note?: string },
